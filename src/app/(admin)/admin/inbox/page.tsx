@@ -1,0 +1,2 @@
+import { PageHeading } from "@/components/ui/page-heading";
+export default function Inbox(){return <><PageHeading title="Communication inbox" description="Centralize conversations when inbound messaging providers are connected."/><div className="card p-8 text-sm text-slate-500">Inbox integration is a planned V1 milestone. Configure a provider with inbound webhooks before enabling two-way conversations.</div></>}

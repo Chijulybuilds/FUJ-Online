@@ -1,0 +1,4 @@
+import { PageHeading } from "@/components/ui/page-heading";
+export default function Page() {
+ return <><PageHeading title="Giving & donations" description="Review giving records and reconcile verified transactions."/><div className="card p-6"><div className="grid gap-4 sm:grid-cols-3"><div className="rounded-xl bg-slate-50 p-5"><p className="text-xs text-slate-500">Total this month</p><p className="mt-2 text-2xl font-bold">₦2,840,000</p></div><div className="rounded-xl bg-slate-50 p-5"><p className="text-xs text-slate-500">Verified donations</p><p className="mt-2 text-2xl font-bold">186</p></div><div className="rounded-xl bg-slate-50 p-5"><p className="text-xs text-slate-500">Pending reconciliation</p><p className="mt-2 text-2xl font-bold">₦45,000</p></div></div><p className="mt-5 text-xs text-amber-700">Sample figures only. No payment provider is connected.</p></div></>;
+}

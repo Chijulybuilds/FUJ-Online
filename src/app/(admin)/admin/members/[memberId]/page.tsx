@@ -1,0 +1,2 @@
+import { PageHeading } from "@/components/ui/page-heading";
+export default async function MemberDetails({params}:{params:Promise<{memberId:string}>}){const {memberId}=await params;return <><PageHeading title="Person record" description={`Church record ${memberId}`}/><div className="card p-8 text-sm text-slate-500">Connect the member repository to load profile details, attendance history, department membership and pastoral notes. Sensitive pastoral information must be permission-restricted.</div></>}

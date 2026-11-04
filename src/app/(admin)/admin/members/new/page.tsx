@@ -1,0 +1,8 @@
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { PageHeading } from "@/components/ui/page-heading";
+export default function NewMemberPage() {
+ const [name,setName]=useState(""); const [phone,setPhone]=useState(""); const [email,setEmail]=useState(""); const [kind,setKind]=useState("visitor");
+ return <><PageHeading title="Add a person" description="Create a church person record. New visitors can also register themselves."/><div className="card max-w-2xl p-6"><form className="space-y-5" onSubmit={e=>{e.preventDefault();window.alert("Demo mode: connect Supabase to save this record.");}}><label className="block text-sm font-medium">Full name<input className="input mt-2" required value={name} onChange={e=>setName(e.target.value)} placeholder="Enter full name"/></label><label className="block text-sm font-medium">Phone number<input className="input mt-2" required value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+234..."/></label><label className="block text-sm font-medium">Email (optional)<input className="input mt-2" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></label><label className="block text-sm font-medium">Record type<select className="input mt-2" value={kind} onChange={e=>setKind(e.target.value)}><option value="visitor">Visitor</option><option value="member">Member</option></select></label><div className="flex gap-3"><button className="btn btn-primary" type="submit">Create record</button><Link className="btn btn-secondary" href="/admin/members">Cancel</Link></div></form></div></>;
+}

@@ -1,0 +1,2 @@
+import { PageHeading } from "@/components/ui/page-heading";
+export default async function ServiceDetails({params}:{params:Promise<{serviceId:string}>}){const {serviceId}=await params;return <><PageHeading title="Service details" description={`Service ${serviceId}`}/><div className="card p-8 text-sm text-slate-500">Service configuration and QR session controls will be connected to the services repository.</div></>}

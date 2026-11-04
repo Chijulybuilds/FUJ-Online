@@ -1,0 +1,4 @@
+"use client";
+import { useState } from "react";
+import { PageHeading } from "@/components/ui/page-heading";
+export default function PrayerRequests(){const [text,setText]=useState("");const [privateReq,setPrivateReq]=useState(true);return <><PageHeading title="Prayer requests" description="Share a request with the pastoral team."/><div className="card max-w-2xl p-6"><form onSubmit={e=>{e.preventDefault();alert("Demo mode: prayer request not saved.");}}><label className="block text-sm font-medium">How can we pray with you?<textarea className="input mt-2 min-h-36" value={text} onChange={e=>setText(e.target.value)} required/></label><label className="mt-4 flex items-center gap-2 text-sm"><input type="checkbox" checked={privateReq} onChange={e=>setPrivateReq(e.target.checked)}/> Keep this request private to the pastoral team</label><button className="btn btn-primary mt-5">Submit request</button></form></div></>}

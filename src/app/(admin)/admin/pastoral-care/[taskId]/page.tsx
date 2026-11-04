@@ -1,0 +1,2 @@
+import { PageHeading } from "@/components/ui/page-heading";
+export default async function FollowUpTask({params}:{params:Promise<{taskId:string}>}){const {taskId}=await params;return <><PageHeading title="Pastoral follow-up task" description={`Task ${taskId}`}/><div className="card p-8 text-sm text-slate-500">Connect the follow-up repository to load assignment, contact history and task status.</div></>}

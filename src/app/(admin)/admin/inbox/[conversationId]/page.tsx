@@ -1,0 +1,2 @@
+import { PageHeading } from "@/components/ui/page-heading";
+export default async function Conversation({params}:{params:Promise<{conversationId:string}>}){const {conversationId}=await params;return <><PageHeading title="Conversation" description={`Conversation ${conversationId}`}/><div className="card p-8 text-sm text-slate-500">Conversation history will load after messaging persistence and provider webhooks are connected.</div></>}

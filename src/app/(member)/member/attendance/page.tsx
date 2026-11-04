@@ -1,0 +1,2 @@
+import { PageHeading } from "@/components/ui/page-heading";
+export default function MemberAttendance(){return <><PageHeading title="My attendance" description="Your recorded church gatherings will appear here."/><div className="card p-8"><p className="font-semibold">Attendance history</p><p className="mt-2 text-sm text-slate-500">Connect your verified member profile to view your attendance history.</p></div></>}

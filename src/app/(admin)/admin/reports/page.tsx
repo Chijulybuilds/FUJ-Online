@@ -1,0 +1,4 @@
+import { PageHeading } from "@/components/ui/page-heading";
+export default function Page() {
+ return <><PageHeading title="Reports & analytics" description="Explore attendance, membership and giving trends."/><div className="card p-6"><div className="grid gap-4 sm:grid-cols-2"><div className="rounded-xl border border-slate-100 p-5"><p className="text-sm font-semibold">Membership growth</p><div className="mt-6 flex h-28 items-end gap-2">{[30,42,38,55,62,75,68,90].map((h,i)=><div key={i} className="flex-1 rounded-t bg-blue-500" style={{height:`${h}%`}}/>)}</div></div><div className="rounded-xl border border-slate-100 p-5"><p className="text-sm font-semibold">Attendance trend</p><div className="mt-6 flex h-28 items-end gap-2">{[55,48,66,61,70,77,72,88].map((h,i)=><div key={i} className="flex-1 rounded-t bg-emerald-500" style={{height:`${h}%`}}/>)}</div></div></div></div></>;
+}
