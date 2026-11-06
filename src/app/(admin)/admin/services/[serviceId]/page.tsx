@@ -47,7 +47,7 @@ export default async function ServiceDetails({ params }: { params: Promise<{ ser
           )}
           <hr className="my-6 border-slate-100" />
           <h3 className="font-semibold">Usher check-in</h3>
-          <p className="mt-1 text-xs text-slate-500">For anyone without a phone: enter their flag username, full name or phone number.</p>
+          <p className="mt-1 text-xs text-slate-500">Check people in by name — or open the full <Link className="font-semibold text-blue-600" href={`/admin/attendance/desk?service=${service.id}`}>check-in desk</Link> with live search.</p>
           <ActionForm action={manualCheckInAction} className="mt-3 flex gap-2" resetOnSuccess>
             <input type="hidden" name="service_id" value={service.id} />
             <input className="input" name="person" placeholder="flaggrace101 or 0803…" required aria-label="Person" />

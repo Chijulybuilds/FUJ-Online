@@ -10,6 +10,6 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
   const email = parsed.data.email.toLowerCase();
   const redirect = await completeIdentity({ sub: email, email, name: parsed.data.name || email.split("@")[0], avatar: null, provider: "dev" }, parseIntent(parsed.data.intent));
-  if (redirect.startsWith("/login")) return NextResponse.json({ error: "This email is not on the staff list." }, { status: 403 });
+  if (redirect.startsWith("/login") || redirect.startsWith("/admin/login")) return NextResponse.json({ error: "This email is not on the staff list." }, { status: 403 });
   return NextResponse.json({ redirect });
 }

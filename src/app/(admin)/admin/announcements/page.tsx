@@ -32,7 +32,7 @@ export default async function AnnouncementsPage({ searchParams }: { searchParams
             <div className="rounded-xl border border-slate-100 p-4">
               <label className="checkbox"><input type="checkbox" name="broadcast" /> Also broadcast when publishing</label>
               <div className="mt-2 flex gap-5 pl-6 text-xs">
-                <label className="checkbox"><input type="checkbox" name="channels" value="sms" disabled={!providers.sms} /> SMS</label>
+                <label className="checkbox"><input type="checkbox" name="channels" value="whatsapp" disabled={!providers.sms && !providers.whatsapp} /> WhatsApp / SMS</label>
                 <label className="checkbox"><input type="checkbox" name="channels" value="email" disabled={!providers.email} /> Email</label>
               </div>
             </div>

@@ -8,7 +8,8 @@ import { db } from "@/lib/db";
 
 export const COOKIE = { admin: "fuj_admin", member: "fuj_member", identity: "fuj_identity", ticket: "fuj_ticket", device: "fuj_device", oauth: "fuj_oauth" } as const;
 
-export type AdminSession = { uid: string; email: string; name: string; role: StaffRole; exp: number };
+/** `shared` = signed in with the common FUJ admin account; `name` is then the person who typed it in. */
+export type AdminSession = { uid: string; email: string; name: string; role: StaffRole; exp: number; shared?: boolean };
 export type MemberSession = { pid: string; name: string; exp: number };
 /** A verified external identity (Google / dev) that has not yet been linked to a church person record. */
 export type Identity = { sub: string; email: string | null; name: string; avatar: string | null; provider: "google" | "dev"; exp: number };
@@ -31,7 +32,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
   // Re-check the staff record so revoked access takes effect immediately.
   const staff = await db().get("admin_users", { id: session.uid });
   if (!staff || !staff.active) return null;
-  return { ...session, role: staff.role, name: staff.full_name };
+  return { ...session, role: staff.role, name: session.shared ? session.name : staff.full_name };
 }
 
 export async function getMemberSession(): Promise<MemberSession | null> {
@@ -47,7 +48,7 @@ export async function getIdentity(): Promise<Identity | null> {
 /** For server components and server actions: redirect when not signed in or not permitted. */
 export async function requireAdmin(area: Area = "dashboard"): Promise<AdminSession> {
   const session = await getAdminSession();
-  if (!session) redirect("/login?as=staff");
+  if (!session) redirect("/admin/login");
   if (!can(session.role, area)) redirect("/admin?denied=" + area);
   return session;
 }

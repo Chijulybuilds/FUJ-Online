@@ -15,7 +15,11 @@ export default async function SettingsPage() {
   const integrations = [
     ["Database", env.useSupabaseData ? "Supabase (service role)" : "Local JSON file (development)", env.useSupabaseData],
     ["Google sign-in", env.googleEnabled ? "Configured" : "Add CLIENT_ID / CLIENT_SECRET", env.googleEnabled],
-    ["SMS (Termii)", providers.sms ? "Configured" : "Not configured", providers.sms],
+    ["Shared admin login", env.sharedAdmin ? env.sharedAdmin.email : "Set ADMIN_LOGIN_EMAIL / PASSWORD", Boolean(env.sharedAdmin)],
+    ["Registration", env.registrationOtp ? "SMS OTP required" : "Free — verified in person / Google", true],
+    ["WhatsApp sharing", "Free — Share on WhatsApp button", true],
+    ["WhatsApp (Cloud API, automatic)", providers.whatsapp ? (providers.whatsappTemplate ? "Configured · template" : "Configured · no template (24h window only)") : "Not configured", providers.whatsapp],
+    ["SMS (Termii) — OTP & fallback", providers.sms ? "Configured" : "Not configured", providers.sms],
     ["Email (Resend)", providers.email ? "Configured" : "Not configured", providers.email]
   ] as const;
   return (
@@ -46,7 +50,7 @@ export default async function SettingsPage() {
           {can(admin.role, "staff") && (
             <section className="card p-6">
               <h2 className="font-bold">Staff &amp; roles</h2>
-              <p className="mt-1 text-xs text-slate-500">Staff sign in with Google using the email listed here.</p>
+              <p className="mt-1 text-xs text-slate-500">Besides the shared FUJ admin login, individual staff can sign in with Google using the email listed here.</p>
               <ActionForm action={addStaffAction} className="mt-4 grid gap-2" resetOnSuccess>
                 <input className="input" name="email" type="email" placeholder="name@gmail.com" required aria-label="Staff email" />
                 <input className="input" name="full_name" placeholder="Display name" aria-label="Staff name" />

@@ -32,7 +32,7 @@ export function DevLoginForm({ intent, defaultEmail }: { intent: "admin" | "memb
   const router = useRouter();
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   return (
-    <details className="rounded-xl border border-dashed border-slate-200 p-4" open={intent === "admin"}>
+    <details className="rounded-xl border border-dashed border-slate-200 p-4">
       <summary className="cursor-pointer text-xs font-semibold text-slate-500">Developer sign-in (no Google)</summary>
       <form className="mt-3 space-y-3" onSubmit={async (e) => {
         e.preventDefault(); setError(""); setBusy(true);
@@ -44,7 +44,7 @@ export function DevLoginForm({ intent, defaultEmail }: { intent: "admin" | "memb
         {intent !== "admin" && <input className="input" name="name" placeholder="Full name" aria-label="Name" />}
         {error && <p className="alert alert-err">{error}</p>}
         <button className="btn btn-secondary w-full" disabled={busy}>{busy ? "…" : "Continue"}</button>
-        {intent === "admin" && <p className="text-[11px] text-slate-400">Demo staff: admin@, pastor@, care@, finance@, usher@flagupjesus.local</p>}
+        {intent === "admin" && <p className="text-[11px] text-slate-400">Demo staff roles: admin@, pastor@, care@, finance@, usher@flagupjesus.local</p>}
       </form>
     </details>
   );

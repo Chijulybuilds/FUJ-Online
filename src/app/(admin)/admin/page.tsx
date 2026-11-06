@@ -32,6 +32,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href={`/admin/services/${next.id}`} className="btn lp-btn-glass">Manage service</Link>
+            <Link href={`/admin/attendance/desk?service=${next.id}`} className="btn lp-btn-glass">Check in by name</Link>
             <Link href={`/admin/attendance/display?service=${next.id}`} className="btn lp-btn-light"><QrCode size={16} /> Launch QR display</Link>
           </div>
         </div>

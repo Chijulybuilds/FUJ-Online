@@ -7,5 +7,5 @@ export async function POST(request: NextRequest) {
   const store = await cookies();
   if (who !== "member") store.delete(COOKIE.admin);
   if (who !== "admin") { store.delete(COOKIE.member); store.delete(COOKIE.identity); }
-  return NextResponse.redirect(new URL(who === "admin" ? "/login?as=staff" : "/", request.url), 303);
+  return NextResponse.redirect(new URL(who === "admin" ? "/admin/login" : "/", request.url), 303);
 }
