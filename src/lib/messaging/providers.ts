@@ -19,7 +19,7 @@ export type SendResult = "sent" | "failed" | "skipped";
 export async function sendSms(to: string, text: string): Promise<SendResult> {
   if (!providers.sms) return "skipped";
   try {
-    const res = await fetch(`${process.env.TERMII_BASE_URL ?? "https://api.ng.termii.com"}/api/sms/send`, {
+    const res = await fetch(`${(process.env.TERMII_BASE_URL || "https://api.ng.termii.com").replace(/\/+$/, "")}/api/sms/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -52,7 +52,7 @@ Members can sign in with Google (linked by Google account / email) or with usern
 
 **Shared admin login** — set `ADMIN_LOGIN_EMAIL` and `ADMIN_LOGIN_PASSWORD` (12+ characters in production) and optionally `ADMIN_LOGIN_ROLE` (default `super_admin`). Every FUJ admin signs in at `/admin` with these and types their own name, which is recorded in the audit log and on broadcasts. Change the password whenever someone leaves the team; sign-in attempts are rate-limited and failures are audited.
 
-**SMS (Termii)** — `TERMII_API_KEY`, `TERMII_SENDER_ID` (registered sender ID), optional `TERMII_CHANNEL=dnd` to reach numbers on Do-Not-Disturb. Used for registration OTPs and for SMS broadcasts / WhatsApp fallback. In production, phone registration is unavailable until SMS is configured (Google still works).
+**SMS (Termii)** — `TERMII_API_KEY` and `TERMII_BASE_URL` (both shown in the Termii dashboard's API settings — newer accounts have their own base URL), `TERMII_SENDER_ID` (an approved sender ID from **IDs**), optional `TERMII_CHANNEL=dnd` to reach numbers on Do-Not-Disturb. Used for registration OTPs and for SMS broadcasts / WhatsApp fallback. In production, phone registration is unavailable until SMS is configured (Google still works).
 
 **WhatsApp Business Cloud API (Meta)**
 1. In Meta for Developers create an app → add **WhatsApp** → register your church's business number. Copy a **permanent access token** (System User) → `WHATSAPP_TOKEN`, and the **Phone number ID** → `WHATSAPP_PHONE_NUMBER_ID`.
