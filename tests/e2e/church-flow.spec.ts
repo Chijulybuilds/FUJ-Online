@@ -22,11 +22,23 @@ async function hydrated(page: Page) {
   await page.waitForFunction(() => [...document.querySelectorAll<HTMLFormElement>("form[data-action-form]")].every((f) => f.dataset.ready === "true"));
 }
 
-async function staffLogin(page: Page, email = "admin@flagupjesus.local") {
-  await go(page, "/login?as=staff");
-  await page.getByLabel("Email").fill(email);
+/** The shared FUJ admin login at /admin/login (email + password + optional name). */
+async function staffLogin(page: Page) {
+  await go(page, "/admin");
+  await expect(page).toHaveURL(/\/admin\/login$/);
+  await page.getByLabel("Admin email").fill("admin@flagupjesus.org");
+  await page.getByLabel("Password", { exact: true }).fill("E2E-shared-admin-pass-2026");
+  await page.getByLabel(/Your name/).fill("Church Usher");
+  await page.getByRole("button", { name: "Sign in to admin" }).click();
+  await page.waitForURL(/\/admin$/);
+}
+
+/** Individual staff account (stands in for Google sign-in in tests). */
+async function devStaffLogin(page: Page, email: string) {
+  await go(page, "/admin/login");
+  await page.getByText("Developer sign-in (no Google)").click();
+  await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByRole("button", { name: "Continue" }).click();
-  await page.waitForURL(/\/admin/);
 }
 
 async function memberLogin(page: Page, username: string, phone: string) {
@@ -119,9 +131,20 @@ test("a first-timer scans the QR, registers, gets a flag username and is checked
   await expect(phone).toHaveURL(/\/check-in$/); // token stripped from the URL
   await shot(phone, "05-checkin-scanned");
   await phone.getByRole("link", { name: "Register now" }).click();
+  await expect(phone.getByText(/checked in to E2E Sunday Service automatically/)).toBeVisible();
+  // Registration is just name + phone (+ optional email), verified by an SMS code.
+  await expect(phone.getByLabel("Email (optional)")).toBeVisible();
+  await expect(phone.getByLabel("Gender")).toHaveCount(0);
   await phone.getByLabel("Full name").fill("Chiamaka Nwankwo");
   await phone.getByLabel("Phone number").fill("0812 345 6789");
-  await phone.getByRole("button", { name: /Register & get my username/ }).click();
+  await phone.getByRole("button", { name: "Send OTP" }).click();
+  const info = await phone.getByTestId("otp-info").textContent(); // dev mode shows the code (no SMS provider)
+  const code = info!.match(/\d{6}/)![0];
+  await phone.getByLabel("Verification code").fill(code === "000000" ? "111111" : "000000");
+  await phone.getByRole("button", { name: "Verify & create my account" }).click();
+  await expect(phone.getByText(/wrong or has expired/)).toBeVisible();
+  await phone.getByLabel("Verification code").fill(code);
+  await phone.getByRole("button", { name: "Verify & create my account" }).click();
   await expect(phone.getByTestId("register-success")).toBeVisible();
   newUsername = (await phone.getByTestId("new-username").textContent())!.trim();
   expect(newUsername).toMatch(/^flagchiamaka\d{3}$/);
@@ -174,6 +197,25 @@ test("usher can check someone in manually and attendance shows on the service", 
   await expect(admin.getByRole("heading", { name: /Attendance \(3\)/ })).toBeVisible();
   await expect(admin.getByRole("link", { name: "Chiamaka Nwankwo" })).toBeVisible();
   await shot(admin, "08-service-attendance");
+});
+
+test("check-in desk: admin finds members by name and checks them in; adds a first-timer", async () => {
+  const sid = serviceUrl.split("/").pop();
+  await go(admin, `/admin/attendance/desk?service=${sid}`);
+  await expect(admin.getByTestId("desk-total")).toHaveText("3 checked in");
+  await admin.getByLabel("Search member").fill("david");
+  const row = admin.getByTestId("desk-row").filter({ hasText: "David Nwosu" });
+  await row.getByRole("button", { name: "Check in" }).click();
+  await expect(admin.getByText("David Nwosu checked in ✓")).toBeVisible();
+  await expect(admin.getByTestId("desk-total")).toHaveText("4 checked in");
+  await admin.getByLabel("Search member").fill("david");
+  await expect(admin.getByTestId("desk-row").filter({ hasText: "David Nwosu" }).getByRole("button", { name: "Check in" })).toHaveCount(0);
+  await admin.getByLabel("First-timer full name").fill("Kelechi Amadi");
+  await admin.getByLabel("First-timer phone").fill("0818 765 4321");
+  await admin.getByRole("button", { name: "Add & check in" }).click();
+  await expect(admin.getByText(/Welcome Kelechi! Added as a first-timer \(username flagkelechi\d{3}\)/)).toBeVisible();
+  await expect(admin.getByTestId("desk-total")).toHaveText("5 checked in");
+  await shot(admin, "08b-checkin-desk");
 });
 
 test("broadcast with response tracking, member replies, follow-up to non-responders", async ({ browser }) => {
@@ -290,7 +332,8 @@ test("announcements publish to the member portal and landing page", async ({ bro
 
 test("role-based access: finance cannot see prayer requests; staff list is enforced", async ({ browser }) => {
   const finance = await newDevice(browser);
-  await staffLogin(finance, "finance@flagupjesus.local");
+  await devStaffLogin(finance, "finance@flagupjesus.local");
+  await finance.waitForURL(/\/admin$/);
   await expect(finance.getByRole("link", { name: "Prayer requests" })).toHaveCount(0);
   await go(finance, "/admin/prayer-requests");
   await expect(finance).toHaveURL(/denied=prayer/);
@@ -299,12 +342,19 @@ test("role-based access: finance cannot see prayer requests; staff list is enfor
   await finance.context().close();
 
   const stranger = await newDevice(browser);
+  // The public sign-in has no staff entry point; old links forward to /admin/login.
+  await go(stranger, "/login");
+  await expect(stranger.getByText(/staff/i)).toHaveCount(0);
   await go(stranger, "/login?as=staff");
-  await stranger.getByLabel("Email").fill("random@example.com");
-  await stranger.getByRole("button", { name: "Continue" }).click();
+  await expect(stranger).toHaveURL(/\/admin\/login$/);
+  await go(stranger, "/admin/messaging");
+  await expect(stranger).toHaveURL(/\/admin\/login$/);
+  await stranger.getByLabel("Admin email").fill("admin@flagupjesus.org");
+  await stranger.getByLabel("Password", { exact: true }).fill("wrong-password");
+  await stranger.getByRole("button", { name: "Sign in to admin" }).click();
+  await expect(stranger.getByText("Incorrect admin email or password.")).toBeVisible();
+  await devStaffLogin(stranger, "random@example.com");
   await expect(stranger.getByText("not on the staff list")).toBeVisible();
-  await go(stranger, "/admin");
-  await expect(stranger).toHaveURL(/\/login\?as=staff/);
   await go(stranger, "/member");
   await expect(stranger).toHaveURL(/\/login$/);
   await stranger.context().close();

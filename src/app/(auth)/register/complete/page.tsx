@@ -12,10 +12,10 @@ export default async function CompleteRegistration() {
   if (!identity) redirect("/register");
   const ticket = verifyTicket((await cookies()).get(COOKIE.ticket)?.value);
   return (
-    <AuthCard wide>
+    <AuthCard>
       <h1 className="text-2xl font-bold">Almost there{identity.name ? `, ${identity.name.split(" ")[0]}` : ""}!</h1>
-      <p className="mt-2 text-sm text-slate-500">Signed in as {identity.email ?? "your account"}. Tell us a little about you to get your flag username.</p>
-      <RegisterForm defaults={{ name: identity.name, email: identity.email ?? "" }} checkInNote={ticket ? "You'll be checked in to today's service automatically." : undefined} />
+      <p className="mt-2 text-sm text-slate-500">Signed in as {identity.email ?? "your account"}. Add your phone number to get your flag username.</p>
+      <RegisterForm verified defaults={{ name: identity.name, email: identity.email ?? "" }} checkInNote={ticket ? "You'll be checked in to today's service automatically." : undefined} />
     </AuthCard>
   );
 }

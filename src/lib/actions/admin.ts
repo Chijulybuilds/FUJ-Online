@@ -9,7 +9,7 @@ import type { Area } from "@/lib/auth/roles";
 import { createPerson, findByUsername, FriendlyError, updatePerson } from "@/lib/repo/people";
 import { closeCheckIn, createService, openCheckIn, recordAttendance, updateService } from "@/lib/repo/services";
 import { createTask, logContact, runFollowUpAnalysis, updateTask } from "@/lib/repo/care";
-import { sendBroadcast, tasksForNonResponders } from "@/lib/repo/messaging";
+import { sendBroadcast, smsUndelivered, tasksForNonResponders } from "@/lib/repo/messaging";
 import { saveAnnouncement, setAnnouncementStatus, updatePrayer, moderateTestimony } from "@/lib/repo/content";
 import { recordDonation } from "@/lib/repo/giving";
 import { saveSettings } from "@/lib/repo/settings";
@@ -64,7 +64,8 @@ export async function updatePersonAction(_: State, fd: FormData): Promise<State>
     await updatePerson(id, {
       full_name: str(fd, "full_name"), phone: str(fd, "phone"), email: opt(fd, "email"),
       status: z.enum(["visitor", "member", "inactive", "transferred", "left_ministry"]).parse(str(fd, "status")),
-      gender: opt(fd, "gender"), birthday: opt(fd, "birthday"), address: opt(fd, "address"), notes: opt(fd, "notes")
+      gender: opt(fd, "gender"), birthday: opt(fd, "birthday"), address: opt(fd, "address"), notes: opt(fd, "notes"),
+      ...(fd.has("whatsapp") ? { whatsapp: z.enum(["unknown", "yes", "no"]).parse(str(fd, "whatsapp")) } : {})
     });
     await audit(actor, "person.update", "people", id);
     revalidatePath(`/admin/members/${id}`);
@@ -195,7 +196,16 @@ export async function logContactAction(_: State, fd: FormData): Promise<State> {
 
 /* ---------------- Broadcasts ---------------- */
 function channelsFrom(fd: FormData): Channel[] {
-  return fd.getAll("channels").map(String).filter((c): c is Channel => ["in_app", "sms", "email"].includes(c));
+  return fd.getAll("channels").map(String).filter((c): c is Channel => ["in_app", "whatsapp", "sms", "email"].includes(c));
+}
+
+export async function smsUndeliveredAction(_: State, fd: FormData): Promise<State> {
+  return guarded("messaging", async () => {
+    const id = str(fd, "broadcast_id");
+    const n = await smsUndelivered(id);
+    revalidatePath(`/admin/messaging/${id}`);
+    return { ok: true, message: n ? `Sent ${n} SMS.` : "No messages are waiting for a WhatsApp receipt (or SMS isn't configured)." };
+  });
 }
 
 export async function sendBroadcastAction(_: State, fd: FormData): Promise<State> {

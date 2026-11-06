@@ -8,7 +8,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import { getBroadcast } from "@/lib/repo/messaging";
 import { providers } from "@/lib/messaging/providers";
-import { nonResponderTasksAction } from "@/lib/actions/admin";
+import { nonResponderTasksAction, smsUndeliveredAction } from "@/lib/actions/admin";
 import { formatDateTime, timeAgo } from "@/lib/utils";
 import { Compose } from "../compose";
 import { Eye, MessageSquareReply, Send, Users } from "lucide-react";
@@ -19,6 +19,8 @@ export default async function BroadcastTracking({ params, searchParams }: { para
   const { sent, filter = "" } = await searchParams;
   const b = await getBroadcast(broadcastId).catch(() => null);
   if (!b) notFound();
+  const phoneCh = b.channels.includes("sms") || b.channels.includes("whatsapp");
+  const wa = { whatsapp: b.recipients.filter((r) => r.channel_used === "whatsapp").length, sms: b.recipients.filter((r) => r.channel_used === "sms").length, pending: b.recipients.filter((r) => r.whatsapp_status === "sent" && !r.sms_status).length };
   const rows = b.recipients.filter((r) => filter === "unread" ? !r.read_at : filter === "unresponded" ? !r.responded_at : filter === "responded" ? r.responded_at : true);
   return (
     <>
@@ -38,14 +40,14 @@ export default async function BroadcastTracking({ params, searchParams }: { para
           </div>
           <div className="table-wrap">
             <table className="data-table">
-              <thead><tr><th>Recipient</th><th>Read</th><th>Response</th>{b.channels.includes("sms") && <th>SMS</th>}{b.channels.includes("email") && <th>Email</th>}</tr></thead>
+              <thead><tr><th>Recipient</th><th>Read</th><th>Response</th>{phoneCh && <th>Phone delivery</th>}{b.channels.includes("email") && <th>Email</th>}</tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id} data-testid="recipient-row">
                     <td><Link className="font-semibold hover:text-blue-600" href={`/admin/inbox/${r.person_id}`}>{r.person?.full_name ?? "—"}</Link><span className="block text-xs text-slate-400">{r.person?.phone}</span></td>
                     <td>{r.read_at ? <span className="pill pill-green">read {timeAgo(r.read_at)}</span> : <span className="pill pill-gray">unread</span>}</td>
                     <td className="max-w-xs">{r.response ? <span className="whitespace-pre-line">{r.response}</span> : <span className="text-slate-400">—</span>}</td>
-                    {b.channels.includes("sms") && <td><StatusPill value={r.sms_status} /></td>}
+                    {phoneCh && <td className="whitespace-nowrap text-xs">{r.whatsapp_status && r.whatsapp_status !== "not_configured" && <span className="block">WhatsApp: <StatusPill value={r.whatsapp_status} /></span>}{r.sms_status && <span className="mt-1 block">SMS: <StatusPill value={r.sms_status} /></span>}{!r.whatsapp_status && !r.sms_status && "—"}</td>}
                     {b.channels.includes("email") && <td><StatusPill value={r.email_status} /></td>}
                   </tr>
                 ))}
@@ -59,10 +61,18 @@ export default async function BroadcastTracking({ params, searchParams }: { para
             <h2 className="font-bold">Follow-up broadcast</h2>
             <p className="mt-1 text-xs text-slate-500">Re-send to people who haven&apos;t read or responded — tracked separately.</p>
             <div className="mt-4">
-              <Compose parentId={b.id} defaultKind="follow_up" defaultTitle={`Following up: ${b.title}`} sms={providers.sms} email={providers.email} defaultAudience={`followup:${b.id}:unresponded`}
+              <Compose parentId={b.id} defaultKind="follow_up" defaultTitle={`Following up: ${b.title}`} sms={providers.sms} email={providers.email} whatsapp={providers.whatsapp} defaultAudience={`followup:${b.id}:unresponded`}
                 audiences={[{ value: `followup:${b.id}:unresponded`, label: `Haven't responded (${b.stats.total - b.stats.responded})` }, { value: `followup:${b.id}:unread`, label: `Haven't read (${b.stats.unread})` }]} />
             </div>
           </section>
+          {phoneCh && (
+            <section className="card p-6" data-testid="phone-delivery">
+              <h2 className="font-bold">WhatsApp &amp; SMS delivery</h2>
+              <dl className="kv mt-3"><dt>Via WhatsApp</dt><dd>{wa.whatsapp}</dd><dt>Via SMS</dt><dd>{wa.sms}</dd><dt>Awaiting receipt</dt><dd>{wa.pending}</dd></dl>
+              <p className="mt-3 text-xs text-slate-500">People not on WhatsApp get an SMS automatically when WhatsApp reports the failure. If receipts are slow, send the SMS version now:</p>
+              <ActionForm action={smsUndeliveredAction} className="mt-3"><input type="hidden" name="broadcast_id" value={b.id} /><SubmitButton className="btn btn-secondary btn-sm" pendingText="Sending…">SMS everyone without a WhatsApp receipt</SubmitButton></ActionForm>
+            </section>
+          )}
           {can(admin.role, "care") && (
             <section className="card p-6">
               <h2 className="font-bold">Hand over to pastoral care</h2>

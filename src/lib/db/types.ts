@@ -22,8 +22,22 @@ export interface Person {
   address: string | null;
   how_heard: string | null;
   last_seen_at: string | null;
+  /** Whether the phone number is reachable on WhatsApp (learned from delivery receipts). */
+  whatsapp: "unknown" | "yes" | "no";
+  whatsapp_checked_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface OtpCode {
+  id: string;
+  phone: string;
+  code_hash: string;
+  purpose: "register";
+  attempts: number;
+  expires_at: string;
+  consumed_at: string | null;
+  created_at: string;
 }
 
 export interface Service {
@@ -151,7 +165,8 @@ export interface Donation {
   created_at: string;
 }
 
-export type Channel = "in_app" | "sms" | "email";
+/** "whatsapp" = WhatsApp first, automatic SMS fallback for numbers not on WhatsApp. */
+export type Channel = "in_app" | "whatsapp" | "sms" | "email";
 export interface Broadcast {
   id: string;
   title: string;
@@ -177,6 +192,10 @@ export interface BroadcastRecipient {
   responded_at: string | null;
   sms_status: string | null;
   email_status: string | null;
+  whatsapp_status: string | null;
+  whatsapp_message_id: string | null;
+  /** Which phone channel actually carried the message: "whatsapp" | "sms" | null. */
+  channel_used: string | null;
   created_at: string;
 }
 
@@ -237,6 +256,7 @@ export interface AuditLog {
 
 export interface Tables {
   people: Person;
+  otp_codes: OtpCode;
   services: Service;
   qr_sessions: QrSession;
   attendance: Attendance;

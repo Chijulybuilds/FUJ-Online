@@ -4,7 +4,7 @@ import { ActionForm, SubmitButton } from "@/components/ui/action-form";
 import { sendBroadcastAction } from "@/lib/actions/admin";
 
 type Option = { value: string; label: string };
-export function Compose({ audiences, defaultAudience, parentId, defaultKind = "general", defaultTitle = "", sms, email }: { audiences: Option[]; defaultAudience: string; parentId?: string; defaultKind?: string; defaultTitle?: string; sms: boolean; email: boolean }) {
+export function Compose({ audiences, defaultAudience, parentId, defaultKind = "general", defaultTitle = "", sms, email, whatsapp = false }: { audiences: Option[]; defaultAudience: string; parentId?: string; defaultKind?: string; defaultTitle?: string; sms: boolean; email: boolean; whatsapp?: boolean }) {
   const [audience, setAudience] = useState(defaultAudience);
   const [preview, setPreview] = useState<{ count: number; sample: string[] } | null>(null);
   useEffect(() => {
@@ -24,7 +24,7 @@ export function Compose({ audiences, defaultAudience, parentId, defaultKind = "g
       <label className="label">Message<span className="hint">Use {"{first_name}"} to personalise.</span><textarea className="input mt-1 min-h-32" name="body" required placeholder="Hi {first_name}, we missed you at church on Sunday. Is everything okay? Reply to let us know how we can pray for you." /></label>
       <fieldset className="flex flex-wrap gap-5">
         <label className="checkbox"><input type="checkbox" checked readOnly disabled /> In-app (member portal)</label>
-        <label className="checkbox"><input type="checkbox" name="channels" value="sms" disabled={!sms} /> SMS {!sms && <span className="text-xs text-slate-400">(add TERMII_API_KEY)</span>}</label>
+        <label className="checkbox"><input type="checkbox" name="channels" value="whatsapp" disabled={!sms && !whatsapp} defaultChecked={sms || whatsapp} /> <span>WhatsApp, or SMS if not on WhatsApp{!whatsapp && !sms ? <span className="block text-xs text-slate-400">add WhatsApp / Termii keys to enable</span> : !whatsapp ? <span className="block text-xs text-slate-400">WhatsApp not configured — everyone gets SMS</span> : !sms ? <span className="block text-xs text-slate-400">SMS not configured — no fallback</span> : null}</span></label>
         <label className="checkbox"><input type="checkbox" name="channels" value="email" disabled={!email} /> Email {!email && <span className="text-xs text-slate-400">(add RESEND_API_KEY)</span>}</label>
       </fieldset>
       <label className="checkbox"><input type="checkbox" name="request_response" defaultChecked /> Ask recipients to respond (tracked)</label>

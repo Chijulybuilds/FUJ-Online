@@ -4,8 +4,8 @@ import type { Broadcast, BroadcastRecipient, Channel, Person } from "@/lib/db/ty
 import { nowIso, uid } from "@/lib/utils";
 import { peopleById } from "./people";
 import { createTask } from "./care";
-import { sendEmail, sendSms } from "@/lib/messaging/providers";
-import { firstName } from "@/lib/identity-utils";
+import { NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp } from "@/lib/messaging/providers";
+import { firstName, normalizePhone } from "@/lib/identity-utils";
 
 export const AUDIENCES: { value: string; label: string }[] = [
   { value: "all", label: "Everyone (members + visitors)" },
@@ -77,14 +77,100 @@ export async function sendBroadcast(input: {
   });
   for (const person of recipients) {
     const text = personalise(input.body, person);
-    const sms_status = channels.includes("sms") ? await sendSms(person.normalized_phone, `${input.title}: ${text}`) : null;
+    const phone = channels.includes("whatsapp") ? await deliverByPhone(person, input.title, text) : channels.includes("sms") ? await smsOnly(person, input.title, text) : null;
     const email_status = channels.includes("email") ? (person.email ? await sendEmail(person.email, input.title, text) : "skipped") : null;
     await db().insert("broadcast_recipients", {
       id: uid(), broadcast_id: broadcast.id, person_id: person.id, read_at: null, response: null, responded_at: null,
-      sms_status, email_status, created_at: now
+      sms_status: phone?.sms_status ?? null, email_status, whatsapp_status: phone?.whatsapp_status ?? null,
+      whatsapp_message_id: phone?.whatsapp_message_id ?? null, channel_used: phone?.channel_used ?? null, created_at: now
     });
   }
   return broadcast;
+}
+
+type PhoneDelivery = Pick<BroadcastRecipient, "sms_status" | "whatsapp_status" | "whatsapp_message_id" | "channel_used">;
+const smsText = (title: string, text: string) => `${title}: ${text}`;
+
+async function smsOnly(person: Person, title: string, text: string): Promise<PhoneDelivery> {
+  const sms_status = await sendSms(person.normalized_phone, smsText(title, text));
+  return { sms_status, whatsapp_status: null, whatsapp_message_id: null, channel_used: sms_status === "sent" ? "sms" : null };
+}
+
+/**
+ * WhatsApp first; SMS when the person is known not to be on WhatsApp, when WhatsApp isn't configured,
+ * or when WhatsApp rejects the message immediately. Asynchronous "not on WhatsApp" failures arrive via
+ * the WhatsApp webhook and are retried by SMS there (see handleWhatsAppStatus).
+ */
+export async function deliverByPhone(person: Person, title: string, text: string): Promise<PhoneDelivery> {
+  if (person.whatsapp === "no" || !providers.whatsapp) {
+    const r = await smsOnly(person, title, text);
+    return { ...r, whatsapp_status: person.whatsapp === "no" ? "not_on_whatsapp" : providers.whatsapp ? null : "not_configured" };
+  }
+  const wa = await sendWhatsApp(person.normalized_phone, title, text);
+  if (wa.status === "sent") return { sms_status: null, whatsapp_status: "sent", whatsapp_message_id: wa.id ?? null, channel_used: "whatsapp" };
+  if (wa.errorCode && NOT_ON_WHATSAPP_CODES.has(wa.errorCode)) await markWhatsApp(person.id, "no");
+  const r = await smsOnly(person, title, text);
+  return { ...r, whatsapp_status: "failed" };
+}
+
+async function markWhatsApp(personId: string, value: "yes" | "no") {
+  await db().update("people", { id: personId }, { whatsapp: value, whatsapp_checked_at: nowIso() });
+}
+
+/** Applies a WhatsApp delivery receipt (sent / delivered / read / failed) to the matching recipient. */
+export async function handleWhatsAppStatus(status: { id: string; status: string; errors?: { code?: number }[] }) {
+  const row = await db().get("broadcast_recipients", { whatsapp_message_id: status.id });
+  if (!row) return { matched: false };
+  const now = nowIso();
+  const patch: Partial<BroadcastRecipient> = { whatsapp_status: status.status };
+  if (status.status === "delivered" || status.status === "read") {
+    await markWhatsApp(row.person_id, "yes");
+    if (status.status === "read" && !row.read_at) patch.read_at = now;
+  }
+  let fellBack = false;
+  if (status.status === "failed") {
+    const code = status.errors?.[0]?.code;
+    if (code && NOT_ON_WHATSAPP_CODES.has(code)) { await markWhatsApp(row.person_id, "no"); patch.whatsapp_status = "not_on_whatsapp"; }
+    if (!row.sms_status || row.sms_status === "failed") {
+      const [person, broadcast] = await Promise.all([db().get("people", { id: row.person_id }), db().get("broadcasts", { id: row.broadcast_id })]);
+      if (person && broadcast) {
+        patch.sms_status = await sendSms(person.normalized_phone, smsText(broadcast.title, personalise(broadcast.body, person)));
+        if (patch.sms_status === "sent") patch.channel_used = "sms";
+        fellBack = true;
+      }
+    }
+  }
+  // Never downgrade a final state (read beats delivered beats sent) when receipts arrive out of order.
+  const rank: Record<string, number> = { sent: 1, delivered: 2, read: 3 };
+  if (rank[row.whatsapp_status ?? ""] && rank[status.status] && rank[status.status] < rank[row.whatsapp_status ?? ""]) delete patch.whatsapp_status;
+  await db().update("broadcast_recipients", { id: row.id }, patch);
+  return { matched: true, fellBack };
+}
+
+/** An inbound WhatsApp message becomes a response to the person's most recent broadcast (shows in Inbox). */
+export async function handleWhatsAppInbound(from: string, text: string) {
+  const person = await db().get("people", { normalized_phone: normalizePhone(`+${from.replace(/^\+/, "")}`) });
+  if (!person) return { matched: false };
+  await markWhatsApp(person.id, "yes");
+  const latest = (await db().list("broadcast_recipients", { where: { person_id: person.id }, order: { column: "created_at", ascending: false }, limit: 1 }))[0];
+  if (!latest) return { matched: false };
+  await respond(latest.id, person.id, `[WhatsApp] ${text}`.slice(0, 1500));
+  return { matched: true };
+}
+
+/** For WhatsApp messages with no delivery receipt yet: send the SMS version too. */
+export async function smsUndelivered(broadcastId: string) {
+  const [broadcast, rows] = await Promise.all([db().get("broadcasts", { id: broadcastId }), db().list("broadcast_recipients", { where: { broadcast_id: broadcastId } })]);
+  if (!broadcast) return 0;
+  let sent = 0;
+  for (const r of rows.filter((x) => x.whatsapp_status === "sent" && !x.sms_status)) {
+    const person = await db().get("people", { id: r.person_id });
+    if (!person) continue;
+    const sms_status = await sendSms(person.normalized_phone, smsText(broadcast.title, personalise(broadcast.body, person)));
+    await db().update("broadcast_recipients", { id: r.id }, { sms_status, channel_used: sms_status === "sent" ? "sms" : r.channel_used });
+    if (sms_status === "sent") sent++;
+  }
+  return sent;
 }
 
 export function stats(rows: BroadcastRecipient[]) {

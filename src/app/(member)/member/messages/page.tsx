@@ -31,7 +31,7 @@ export default async function MemberMessages({ searchParams }: { searchParams: P
                   </ActionForm>
                 </>
               ) : (
-                <form action={markReadAction} className="mt-3"><input type="hidden" name="id" value={m.id} /><button className="btn btn-secondary btn-sm">Read message</button></form>
+                <ActionForm action={markReadAction} className="mt-3"><input type="hidden" name="id" value={m.id} /><SubmitButton className="btn btn-secondary btn-sm" pendingText="Opening…">Read message</SubmitButton></ActionForm>
               )}
             </article>
           );

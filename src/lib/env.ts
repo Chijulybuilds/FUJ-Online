@@ -27,6 +27,17 @@ export const env = {
   get adminEmails() {
     return (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
   },
+  /** Shared FUJ admin login (one email + password every admin can use). */
+  get sharedAdmin(): { email: string; password: string; role: string } | null {
+    const email = (process.env.ADMIN_LOGIN_EMAIL ?? "").trim().toLowerCase();
+    const password = process.env.ADMIN_LOGIN_PASSWORD ?? "";
+    const role = process.env.ADMIN_LOGIN_ROLE ?? "super_admin";
+    // Production refuses weak shared passwords (the account usually has full admin rights).
+    if (email && password && (password.length >= 12 || process.env.NODE_ENV !== "production")) return { email, password, role };
+    // Local development with the demo JSON store only.
+    if (process.env.NODE_ENV !== "production" && !this.useSupabaseData) return { email: "admin@flagupjesus.local", password: "FlagUpJesus@2026", role };
+    return null;
+  },
   get localDbPath() { return process.env.LOCAL_DB_PATH ?? ".data/flagupjesus-db.json"; }
 };
 

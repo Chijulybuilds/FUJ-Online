@@ -33,7 +33,8 @@ export function buildSeed(): Partial<{ [N in TableName]: Tables[N][] }> {
     normalized_phone: normalizePhone(phone), email: `${username.replace("flag", "")}@example.com`, status,
     first_visit_at: iso(daysAgo(joined)), joined_at: status === "member" ? iso(daysAgo(joined)) : null, notes: null,
     auth_subject: null, avatar_url: null, gender: null, birthday: null, address: null, how_heard: null,
-    last_seen_at: null, created_at: iso(daysAgo(joined)), updated_at: iso(daysAgo(joined))
+    last_seen_at: null, whatsapp: i % 4 === 3 ? "no" : i % 2 === 0 ? "yes" : "unknown", whatsapp_checked_at: null,
+    created_at: iso(daysAgo(joined)), updated_at: iso(daysAgo(joined))
   }));
 
   const services: Service[] = [];
