@@ -1,13 +1,36 @@
-"use client";
 import Link from "next/link";
-import { useState } from "react";
-import { registrationSchema } from "@/lib/validation/auth";
-import { IS_DEMO_MODE } from "@/lib/constants";
-import { createClient } from "@/lib/supabase/client";
-import { BrandLogo } from "@/components/shared/brand-logo";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-export default function RegisterPage() {
- const [name,setName]=useState("");const [phone,setPhone]=useState("");const [email,setEmail]=useState("");const [message,setMessage]=useState("");const [loading,setLoading]=useState(false);
- async function submit(e:React.FormEvent){e.preventDefault();setMessage("");const parsed=registrationSchema.safeParse({fullName:name,phone,email,status:"visitor"});if(!parsed.success){setMessage(parsed.error.issues[0]?.message??"Check your details.");return;}if(IS_DEMO_MODE){setMessage("Your details look valid. Demo mode does not save registrations; connect Supabase to enable verified registration.");return;}setLoading(true);try{const supabase=createClient();const {error}=await supabase.auth.signInWithOtp({phone:parsed.data.phone,options:{data:{full_name:parsed.data.fullName,email:parsed.data.email??""}}});if(error)throw error;setMessage("Verification code sent. Verify your phone to complete registration.");}catch(err){setMessage(err instanceof Error?err.message:"Registration could not be started.");}finally{setLoading(false);}}
- return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-5 py-12"><div className="card w-full max-w-lg p-8"><div className="mb-8 flex items-center justify-between"><Link href="/" aria-label="FlagUpJesus home"><BrandLogo className="h-16 w-24 object-contain"/></Link><ThemeToggle/></div><h1 className="text-2xl font-bold">Join our community</h1><p className="mt-2 text-sm text-slate-500">Register once. You can use the same account for future visits.</p><form className="mt-7 space-y-4" onSubmit={submit}><label className="block text-sm font-medium">Full name<input className="input mt-2" value={name} onChange={e=>setName(e.target.value)} required/></label><label className="block text-sm font-medium">Phone number<input className="input mt-2" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+234..." required/></label><label className="block text-sm font-medium">Email address (optional)<input className="input mt-2" type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label><button className="btn btn-primary w-full" disabled={loading}>{loading?"Please wait...":"Continue to phone verification"}</button></form>{message&&<p className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{message}</p>}<p className="mt-6 text-center text-sm text-slate-500">Already registered? <Link href="/login" className="font-semibold text-blue-600">Sign in</Link></p></div></main>;
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { QrCode } from "lucide-react";
+import { env } from "@/lib/env";
+import { COOKIE, getIdentity, getMemberSession } from "@/lib/auth/session";
+import { verifyTicket } from "@/lib/security/qr-token";
+import { db } from "@/lib/db";
+import { AuthCard, GoogleButton } from "../auth-card";
+import { DevLoginForm } from "../login/forms";
+import { RegisterForm } from "./register-form";
+
+export const dynamic = "force-dynamic";
+
+export default async function RegisterPage() {
+  if (await getMemberSession()) redirect("/member");
+  if (await getIdentity()) redirect("/register/complete");
+  const ticket = verifyTicket((await cookies()).get(COOKIE.ticket)?.value);
+  const service = ticket ? await db().get("services", { id: ticket.svc }) : null;
+  return (
+    <AuthCard wide>
+      <h1 className="text-2xl font-bold">Join our church family</h1>
+      <p className="mt-2 text-sm text-slate-500">Register once and you&apos;ll get a personal <b>flag</b> username. After that, checking in is just scan → type username.</p>
+      {ticket ? (
+        <RegisterForm defaults={{}} checkInNote={service ? `You'll be checked in to ${service.title} automatically.` : undefined} />
+      ) : (
+        <div className="mt-6 space-y-4">
+          <GoogleButton intent="register" label="Register with Google" enabled={env.googleEnabled} />
+          <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-600"><QrCode className="mt-0.5 shrink-0 text-blue-600" size={18} /><p>At church right now? Scan the QR code on the screen and tap <b>Register</b> — no Google account needed.</p></div>
+          {env.devLoginEnabled && <DevLoginForm intent="register" />}
+        </div>
+      )}
+      <p className="mt-6 text-center text-sm text-slate-500">Already registered? <Link className="font-semibold text-blue-600" href="/login">Sign in</Link></p>
+    </AuthCard>
+  );
 }

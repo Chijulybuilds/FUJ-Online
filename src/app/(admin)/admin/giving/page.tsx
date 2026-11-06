@@ -1,4 +1,53 @@
 import { PageHeading } from "@/components/ui/page-heading";
-export default function Page() {
- return <><PageHeading title="Giving & donations" description="Review giving records and reconcile verified transactions."/><div className="card p-6"><div className="grid gap-4 sm:grid-cols-3"><div className="rounded-xl bg-slate-50 p-5"><p className="text-xs text-slate-500">Total this month</p><p className="mt-2 text-2xl font-bold">₦2,840,000</p></div><div className="rounded-xl bg-slate-50 p-5"><p className="text-xs text-slate-500">Verified donations</p><p className="mt-2 text-2xl font-bold">186</p></div><div className="rounded-xl bg-slate-50 p-5"><p className="text-xs text-slate-500">Pending reconciliation</p><p className="mt-2 text-2xl font-bold">₦45,000</p></div></div><p className="mt-5 text-xs text-amber-700">Sample figures only. No payment provider is connected.</p></div></>;
+import { StatusPill } from "@/components/ui/status-pill";
+import { ActionForm, SubmitButton } from "@/components/ui/action-form";
+import { requireAdmin } from "@/lib/auth/session";
+import { listDonations } from "@/lib/repo/giving";
+import { recordDonationAction } from "@/lib/actions/admin";
+import { formatCurrency, formatDate } from "@/lib/utils";
+
+export default async function GivingPage() {
+  await requireAdmin("giving");
+  const donations = await listDonations();
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const paid = donations.filter((d) => d.status === "paid");
+  const month = paid.filter((d) => d.paid_at && new Date(d.paid_at) >= monthStart);
+  const byFund = new Map<string, number>();
+  month.forEach((d) => byFund.set(d.fund_name, (byFund.get(d.fund_name) ?? 0) + d.amount));
+  return (
+    <>
+      <PageHeading title="Giving & donations" description="Record cash/transfer giving. Online payments must be confirmed by a verified provider webhook — never a browser redirect." />
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <div className="card p-5"><p className="text-xs text-slate-500">This month</p><p className="mt-2 text-2xl font-bold">{formatCurrency(month.reduce((s, d) => s + d.amount, 0))}</p></div>
+        <div className="card p-5"><p className="text-xs text-slate-500">Records this month</p><p className="mt-2 text-2xl font-bold">{month.length}</p></div>
+        <div className="card p-5"><p className="text-xs text-slate-500">By fund</p><div className="mt-2 space-y-1 text-sm">{[...byFund].map(([f, v]) => <p key={f} className="flex justify-between"><span>{f}</span><b>{formatCurrency(v)}</b></p>)}{!byFund.size && <p className="text-slate-400">—</p>}</div></div>
+      </div>
+      <div className="grid gap-6 xl:grid-cols-[1fr_2fr]">
+        <section className="card p-6">
+          <h2 className="mb-4 font-bold">Record giving</h2>
+          <ActionForm action={recordDonationAction} className="grid gap-3" resetOnSuccess>
+            <label className="label">Amount (₦)<input className="input mt-1" name="amount" inputMode="decimal" required placeholder="10,000" /></label>
+            <label className="label">Fund<select className="input mt-1" name="fund_name"><option>Offering</option><option>Tithe</option><option>Building fund</option><option>Missions</option><option>Welfare</option><option>Thanksgiving</option></select></label>
+            <label className="label">Method<select className="input mt-1" name="method"><option value="cash">Cash</option><option value="transfer">Bank transfer</option><option value="pos">POS</option></select></label>
+            <label className="label">Member username<span className="hint">Optional — links it to their giving history</span><input className="input mt-1" name="person" placeholder="flaggrace101" /></label>
+            <label className="label">Donor name (if not a member)<input className="input mt-1" name="donor_name" /></label>
+            <label className="label">Date<input className="input mt-1" name="paid_at" type="date" /></label>
+            <label className="label">Note<input className="input mt-1" name="note" /></label>
+            <SubmitButton>Record</SubmitButton>
+          </ActionForm>
+        </section>
+        <section className="card">
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead><tr><th>Date</th><th>Giver</th><th>Fund</th><th>Method</th><th>Amount</th><th>Status</th></tr></thead>
+              <tbody>
+                {donations.map((d) => <tr key={d.id}><td>{formatDate(d.paid_at ?? d.created_at)}</td><td>{d.person?.full_name ?? d.donor_name ?? "Anonymous"}</td><td>{d.fund_name}</td><td>{d.method}</td><td><b>{formatCurrency(d.amount)}</b></td><td><StatusPill value={d.status} /></td></tr>)}
+                {!donations.length && <tr><td colSpan={6} className="text-center text-slate-500">No giving recorded yet.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </>
+  );
 }

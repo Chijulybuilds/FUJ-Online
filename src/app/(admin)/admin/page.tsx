@@ -1,8 +1,76 @@
-import { Users, UserPlus, CalendarCheck, TrendingUp, ArrowUpRight } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, CalendarCheck, CircleDollarSign, HeartHandshake, MessageSquare, QrCode, UserPlus, Users } from "lucide-react";
 import { PageHeading } from "@/components/ui/page-heading";
 import { StatCard } from "@/components/ui/stat-card";
-import { followUps, people } from "@/lib/demo-data";
-import Link from "next/link";
-export default function AdminDashboard() {
- return <><PageHeading title="Dashboard" description="Welcome back. Here's what's happening in your church community." action={<Link href="/admin/services" className="btn btn-primary">+ Create service</Link>}/><div className="mb-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><StatCard label="Total people" value="1,284" change="+8.2% from last month" icon={<Users size={20}/>} tone="blue"/><StatCard label="Present last Sunday" value="248" change="96% of expected attendance" icon={<CalendarCheck size={20}/>} tone="green"/><StatCard label="New visitors" value="18" change="+5 this month" icon={<UserPlus size={20}/>} tone="violet"/><StatCard label="Giving this month" value="₦2.84m" change="+12.5% from last month" icon={<TrendingUp size={20}/>} tone="amber"/></div><div className="grid gap-5 xl:grid-cols-[1.55fr_1fr]"><section className="card p-6"><div className="mb-5 flex items-center justify-between"><div><h2 className="font-bold text-slate-900">Attendance overview</h2><p className="mt-1 text-xs text-slate-400">Sunday service attendance · Recent weeks</p></div><Link href="/admin/attendance" className="text-xs font-semibold text-blue-600">View report <ArrowUpRight size={13} className="inline"/></Link></div><div className="flex h-52 items-end justify-between gap-3 border-b border-l border-slate-100 px-3 pb-0 pt-5">{[58,72,66,84,75,92,80,100,88,95,82,91].map((h,i)=><div key={i} className="flex h-full flex-1 flex-col justify-end"><div className="rounded-t-md bg-blue-500/90 hover:bg-blue-700" style={{height:`${h}%`}}/><span className="mt-2 text-center text-[9px] text-slate-400">{["W1","W2","W3","W4"][i%4]}</span></div>)}</div><div className="mt-4 flex items-center gap-2 text-xs text-slate-500"><span className="h-2 w-2 rounded-full bg-blue-500"/> Attendance count per service</div></section><section className="card p-6"><div className="mb-5 flex items-center justify-between"><div><h2 className="font-bold text-slate-900">Pastoral follow-up</h2><p className="mt-1 text-xs text-slate-400">People who may need a check-in</p></div><Link href="/admin/pastoral-care" className="text-xs font-semibold text-blue-600">View all</Link></div><div className="space-y-4">{followUps.map((item)=><div key={item.name} className="flex items-start gap-3"><span className="mt-1 h-2 w-2 rounded-full bg-amber-400"/><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-800">{item.name}</p><p className="mt-1 text-xs text-slate-500">{item.reason}</p><p className="mt-1 text-[10px] text-slate-400">Assigned to {item.assigned}</p></div><span className={`pill ${item.priority==="High"?"pill-amber":"pill-gray"}`}>{item.priority}</span></div>)}</div></section></div><section className="card mt-5"><div className="flex items-center justify-between px-6 py-5"><div><h2 className="font-bold text-slate-900">Recent people</h2><p className="mt-1 text-xs text-slate-400">Latest records in your directory</p></div><Link href="/admin/members" className="text-xs font-semibold text-blue-600">View directory</Link></div><div className="table-wrap"><table className="data-table"><thead><tr><th>Name</th><th>Phone</th><th>Type</th><th>Department</th><th>Attendance</th></tr></thead><tbody>{people.slice(0,4).map(p=><tr key={p.id}><td className="font-semibold text-slate-800">{p.name}<span className="ml-2 text-[10px] font-normal text-slate-400">{p.id}</span></td><td>{p.phone}</td><td><span className={`pill ${p.status==="Member"?"pill-blue":"pill-amber"}`}>{p.status}</span></td><td>{p.department}</td><td>{p.attendance}</td></tr>)}</tbody></table></div></section></>;
+import { StatusPill } from "@/components/ui/status-pill";
+import { requireAdmin } from "@/lib/auth/session";
+import { can } from "@/lib/auth/roles";
+import { dashboardStats } from "@/lib/repo/reports";
+import { listTasks } from "@/lib/repo/care";
+import { upcomingService } from "@/lib/repo/services";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+
+export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
+  const admin = await requireAdmin();
+  const { denied } = await searchParams;
+  const [stats, tasks, next] = await Promise.all([dashboardStats(), listTasks(), upcomingService()]);
+  const last = stats.summaries.find((s) => s.service.status === "completed" || s.service.status === "active");
+  const chart = [...stats.summaries].reverse().slice(-8);
+  const max = Math.max(1, ...chart.map((c) => c.total));
+  const open = tasks.filter((t) => t.status === "open" || t.status === "in_progress").slice(0, 5);
+  return (
+    <>
+      <PageHeading title={`Welcome, ${admin.name.split(" ")[0]}`} description="Here's what's happening in your church community."
+        action={can(admin.role, "services") ? <Link href="/admin/services/new" className="btn btn-primary">+ Create service</Link> : undefined} />
+      {denied && <p className="alert alert-warn mb-5">Your role doesn&apos;t have access to “{denied}”. Ask a super admin if you need it.</p>}
+      {next && can(admin.role, "attendance") && (
+        <div className="brand-panel mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5">
+          <div>
+            <p className="text-xs text-red-200">{next.status === "active" ? "Check-in is open" : "Next service"}</p>
+            <p className="mt-1 text-lg font-bold">{next.title}</p>
+            <p className="text-sm text-slate-300">{formatDateTime(next.starts_at)}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/admin/services/${next.id}`} className="btn lp-btn-glass">Manage service</Link>
+            <Link href={`/admin/attendance/display?service=${next.id}`} className="btn lp-btn-light"><QrCode size={16} /> Launch QR display</Link>
+          </div>
+        </div>
+      )}
+      <div className="mb-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total people" value={stats.totalPeople.toLocaleString()} change={`${stats.members} members · ${stats.visitors} visitors`} icon={<Users size={20} />} />
+        <StatCard label="Last service" value={last?.total ?? 0} change={last ? `${last.service.title} · ${formatDate(last.service.starts_at)}` : "No services yet"} icon={<CalendarCheck size={20} />} tone="green" />
+        <StatCard label="New this month" value={stats.newThisMonth} change={`${last?.firstTimers ?? 0} first-timers last service`} icon={<UserPlus size={20} />} tone="violet" />
+        {can(admin.role, "giving")
+          ? <StatCard label="Giving this month" value={formatCurrency(stats.givingThisMonth)} change="Verified records only" icon={<CircleDollarSign size={20} />} tone="amber" />
+          : <StatCard label="Open follow-ups" value={stats.openTasks} change="Pastoral care queue" icon={<HeartHandshake size={20} />} tone="amber" />}
+      </div>
+      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+        <section className="card p-6">
+          <div className="mb-5 flex items-center justify-between"><h2 className="font-bold">Attendance — recent services</h2>{can(admin.role, "reports") && <Link href="/admin/reports" className="text-xs font-semibold text-blue-600">Reports <ArrowUpRight className="inline" size={13} /></Link>}</div>
+          {chart.length ? (
+            <div className="bar-chart">{chart.map((c, i) => (
+              <div className="bar" key={c.service.id}><b>{c.total}</b><span className="fill" style={{ height: `${(c.total / max) * 100}%`, animationDelay: `${i * 0.06}s` }} /><small>{formatDate(c.service.starts_at, { day: "2-digit", month: "short" })}</small></div>
+            ))}</div>
+          ) : <p className="empty">No attendance yet.</p>}
+        </section>
+        <section className="card p-6">
+          <h2 className="mb-4 font-bold">Needs attention</h2>
+          <ul className="space-y-3 text-sm">
+            {can(admin.role, "care") && <li className="flex items-center justify-between"><Link href="/admin/pastoral-care" className="flex items-center gap-2"><HeartHandshake size={16} className="text-blue-600" /> Open follow-ups</Link><b>{stats.openTasks}</b></li>}
+            {can(admin.role, "prayer") && <li className="flex items-center justify-between"><Link href="/admin/prayer-requests" className="flex items-center gap-2"><MessageSquare size={16} className="text-blue-600" /> New prayer requests</Link><b>{stats.pendingPrayers}</b></li>}
+            {can(admin.role, "testimonies") && <li className="flex items-center justify-between"><Link href="/admin/testimonies" className="flex items-center gap-2"><ArrowUpRight size={16} className="text-blue-600" /> Testimonies to review</Link><b>{stats.pendingTestimonies}</b></li>}
+          </ul>
+          {can(admin.role, "care") && open.length > 0 && (
+            <div className="mt-6 space-y-2">
+              {open.map((t) => (
+                <Link key={t.id} href={`/admin/pastoral-care/${t.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3 text-sm hover:bg-slate-50">
+                  <span><b>{t.person?.full_name ?? "Unknown"}</b><span className="block text-xs text-slate-500">{t.reason}</span></span><StatusPill value={t.priority} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </>
+  );
 }

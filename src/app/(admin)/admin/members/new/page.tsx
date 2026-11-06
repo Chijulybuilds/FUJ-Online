@@ -1,8 +1,27 @@
-"use client";
-import { useState } from "react";
-import Link from "next/link";
 import { PageHeading } from "@/components/ui/page-heading";
-export default function NewMemberPage() {
- const [name,setName]=useState(""); const [phone,setPhone]=useState(""); const [email,setEmail]=useState(""); const [kind,setKind]=useState("visitor");
- return <><PageHeading title="Add a person" description="Create a church person record. New visitors can also register themselves."/><div className="card max-w-2xl p-6"><form className="space-y-5" onSubmit={e=>{e.preventDefault();window.alert("Demo mode: connect Supabase to save this record.");}}><label className="block text-sm font-medium">Full name<input className="input mt-2" required value={name} onChange={e=>setName(e.target.value)} placeholder="Enter full name"/></label><label className="block text-sm font-medium">Phone number<input className="input mt-2" required value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+234..."/></label><label className="block text-sm font-medium">Email (optional)<input className="input mt-2" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></label><label className="block text-sm font-medium">Record type<select className="input mt-2" value={kind} onChange={e=>setKind(e.target.value)}><option value="visitor">Visitor</option><option value="member">Member</option></select></label><div className="flex gap-3"><button className="btn btn-primary" type="submit">Create record</button><Link className="btn btn-secondary" href="/admin/members">Cancel</Link></div></form></div></>;
+import { ActionForm, SubmitButton } from "@/components/ui/action-form";
+import { createPersonAction } from "@/lib/actions/admin";
+import { requireAdmin } from "@/lib/auth/session";
+
+export default async function NewMemberPage() {
+  await requireAdmin("members");
+  return (
+    <>
+      <PageHeading title="Add a person" description="Usher / admin registration. A unique flag username is generated automatically — share it with them for future check-ins." />
+      <div className="card max-w-2xl p-6">
+        <ActionForm action={createPersonAction} className="grid gap-4 sm:grid-cols-2">
+          <label className="label sm:col-span-2">Full name<input className="input mt-2" name="full_name" required placeholder="e.g. Grace Okafor" /></label>
+          <label className="label">Phone number<input className="input mt-2" name="phone" required inputMode="tel" placeholder="0803 123 4567" /></label>
+          <label className="label">Email (optional)<input className="input mt-2" name="email" type="email" /></label>
+          <label className="label">Status<select className="input mt-2" name="status"><option value="visitor">Visitor / first-timer</option><option value="member">Member</option></select></label>
+          <label className="label">Gender<select className="input mt-2" name="gender"><option value="">Prefer not to say</option><option value="female">Female</option><option value="male">Male</option></select></label>
+          <label className="label">Birthday<input className="input mt-2" name="birthday" type="date" /></label>
+          <label className="label">How did they hear about us?<input className="input mt-2" name="how_heard" placeholder="Friend, social media…" /></label>
+          <label className="label sm:col-span-2">Address<input className="input mt-2" name="address" /></label>
+          <label className="label sm:col-span-2">Notes<textarea className="input mt-2" name="notes" /></label>
+          <div className="sm:col-span-2"><SubmitButton>Create record</SubmitButton></div>
+        </ActionForm>
+      </div>
+    </>
+  );
 }

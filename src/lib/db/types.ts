@@ -1,0 +1,257 @@
+/* Row types mirror the Supabase schema (migrations 0001 + 0005). */
+
+export type PersonStatus = "visitor" | "member" | "inactive" | "transferred" | "left_ministry";
+export type StaffRole = "super_admin" | "admin" | "pastor" | "pastoral_worker" | "finance_admin" | "department_leader";
+
+export interface Person {
+  id: string;
+  person_code: string | null;
+  username: string | null;
+  full_name: string;
+  phone: string;
+  normalized_phone: string;
+  email: string | null;
+  status: PersonStatus;
+  first_visit_at: string | null;
+  joined_at: string | null;
+  notes: string | null;
+  auth_subject: string | null;
+  avatar_url: string | null;
+  gender: string | null;
+  birthday: string | null;
+  address: string | null;
+  how_heard: string | null;
+  last_seen_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Service {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  location: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  check_in_opens_at: string | null;
+  check_in_closes_at: string | null;
+  status: "scheduled" | "active" | "completed" | "cancelled";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QrSession {
+  id: string;
+  service_id: string;
+  status: "active" | "closed" | "revoked";
+  opens_at: string;
+  closes_at: string;
+  created_at: string;
+  closed_at: string | null;
+}
+
+export interface Attendance {
+  id: string;
+  person_id: string;
+  service_id: string;
+  checked_in_at: string;
+  check_in_method: "qr" | "manual" | "admin";
+  recorded_by: string | null;
+  device_id: string | null;
+  created_at: string;
+}
+
+export type FollowUpCategory = "absentee" | "first_timer" | "prayer" | "broadcast" | "general";
+export interface FollowUpTask {
+  id: string;
+  person_id: string;
+  reason: string;
+  category: FollowUpCategory;
+  priority: "low" | "normal" | "high";
+  status: "open" | "in_progress" | "completed" | "dismissed";
+  assignee: string | null;
+  due_at: string | null;
+  completed_at: string | null;
+  notes: string | null;
+  last_contacted_at: string | null;
+  source_broadcast_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FollowUpLog {
+  id: string;
+  task_id: string;
+  channel: "call" | "sms" | "whatsapp" | "visit" | "email" | "in_app" | "note";
+  outcome: string;
+  note: string | null;
+  author: string | null;
+  created_at: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  audience: string;
+  status: "draft" | "published" | "archived";
+  published_at: string | null;
+  pinned: boolean;
+  is_public: boolean;
+  author: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PrayerRequest {
+  id: string;
+  person_id: string | null;
+  request_text: string;
+  visibility: "pastoral" | "public" | "private";
+  status: "pending" | "praying" | "answered" | "closed" | "approved" | "declined";
+  consent_to_share: boolean;
+  requester_name: string | null;
+  requester_contact: string | null;
+  is_anonymous: boolean;
+  prayed_count: number;
+  admin_note: string | null;
+  assignee: string | null;
+  on_wall: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Testimony {
+  id: string;
+  person_id: string | null;
+  title: string;
+  body: string;
+  consent_to_publish: boolean;
+  status: "pending" | "approved" | "declined" | "published";
+  featured: boolean;
+  published_at: string | null;
+  reviewer: string | null;
+  created_at: string;
+}
+
+export interface Donation {
+  id: string;
+  person_id: string | null;
+  amount: number;
+  currency: string;
+  fund_name: string;
+  status: "pending" | "paid" | "failed" | "refunded";
+  provider_reference: string | null;
+  paid_at: string | null;
+  method: string;
+  note: string | null;
+  donor_name: string | null;
+  recorded_by: string | null;
+  created_at: string;
+}
+
+export type Channel = "in_app" | "sms" | "email";
+export interface Broadcast {
+  id: string;
+  title: string;
+  body: string;
+  kind: "announcement" | "follow_up" | "general" | "direct";
+  audience: string;
+  channels: Channel[];
+  status: "draft" | "sent";
+  request_response: boolean;
+  parent_id: string | null;
+  recipient_count: number;
+  created_by: string | null;
+  sent_at: string | null;
+  created_at: string;
+}
+
+export interface BroadcastRecipient {
+  id: string;
+  broadcast_id: string;
+  person_id: string;
+  read_at: string | null;
+  response: string | null;
+  responded_at: string | null;
+  sms_status: string | null;
+  email_status: string | null;
+  created_at: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: StaffRole;
+  active: boolean;
+  last_login_at: string | null;
+  created_at: string;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  description: string | null;
+  leader_person_id: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface MemberDepartment {
+  person_id: string;
+  department_id: string;
+  joined_at: string;
+  is_active: boolean;
+}
+
+export interface ChurchSettings {
+  id: boolean;
+  church_name: string;
+  app_name: string;
+  timezone: string;
+  contact_email: string | null;
+  contact_phone: string | null;
+  tagline: string | null;
+  address: string | null;
+  service_times: string | null;
+  livestream_url: string | null;
+  bank_name: string | null;
+  account_name: string | null;
+  account_number: string | null;
+  absence_threshold: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  actor: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface Tables {
+  people: Person;
+  services: Service;
+  qr_sessions: QrSession;
+  attendance: Attendance;
+  follow_up_tasks: FollowUpTask;
+  follow_up_logs: FollowUpLog;
+  announcements: Announcement;
+  prayer_requests: PrayerRequest;
+  testimonies: Testimony;
+  donations: Donation;
+  broadcasts: Broadcast;
+  broadcast_recipients: BroadcastRecipient;
+  admin_users: AdminUser;
+  departments: Department;
+  member_departments: MemberDepartment;
+  church_settings: ChurchSettings;
+  audit_logs: AuditLog;
+}
+export type TableName = keyof Tables;

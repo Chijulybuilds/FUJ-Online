@@ -9,3 +9,8 @@ build
 .DS_Store
 *.log
 coverage
+.data
+test-results
+playwright-report
+*:Zone.Identifier
+tsconfig.tsbuildinfo

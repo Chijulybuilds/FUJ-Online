@@ -1,51 +1,36 @@
-"use client";
-import { useEffect, useState } from "react";
-import QRCode from "qrcode";
-import Image from "next/image";
-import { PageHeading } from "@/components/ui/page-heading";
-import { IS_DEMO_MODE } from "@/lib/constants";
-export default function AttendanceDisplayPage() {
- const [seconds,setSeconds]=useState(20);
- const [qr,setQr]=useState("");
- const [error,setError]=useState("");
- useEffect(()=>{
-  let active=true;
-  const refresh=async()=>{
-   try {
-    let token:string;
-    let expiresIn=20;
-    if(IS_DEMO_MODE) {
-     token=`FLAGUPJESUS-DEMO-${Math.floor(Date.now()/20000)}`;
-    } else {
-     const response=await fetch("/api/attendance/token");
-     const result=await response.json() as {token?:string;expiresIn?:number;error?:string};
-     if(!response.ok||!result.token) throw new Error(result.error??"Unable to load an attendance QR.");
-     token=result.token;
-     expiresIn=result.expiresIn??20;
-    }
-    const image=await QRCode.toDataURL(`${window.location.origin}/check-in?token=${encodeURIComponent(token)}`,{width:300,margin:2});
-    if(active) {
-     setQr(image);
-     setError("");
-     setSeconds(expiresIn);
-    }
-   } catch (cause) {
-    if(active) {
-     setQr("");
-     setError(cause instanceof Error?cause.message:"Unable to load an attendance QR.");
-     setSeconds(20);
-    }
-   }
-  };
-  void refresh();
-  const timer=setInterval(()=>setSeconds(current=>{
-   if(current<=1) {
-    void refresh();
-    return 20;
-   }
-   return current-1;
-  }),1000);
-  return()=>{active=false;clearInterval(timer);};
- },[]);
- return <><PageHeading title="Attendance QR display" description="Project this page on the church screen during an active service."/><div className="brand-panel mx-auto max-w-xl rounded-3xl p-8 text-center shadow-xl"><p className="text-sm font-semibold tracking-widest text-blue-200">FLAG OF JESUS GLOBAL MINISTRY</p><h2 className="mt-3 text-3xl font-bold">Scan to check in</h2><p className="mt-2 text-sm text-slate-300">Welcome! Scan this code with your phone to record your attendance.</p><div className="mx-auto my-7 flex h-[330px] w-[330px] max-w-full items-center justify-center rounded-2xl bg-white p-3">{qr?<Image src={qr} alt={IS_DEMO_MODE?"Demonstration attendance QR code":"Attendance QR code"} width={300} height={300} unoptimized className="h-full w-full"/>:<span className="px-4 text-sm text-slate-600">{error||"Preparing QR…"}</span>}</div>{IS_DEMO_MODE?<><p className="text-sm text-blue-200">Demo QR refreshes in <strong className="text-white">{seconds}s</strong></p><p className="mt-5 text-xs text-slate-400">DEVELOPMENT PREVIEW · NOT VALID FOR REAL ATTENDANCE</p></>:qr?<p className="text-sm text-blue-200">QR refreshes in <strong className="text-white">{seconds}s</strong></p>:<p className="mt-5 text-xs text-slate-400">Sign in as an administrator and activate a QR session to display a live code.</p>}</div>{IS_DEMO_MODE&&<div className="mx-auto mt-5 max-w-xl rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>Important:</strong> This display uses a demo token. Production QR issuance requires an authenticated administrator and an active service session. Do not use demo QR codes to record real attendance.</div>}</>;
+import Link from "next/link";
+import { QrCode } from "lucide-react";
+import { requireAdmin } from "@/lib/auth/session";
+import { activeSessions, listServices } from "@/lib/repo/services";
+import { openCheckInAction } from "@/lib/actions/admin";
+import { formatDateTime } from "@/lib/utils";
+import { QrDisplay } from "./qr-display";
+
+export default async function AttendanceDisplayPage({ searchParams }: { searchParams: Promise<{ service?: string }> }) {
+  await requireAdmin("attendance");
+  const { service } = await searchParams;
+  const sessions = await activeSessions();
+  const serviceId = service ?? sessions[0]?.service_id;
+  if (serviceId && sessions.some((s) => s.service_id === serviceId)) return <QrDisplay serviceId={serviceId} />;
+  const candidates = (await listServices()).filter((s) => s.status === "scheduled" || s.status === "active").slice(0, 6);
+  return (
+    <div className="qr-stage fixed inset-0 z-50 flex items-center justify-center p-6">
+      <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur">
+        <QrCode className="text-red-300" size={32} />
+        <h1 className="mt-4 text-2xl font-bold">Start QR check-in</h1>
+        <p className="mt-2 text-sm text-slate-300">Choose a service to open check-in. The code on screen will refresh every 20 seconds.</p>
+        <div className="mt-6 space-y-2">
+          {candidates.map((s) => (
+            <form key={s.id} action={openCheckInAction} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 p-4">
+              <input type="hidden" name="service_id" value={s.id} /><input type="hidden" name="then" value="display" />
+              <span><b>{s.title}</b><span className="block text-xs text-slate-400">{formatDateTime(s.starts_at)}</span></span>
+              <button className="btn lp-btn-light btn-sm">Open check-in</button>
+            </form>
+          ))}
+          {!candidates.length && <p className="text-sm text-slate-400">No upcoming services. <Link className="underline" href="/admin/services/new">Create one</Link>.</p>}
+        </div>
+        <Link href="/admin/attendance" className="mt-6 inline-block text-sm text-slate-400 hover:text-white">← Back to attendance</Link>
+      </div>
+    </div>
+  );
 }

@@ -1,30 +1,27 @@
-import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
+import { signPayload, verifyPayload } from "./signed";
 
-type Payload = { sessionId: string; nonce: string; issuedAt: number; expiresAt: number };
-function secret() {
-  const value = process.env.QR_SIGNING_SECRET;
-  if (!value || value.length < 32) throw new Error("QR_SIGNING_SECRET must contain at least 32 characters.");
-  return value;
-}
-function sign(encoded: string) {
-  return createHmac("sha256", secret()).update(encoded).digest("base64url");
-}
+type Payload = { sessionId: string; nonce: string; issuedAt: number; expiresAt: number; exp: number };
+
+/** Short-lived token shown in the rotating QR code. */
 export function createQrToken(sessionId: string, ttlSeconds = 20) {
   const now = Math.floor(Date.now() / 1000);
-  const payload: Payload = { sessionId, nonce: randomBytes(16).toString("hex"), issuedAt: now, expiresAt: now + ttlSeconds };
-  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  return `${encoded}.${sign(encoded)}`;
+  const payload: Payload = { sessionId, nonce: randomBytes(8).toString("hex"), issuedAt: now, expiresAt: now + ttlSeconds, exp: now + ttlSeconds };
+  return signPayload(payload, "qr");
 }
-export function verifyQrToken(token: string): Payload | null {
-  const [encoded, signature, extra] = token.split(".");
-  if (!encoded || !signature || extra) return null;
-  const expected = Buffer.from(sign(encoded));
-  const received = Buffer.from(signature);
-  if (expected.length !== received.length || !timingSafeEqual(expected, received)) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as Payload;
-    const now = Math.floor(Date.now() / 1000);
-    if (!payload.sessionId || !payload.nonce || payload.issuedAt > now + 5 || payload.expiresAt < now) return null;
-    return payload;
-  } catch { return null; }
+
+/** A small grace (default 10s) absorbs camera + network latency right at rotation time. */
+export function verifyQrToken(token: string, graceSeconds = 10): Payload | null {
+  const payload = verifyPayload<Payload>(token, "qr", graceSeconds);
+  if (!payload?.sessionId || payload.issuedAt > Math.floor(Date.now() / 1000) + 5) return null;
+  return payload;
+}
+
+export type CheckInTicket = { sid: string; svc: string; exp: number };
+/** Issued after a successful scan so the member has time to type their username or register. */
+export function createTicket(sessionId: string, serviceId: string, ttlSeconds = 15 * 60) {
+  return signPayload({ sid: sessionId, svc: serviceId, exp: Math.floor(Date.now() / 1000) + ttlSeconds } satisfies CheckInTicket, "ticket");
+}
+export function verifyTicket(token: string | undefined | null) {
+  return verifyPayload<CheckInTicket>(token, "ticket");
 }
