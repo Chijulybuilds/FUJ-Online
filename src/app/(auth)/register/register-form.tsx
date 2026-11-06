@@ -53,8 +53,8 @@ export function RegisterForm({ defaults, checkInNote, verified = false, otp = fa
       setDone(json);
     }}>
       {checkInNote && <p className="alert alert-ok">{checkInNote}</p>}
-      <label className="label">Full name<input className="input mt-2" name="fullName" required defaultValue={defaults.name} autoComplete="name" placeholder="e.g. Grace Okafor" /></label>
-      <label className="label">Phone number<input className="input mt-2" name="phone" required inputMode="tel" autoComplete="tel" placeholder="0803 123 4567" readOnly={codeSent} onChange={() => codeSent && setCodeSent(false)} /></label>
+      <label className="label">Full name<input className="input mt-2" name="fullName" required defaultValue={defaults.name} autoComplete="name" placeholder="Your full name" /></label>
+      <label className="label">Phone number<input className="input mt-2" name="phone" required inputMode="tel" autoComplete="tel" placeholder="080X XXX XXXX" readOnly={codeSent} onChange={() => codeSent && setCodeSent(false)} /></label>
       <label className="label">Email <span className="font-normal text-slate-400">(optional)</span><input className="input mt-2" name="email" type="email" defaultValue={defaults.email} autoComplete="email" /></label>
       {needsOtp && codeSent && (
         <label className="label">Verification code

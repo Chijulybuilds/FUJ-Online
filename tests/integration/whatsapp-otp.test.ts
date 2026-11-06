@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 process.env.LOCAL_DB_PATH = join(mkdtempSync(join(tmpdir(), "fuj-wa-")), "db.json");
-process.env.SEED_DEMO_DATA = "false";
 process.env.QR_SIGNING_SECRET = "test-secret-that-is-at-least-32-characters";
 delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 

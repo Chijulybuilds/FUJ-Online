@@ -50,7 +50,7 @@ export default async function ServiceDetails({ params }: { params: Promise<{ ser
           <p className="mt-1 text-xs text-slate-500">Check people in by name — or open the full <Link className="font-semibold text-blue-600" href={`/admin/attendance/desk?service=${service.id}`}>check-in desk</Link> with live search.</p>
           <ActionForm action={manualCheckInAction} className="mt-3 flex gap-2" resetOnSuccess>
             <input type="hidden" name="service_id" value={service.id} />
-            <input className="input" name="person" placeholder="flaggrace101 or 0803…" required aria-label="Person" />
+            <input className="input" name="person" placeholder="Username, name or phone" required aria-label="Person" />
             <SubmitButton className="btn btn-secondary" pendingText="…">Check in</SubmitButton>
           </ActionForm>
           {service.status !== "cancelled" && service.status !== "completed" && (

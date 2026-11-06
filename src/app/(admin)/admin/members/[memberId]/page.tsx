@@ -9,7 +9,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { attendanceForPerson } from "@/lib/repo/services";
-import { createTaskAction, markVerifiedAction, setDepartmentAction, updatePersonAction } from "@/lib/actions/admin";
+import { createTaskAction, markVerifiedAction, updatePersonAction } from "@/lib/actions/admin";
 
 const VERIFIED_LABEL = { google: "Google account", in_person: "checked in at church", admin: "confirmed by an admin", otp: "SMS code" } as const;
 import { formatDate, formatDateTime } from "@/lib/utils";
@@ -20,12 +20,11 @@ export default async function MemberDetails({ params, searchParams }: { params: 
   const { created } = await searchParams;
   const person = await db().get("people", { id: memberId }).catch(() => null);
   if (!person) notFound();
-  const [attendance, links, departments, tasks, prayers] = await Promise.all([
-    attendanceForPerson(person.id), db().list("member_departments", { where: { person_id: person.id } }), db().list("departments"),
+  const [attendance, tasks, prayers] = await Promise.all([
+    attendanceForPerson(person.id),
     db().list("follow_up_tasks", { where: { person_id: person.id }, order: { column: "created_at", ascending: false } }),
     can(admin.role, "prayer") ? db().list("prayer_requests", { where: { person_id: person.id } }) : Promise.resolve([])
   ]);
-  const deptMap = new Map(departments.map((d) => [d.id, d]));
   const wa = person.normalized_phone.replace(/^\+/, "");
   return (
     <>
@@ -60,23 +59,6 @@ export default async function MemberDetails({ params, searchParams }: { params: 
           </ActionForm>
         </section>
         <div className="space-y-6">
-          <section className="card p-6">
-            <h2 className="font-bold">Departments</h2>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {links.map((l) => (
-                <form key={l.department_id} action={setDepartmentAction} className="inline-flex">
-                  <input type="hidden" name="person_id" value={person.id} /><input type="hidden" name="department_id" value={l.department_id} /><input type="hidden" name="op" value="remove" />
-                  <button className="pill pill-blue" title="Remove">{deptMap.get(l.department_id)?.name ?? "?"} ✕</button>
-                </form>
-              ))}
-              {!links.length && <span className="text-sm text-slate-500">Not in a department yet.</span>}
-            </div>
-            <form action={setDepartmentAction} className="mt-4 flex gap-2">
-              <input type="hidden" name="person_id" value={person.id} />
-              <select name="department_id" className="input" aria-label="Department">{departments.filter((d) => d.is_active && !links.some((l) => l.department_id === d.id)).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
-              <button className="btn btn-secondary">Add</button>
-            </form>
-          </section>
           <section className="card p-6">
             <h2 className="font-bold">Attendance <span className="text-sm font-normal text-slate-500">({attendance.length} services)</span></h2>
             <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto text-sm">

@@ -93,7 +93,7 @@ export function CheckInFlow() {
             )}
             <form className="mt-6 space-y-3" onSubmit={(e) => { e.preventDefault(); void confirm(false); }}>
               <label className="label">{status.member ? "Or enter a username" : "Enter your username"}
-                <input className="input username-badge mt-2 text-lg" value={username} onChange={(e) => setUsername(e.target.value)} required autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="flaggrace101" aria-label="Username" />
+                <input className="input username-badge mt-2 text-lg" value={username} onChange={(e) => setUsername(e.target.value)} required autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="flagyourname123" aria-label="Username" />
               </label>
               {message && <p className="alert alert-err" data-testid="checkin-message">{message}</p>}
               <button className={`btn ${status.member ? "btn-secondary" : "btn-primary"} w-full py-3`} disabled={busy}>{busy ? "Checking in…" : "Check in"}</button>

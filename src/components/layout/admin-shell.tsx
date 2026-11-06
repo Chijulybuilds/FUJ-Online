@@ -11,7 +11,7 @@ export function AdminShell({ children, name, role }: { children: ReactNode; name
       <Sidebar areas={areas} name={name} roleLabel={ROLE_LABELS[role]} />
       <div className="main-area">
         <Topbar name={name} roleLabel={ROLE_LABELS[role]} areas={areas} />
-        <main className="content">{children}<footer className="mt-10 border-t border-slate-200 pt-5 text-xs text-slate-400">© {new Date().getFullYear()} Flag of Jesus Global Ministry · FlagUpJesus</footer></main>
+        <main className="content">{children}<footer className="mt-10 border-t border-slate-200 pt-5 text-xs text-slate-400">© {new Date().getFullYear()} FlagUpJesus Global Ministry · FlagUpJesus</footer></main>
       </div>
     </div>
   );

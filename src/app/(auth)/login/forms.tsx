@@ -19,8 +19,8 @@ export function MemberLoginForm() {
       try { const r = await post("/api/auth/member", { username: fd.get("username"), phone: fd.get("phone") }); router.push(r.redirect); router.refresh(); }
       catch (err) { setError(err instanceof Error ? err.message : "Sign-in failed."); setBusy(false); }
     }}>
-      <label className="label">Username<input className="input mt-2 username-badge" name="username" required autoCapitalize="none" autoComplete="username" placeholder="flaggrace101" /></label>
-      <label className="label">Phone number<input className="input mt-2" name="phone" required inputMode="tel" autoComplete="tel" placeholder="0803 123 4567" /></label>
+      <label className="label">Username<input className="input mt-2 username-badge" name="username" required autoCapitalize="none" autoComplete="username" placeholder="flagyourname123" /></label>
+      <label className="label">Phone number<input className="input mt-2" name="phone" required inputMode="tel" autoComplete="tel" placeholder="080X XXX XXXX" /></label>
       {error && <p className="alert alert-err">{error}</p>}
       <button className="btn btn-primary w-full" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
     </form>
@@ -40,11 +40,10 @@ export function DevLoginForm({ intent, defaultEmail }: { intent: "admin" | "memb
         try { const r = await post("/api/auth/dev", { email: fd.get("email"), name: fd.get("name"), intent }); router.push(r.redirect); router.refresh(); }
         catch (err) { setError(err instanceof Error ? err.message : "Sign-in failed."); setBusy(false); }
       }}>
-        <input className="input" name="email" type="email" required placeholder="email" aria-label="Email" defaultValue={defaultEmail ?? (intent === "admin" ? "admin@flagupjesus.local" : "")} />
+        <input className="input" name="email" type="email" required placeholder="email" aria-label="Email" defaultValue={defaultEmail ?? ""} />
         {intent !== "admin" && <input className="input" name="name" placeholder="Full name" aria-label="Name" />}
         {error && <p className="alert alert-err">{error}</p>}
         <button className="btn btn-secondary w-full" disabled={busy}>{busy ? "…" : "Continue"}</button>
-        {intent === "admin" && <p className="text-[11px] text-slate-400">Demo staff roles: admin@, pastor@, care@, finance@, usher@flagupjesus.local</p>}
       </form>
     </details>
   );

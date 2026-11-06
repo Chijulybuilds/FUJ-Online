@@ -5,7 +5,6 @@ import { join } from "node:path";
 
 // Fresh local JSON store per run, no demo seed.
 process.env.LOCAL_DB_PATH = join(mkdtempSync(join(tmpdir(), "fuj-")), "db.json");
-process.env.SEED_DEMO_DATA = "false";
 delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const { db, DuplicateError } = await import("../../src/lib/db");

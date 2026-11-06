@@ -1,6 +1,6 @@
 # FlagUpJesus Online Church — V1
 
-A responsive church-management web app for **Flag of Jesus Global Ministry** (product name **FlagUpJesus**): an animated public landing page, QR attendance with personal **flag usernames**, a member portal, and an admin dashboard for pastoral care, broadcasts, prayer, testimonies, giving and reports.
+A responsive church-management web app for **FlagUpJesus Global Ministry** (product name **FlagUpJesus**): an animated public landing page, QR attendance with personal **flag usernames**, a member portal, and an admin dashboard for pastoral care, broadcasts, prayer, testimonies, giving and reports.
 
 ## What's included
 
@@ -9,16 +9,16 @@ A responsive church-management web app for **Flag of Jesus Global Ministry** (pr
 | **Landing page** (`/`) | A five-layer FlagUpJesus story with a numbered section rail: **01 Welcome** (waving flag-red banner, outreach photo reel gliding from the right edge to the centre, live service countdown), **02 Our Heartbeat** (the motto lighting up word-by-word as you scroll; *The Word + The Works*), **03 Global Love Campaigns** (story-style outreach slideshow, two moving photo carousels, medical/food/community care), **04 Word & Worship** (Word Experience, Bible Study, International Prayer & Mission Conference, Unveiled Worship Encounter, service times), **05 Our Reach** (animated Nigeria map: Port Harcourt HQ, Lagos, Abuja, Bayelsa; Pastor Caleb's books). Then check-in how-to, news, testimonies, public prayer requests + prayer wall, partnering/giving. Light/dark themes; respects `prefers-reduced-motion`. Photos live in `public/images/fuj/`. |
 | **Check-in desk** (`/admin/attendance/desk`) | The no-phone alternative to QR: staff type a member's **name** (or username/phone), tap **Check in**, and can add a first-timer with name + phone in one step. |
 | **QR check-in** | Staff open check-in for a service → full-screen display shows a QR that **rotates every 20 s**. Scanning exchanges the short-lived token for a 15-minute ticket on that phone. **Returning members just type their flag username (no OTP).** First-timers tap *Register* and are checked in automatically. |
-| **Flag usernames** | Every person gets a unique username at first registration: `flag` + first name + 3 digits, e.g. `flaggrace101`. Case-insensitive; the `flag` prefix is optional when typing. |
+| **Flag usernames** | Every person gets a unique username at first registration: `flag` + first name + 3 digits, e.g. `flagyourname123`. Case-insensitive; the `flag` prefix is optional when typing. |
 | **Registration** | Only **full name + phone number** and an optional email — or **Continue with Google**. **No paid SMS OTP**: people are verified for free — automatically at their **first in-person check-in** (live QR or usher desk), by **Google**, or by an admin (**Mark verified**). The directory shows an *Unverified* filter for online sign-ups not yet seen in church. (Optional: `REGISTRATION_OTP=true` adds an SMS code via Termii.) |
 | **Member portal** (`/member`) | Username card, messages from the church (read + reply), announcements, prayer requests + prayer wall ("I prayed"), testimonies, attendance history, giving details/history, profile. Sign in with Google or username + phone number. |
 | **Admin** (`/admin` → `/admin/login`) | Not linked from the public site: go to `yoursite/admin`. Sign in with the **shared FUJ admin email + password** (each person adds their name so actions stay attributable), or individual staff can use Google. |
-| **Admin pages** | Dashboard, people directory (search, CSV export), member records, services, attendance, QR display, usher manual check-in, pastoral care, broadcasts + tracking, inbox, announcements, prayer moderation, testimony moderation, departments, giving, reports, settings & staff roles. |
+| **Admin pages** | Dashboard, people directory (search, CSV export), member records, services, attendance, QR display, check-in desk, pastoral care, broadcasts + tracking, inbox, announcements, prayer moderation, testimony moderation, giving, reports, settings & staff roles. |
 | **Pastoral care** | Absence analysis (runs automatically when check-in closes, or on demand) flags regular attenders who missed the last *N* services and first-time guests. Tasks have priority, assignee, due date, confidential notes, call/WhatsApp shortcuts and a contact log. It never changes membership status automatically. |
 | **Free WhatsApp sharing** | Broadcasts can carry a **flyer image**. After sending, **Share on WhatsApp** opens WhatsApp's share sheet with the flyer + message so you post it to the church's WhatsApp **broadcast lists, groups, Status or Channel** — free. Every recipient row also has a one-tap personal WhatsApp link, and **Members → Contacts for WhatsApp (.vcf)** loads everyone into the church phone. |
 | **Automatic WhatsApp → SMS (optional, paid)** | Broadcasts (and inbox replies / announcements) can go to every contact's phone: **WhatsApp first** (WhatsApp and WhatsApp Business), **SMS automatically** for numbers that aren't on WhatsApp. The app learns who is on WhatsApp from delivery receipts, records per-recipient WhatsApp/SMS status, counts WhatsApp "read" receipts as reads, and turns WhatsApp replies into Inbox responses. |
-| **Broadcasts & follow-up tracking** | Send to everyone / members / visitors / first-timers / absentees / a department / one person, with `{first_name}` personalisation. Track **read** and **responded** per recipient, send a **follow-up broadcast** to non-readers or non-responders, or hand non-responders to pastoral care as tasks. Replies land in the admin **Inbox**. In-app delivery always works; SMS (Termii) and email (Resend) when configured. |
-| **Roles** | `super_admin`, `admin`, `pastor`, `pastoral_worker`, `finance_admin`, `department_leader` (usher). Each sees only their areas (e.g. finance can't read prayer requests; "private" prayer requests are pastor/admin only). |
+| **Broadcasts & follow-up tracking** | Send to everyone / members / visitors / first-timers / absentees / one person, with `{first_name}` personalisation. Track **read** and **responded** per recipient, send a **follow-up broadcast** to non-readers or non-responders, or hand non-responders to pastoral care as tasks. Replies land in the admin **Inbox**. In-app delivery always works; SMS (Termii) and email (Resend) when configured. |
+| **Roles** | `super_admin`, `admin`, `pastor`, `pastoral_worker`, `finance_admin`, `department_leader` (shown as **Usher**). Each sees only their areas (e.g. finance can't read prayer requests; "private" prayer requests are pastor/admin only). |
 
 ## 1. Run locally
 
@@ -30,11 +30,11 @@ npm run dev
 
 Open http://localhost:3000.
 
-**Without Supabase** (`SUPABASE_SERVICE_ROLE_KEY` empty) the app stores data in `.data/flagupjesus-db.json` and seeds demo data. Admin: open http://localhost:3000/admin and sign in with `admin@flagupjesus.local` / `FlagUpJesus@2026` (local demo only), or use "Developer sign-in" with `pastor@…`, `care@…`, `finance@…`, `usher@flagupjesus.local` to try other roles. Demo member: `flaggrace101` / `08031234567`. Flyers uploaded locally are stored in `.data/uploads/`.
+**Without Supabase** (`SUPABASE_SERVICE_ROLE_KEY` empty) the app stores data in `.data/flagupjesus-db.json`. It starts **empty** — no sample members, services or offerings; only the ministry name and bank account. Anything FUJ hasn't provided yet (address, phone, email, service times, livestream link) shows as a dashed **[placeholder]** until you fill it in **Admin → Settings**. Set `ADMIN_LOGIN_EMAIL` / `ADMIN_LOGIN_PASSWORD` in `.env.local`, then open http://localhost:3000/admin. Flyers uploaded locally are stored in `.data/uploads/`. (The automated tests use their own fictional sample data from `tests/e2e/fixtures/`, written to a throwaway database.)
 
 ## 2. Connect Supabase (database)
 
-1. In the Supabase SQL Editor run **every** file in `supabase/migrations/` in order (`0001` → `0007`). `0005`–`0007` are idempotent (`0006`: WhatsApp delivery tracking, `0007`: free verification + flyers, and the public `flyers` Storage bucket).
+1. In the Supabase SQL Editor run **every** file in `supabase/migrations/` in order (`0001` → `0008`). `0005`–`0008` are idempotent (`0006`: WhatsApp delivery tracking, `0007`: free verification + flyers and the public `flyers` Storage bucket, `0008`: removes departments).
 2. Optionally run `supabase/seed.sql`.
 3. Put the Project URL, anon key and **service-role key** in `.env.local`. The service-role key is used only on the server (route handlers / server actions); permissions are enforced in the app layer and RLS stays on so the anon key cannot read church data.
 4. Check `GET /api/health` → `{"mode":"supabase","database":"ready"}`. If you see `PGRST205`, run `notify pgrst, 'reload schema';`.
@@ -125,7 +125,7 @@ npm run test:all   # everything above
 | `/admin/messaging`, `/admin/messaging/[id]` | Broadcasts + read/response tracking |
 | `/admin/inbox`, `/admin/inbox/[personId]` | Member responses + replies |
 | `/admin/announcements`, `/admin/prayer-requests`, `/admin/testimonies` | Content + moderation |
-| `/admin/departments`, `/admin/giving`, `/admin/reports`, `/admin/settings` | Management |
+| `/admin/giving`, `/admin/reports`, `/admin/settings` | Management |
 | `/api/webhooks/whatsapp` | WhatsApp delivery receipts + inbound replies |
 | `/api/health` | Health / configuration check |
 
@@ -136,7 +136,7 @@ src/
   app/                  pages (App Router), API route handlers
   components/           layout shells, landing-page motion components, UI
   lib/
-    db/                 storage contract + Supabase and local JSON implementations, row types, demo seed
+    db/                 storage contract + Supabase and local JSON implementations, row types, starting data (ministry name + bank account only)
     repo/               domain logic (people, services/attendance, care, messaging, content, giving, reports)
     actions/            server actions (admin, member) — each checks the caller's role
     auth/               signed-cookie sessions, roles, Google + identity handling
@@ -148,6 +148,7 @@ tests/unit, tests/integration, tests/e2e
 
 ## Brand and scope
 
-- Ministry: Flag of Jesus Global Ministry · Application: FlagUpJesus
+- Ministry: FlagUpJesus Global Ministry · Application: FlagUpJesus
+- Giving: Fidelity Bank · 5600605313 · FlagUp Jesus Global Ministry (editable in Admin → Settings)
 - V1: single church location · Sermon repository deferred to V2
 - Online card payments: not enabled — giving is recorded by finance staff; a payment provider must confirm via verified webhooks.

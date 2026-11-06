@@ -6,8 +6,8 @@ import "./globals.css";
 import { HydrationMark } from "@/components/shared/hydration-mark";
 
 export const metadata: Metadata = {
-  title: "FlagUpJesus | Flag of Jesus Global Ministry",
-  description: "Worship with Flag of Jesus Global Ministry online and in person — check in, share prayer requests and testimonies, and stay connected."
+  title: "FlagUpJesus | FlagUpJesus Global Ministry",
+  description: "Worship with FlagUpJesus Global Ministry online and in person — check in, share prayer requests and testimonies, and stay connected."
 };
 export const viewport: Viewport = { themeColor: "#bd1722", width: "device-width", initialScale: 1 };
 

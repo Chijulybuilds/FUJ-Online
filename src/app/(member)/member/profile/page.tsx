@@ -9,8 +9,6 @@ import { formatDate } from "@/lib/utils";
 export default async function Profile() {
   const me = await requireMember();
   const p = (await db().get("people", { id: me.personId }))!;
-  const links = await db().list("member_departments", { where: { person_id: p.id } });
-  const depts = links.length ? await db().list("departments", { where: { id: links.map((l) => l.department_id) } }) : [];
   return (
     <>
       <PageHeading title="My profile" description="Your church record. Contact the church office to change your name." />
@@ -18,7 +16,7 @@ export default async function Profile() {
         <section className="card p-6">
           <p className="text-xs text-slate-500">Check-in username</p>
           <div className="mt-1 flex items-center gap-3"><p className="username-badge text-2xl font-bold text-blue-600">{p.username}</p><CopyButton value={p.username ?? ""} /></div>
-          <dl className="kv mt-6"><dt>Name</dt><dd>{p.full_name}</dd><dt>Member ID</dt><dd>{p.person_code}</dd><dt>Status</dt><dd className="capitalize">{p.status}</dd><dt>First visit</dt><dd>{formatDate(p.first_visit_at)}</dd><dt>Departments</dt><dd>{depts.map((d) => d.name).join(", ") || "—"}</dd></dl>
+          <dl className="kv mt-6"><dt>Name</dt><dd>{p.full_name}</dd><dt>Member ID</dt><dd>{p.person_code}</dd><dt>Status</dt><dd className="capitalize">{p.status}</dd><dt>First visit</dt><dd>{formatDate(p.first_visit_at)}</dd></dl>
         </section>
         <section className="card p-6">
           <ActionForm action={updateProfileAction} className="grid gap-3">

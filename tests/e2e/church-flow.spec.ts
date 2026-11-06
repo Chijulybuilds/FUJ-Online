@@ -93,6 +93,24 @@ test("landing page renders with motion sections and accepts a guest prayer reque
   await shot(page, "02-landing-testimonies");
 });
 
+test("landing: red Donate button jumps to the ministry bank account; departments are gone", async ({ page }) => {
+  await go(page, "/");
+  const donate = page.getByTestId("donate-button");
+  await expect(donate).toBeVisible();
+  await expect(donate).toHaveText(/Donate/);
+  expect(await donate.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(232, 48, 58)");
+  await donate.click();
+  await expect(page).toHaveURL(/#give$/);
+  await expect(page.locator("#give")).toBeInViewport();
+  await expect(page.locator("#give")).toContainText("Fidelity Bank");
+  await expect(page.locator("#give")).toContainText("5600605313");
+  await expect(page.locator("#give")).toContainText("FlagUp Jesus Global Ministry");
+  await expect(page.locator("#reach")).toContainText("United Kingdom");
+  await expect(page.locator('svg.ng-map [data-place="United Kingdom"]')).toHaveCount(1);
+  const res = await page.request.get("/admin/departments");
+  expect(res.status()).toBe(404);
+});
+
 test("staff creates a service and opens a rotating QR check-in", async ({ browser }) => {
   admin = await newDevice(browser);
   await staffLogin(admin);

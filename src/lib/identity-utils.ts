@@ -1,6 +1,6 @@
 import { USERNAME_PREFIX } from "./constants";
 
-/** Normalises Nigerian and international numbers to E.164-ish form, e.g. 08031234567 → +2348031234567. */
+/** Normalises Nigerian and international numbers to E.164-ish form, e.g. 080XXXXXXXX → +23480XXXXXXXX. */
 export function normalizePhone(input: string): string {
   const trimmed = input.trim();
   const digits = trimmed.replace(/\D/g, "");
@@ -24,7 +24,7 @@ export function usernameCandidates(input: string): string[] {
   return value.startsWith(USERNAME_PREFIX) ? [value] : [value, `${USERNAME_PREFIX}${value}`];
 }
 
-/** "Grace Okafor" → "flaggrace" + 3 digits. Keeps usernames short, readable and typeable on a phone. */
+/** "First Last" → "flagfirst" + 3 digits. Keeps usernames short, readable and typeable on a phone. */
 export function usernameBase(fullName: string): string {
   const first = fullName
     .normalize("NFKD")

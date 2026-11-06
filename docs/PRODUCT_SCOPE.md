@@ -5,7 +5,7 @@
 - Member: maintains profile, views attendance and church updates.
 - Usher: checks people in manually when QR/mobile access is unavailable.
 - Pastoral worker: handles assigned follow-up and pastoral-care tasks.
-- Department leader: sees permitted department information.
+- Usher: checks people in at the check-in desk and manages services/attendance.
 - Finance administrator: manages giving and financial reports.
 - Administrator / pastor / super administrator: manages church operations according to assigned permissions.
 

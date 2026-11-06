@@ -14,7 +14,8 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `rm -rf .data/e2e && npx next start -p ${PORT}`,
+    // Test-only sample data (tests/e2e/fixtures) is written to a throwaway DB; the app itself starts empty.
+    command: `rm -rf .data/e2e && node tests/e2e/fixtures/demo-db.mjs .data/e2e/db.json && npx next start -p ${PORT}`,
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: false,
     timeout: 120_000,

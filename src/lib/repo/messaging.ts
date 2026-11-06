@@ -35,11 +35,6 @@ export async function resolveAudience(audience: string): Promise<Person[]> {
       const ids = new Set(tasks.filter((t) => kind === "care_open" || t.category === "absentee").map((t) => t.person_id));
       return people.filter((p) => ids.has(p.id));
     }
-    case "department": {
-      const links = await db().list("member_departments", { where: { department_id: arg, is_active: true } });
-      const ids = new Set(links.map((l) => l.person_id));
-      return people.filter((p) => ids.has(p.id));
-    }
     case "person": return people.filter((p) => p.id === arg);
     case "followup": {
       // followup:<broadcastId>:unread | unresponded
@@ -55,7 +50,6 @@ export async function audienceLabel(audience: string) {
   const preset = AUDIENCES.find((a) => a.value === audience);
   if (preset) return preset.label;
   const [kind, arg, mode] = audience.split(":");
-  if (kind === "department") return `Department: ${(await db().get("departments", { id: arg }))?.name ?? "Unknown"}`;
   if (kind === "person") return `Direct: ${(await db().get("people", { id: arg }))?.full_name ?? "Unknown"}`;
   if (kind === "followup") return mode === "unread" ? "Follow-up: hasn't read previous message" : "Follow-up: hasn't responded";
   return audience;
