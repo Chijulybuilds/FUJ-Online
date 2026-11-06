@@ -51,10 +51,10 @@ export function QrDisplay({ serviceId }: { serviceId: string }) {
         <div className="grid flex-1 items-center gap-10 py-6 lg:grid-cols-[1fr_auto]">
           <div>
             <p className="text-sm uppercase tracking-[.2em] text-red-200">Flag of Jesus Global Ministry</p>
-            <h1 className="mt-3 text-4xl font-extrabold leading-tight sm:text-6xl">Welcome to<br /><span className="font-display italic text-[#ffd9a0]">{data?.service ?? "church"}</span></h1>
+            <h1 className="mt-3 text-4xl font-extrabold leading-tight sm:text-6xl">Welcome to<br /><span className="font-display italic text-[#ffc7cb]">{data?.service ?? "church"}</span></h1>
             <ol className="mt-8 space-y-3 text-lg text-slate-200">
               <li><b className="text-white">1.</b> Open your phone camera &amp; scan the code</li>
-              <li><b className="text-white">2.</b> Type your <b className="text-[#ffd9a0]">flag</b> username</li>
+              <li><b className="text-white">2.</b> Type your <b className="text-[#ffc7cb]">flag</b> username</li>
               <li><b className="text-white">3.</b> First time? Tap <i>Register</i> — it takes a minute</li>
             </ol>
             <div className="mt-10 flex items-end gap-8">

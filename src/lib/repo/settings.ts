@@ -5,8 +5,8 @@ import { nowIso } from "@/lib/utils";
 
 const DEFAULTS: ChurchSettings = {
   id: true, church_name: "Flag of Jesus Global Ministry", app_name: "FlagUpJesus", timezone: "Africa/Lagos",
-  contact_email: null, contact_phone: null, tagline: "Raising the flag of Jesus in every nation.", address: null,
-  service_times: "Sunday Celebration Service|Sundays · 9:00 AM\nMidweek Bible Study|Wednesdays · 5:30 PM",
+  contact_email: null, contact_phone: null, tagline: "Raising the flag of Jesus in every nation.", address: "Port Harcourt, Rivers State, Nigeria",
+  service_times: "Word Experience (Sunday Service)|Sundays · 9:00 AM\nBible Study|Wednesdays · 5:30 PM",
   livestream_url: null, bank_name: null, account_name: null, account_number: null, absence_threshold: 2,
   created_at: new Date(0).toISOString(), updated_at: new Date(0).toISOString()
 };
