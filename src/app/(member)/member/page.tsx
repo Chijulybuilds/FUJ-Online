@@ -31,7 +31,7 @@ export default async function MemberHome() {
         <p className="text-sm text-red-200">Welcome home</p>
         <h1 className="mt-2 text-3xl font-bold">Hi {person.full_name.split(" ")[0]}, God bless you! 🙌</h1>
         <div className="mt-6 inline-flex flex-wrap items-center gap-3 rounded-2xl bg-white/10 p-4">
-          <div><p className="text-xs text-slate-300">Your check-in username</p><p className="username-badge text-2xl font-extrabold text-[#ffd9a0]" data-testid="portal-username">{person.username}</p></div>
+          <div><p className="text-xs text-slate-300">Your check-in username</p><p className="username-badge text-2xl font-extrabold text-[#ffc7cb]" data-testid="portal-username">{person.username}</p></div>
           <CopyButton value={person.username ?? ""} className="btn lp-btn-glass btn-sm" />
         </div>
         {next && <p className="mt-5 text-sm text-slate-300">Next: <b className="text-white">{next.title}</b> · {formatDateTime(next.starts_at)}</p>}
