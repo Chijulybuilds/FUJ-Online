@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (!person && body.data.fullName && body.data.phone) {
       person = (await db().get("people", { normalized_phone: normalizePhone(body.data.phone) })) ?? null;
       if (!person) {
-        person = await createPerson({ full_name: body.data.fullName, phone: body.data.phone, status: "visitor" });
+        person = await createPerson({ full_name: body.data.fullName, phone: body.data.phone, status: "visitor", verified_via: "in_person" });
         await createTask({ person_id: person.id, category: "first_timer", reason: "First-timer added at the check-in desk — welcome call" });
         await audit(admin.name, "person.create_at_desk", "people", person.id);
         created = true;

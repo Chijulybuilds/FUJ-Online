@@ -22,7 +22,7 @@ export default async function RegisterPage() {
       <p className="mt-2 text-sm text-slate-500">Register once and get your personal <b>flag</b> username — after that, checking in is just scan → type username.</p>
       <div className="mt-6"><GoogleButton intent="register" label="Continue with Google" enabled={env.googleEnabled} /></div>
       {env.googleEnabled && <div className="my-5 flex items-center gap-3 text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200" />or register with your phone<span className="h-px flex-1 bg-slate-200" /></div>}
-      <RegisterForm defaults={{}} checkInNote={ticket && service ? `You'll be checked in to ${service.title} automatically.` : undefined} />
+      <RegisterForm otp={env.registrationOtp} defaults={{}} checkInNote={ticket && service ? `You'll be checked in to ${service.title} automatically.` : undefined} />
       {env.devLoginEnabled && <div className="mt-4"><DevLoginForm intent="register" /></div>}
       <p className="mt-6 text-center text-sm text-slate-500">Already registered? <Link className="font-semibold text-blue-600" href="/login">Sign in</Link></p>
     </AuthCard>

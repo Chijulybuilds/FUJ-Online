@@ -4,8 +4,11 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { CopyButton } from "@/components/shared/copy-button";
 
-/** verified = signed in with Google already (no SMS code needed). */
-export function RegisterForm({ defaults, checkInNote, verified = false }: { defaults: { name?: string; email?: string }; checkInNote?: string; verified?: boolean }) {
+/**
+ * verified = signed in with Google already. otp = require an SMS code (off by default: REGISTRATION_OTP=true).
+ * Without OTP, the person is confirmed for free at their first in-person check-in.
+ */
+export function RegisterForm({ defaults, checkInNote, verified = false, otp = false }: { defaults: { name?: string; email?: string }; checkInNote?: string; verified?: boolean; otp?: boolean }) {
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState(""); const [sending, setSending] = useState(false);
   const [codeSent, setCodeSent] = useState(false); const [cooldown, setCooldown] = useState(0);
@@ -20,12 +23,12 @@ export function RegisterForm({ defaults, checkInNote, verified = false }: { defa
         <p className="mt-5 text-sm text-slate-500">Your check-in username is</p>
         <p className="username-badge mt-2 text-3xl font-extrabold text-blue-600" data-testid="new-username">{done.username}</p>
         <div className="mt-3 flex justify-center"><CopyButton value={done.username} label="Copy username" /></div>
-        <p className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">📸 Screenshot or save it. Next Sunday, just scan the QR on the screen and type this username — no code by SMS required.</p>
+        <p className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">📸 Screenshot or save it. Next Sunday, just scan the QR on the screen and type this username. No smartphone? Tell an usher your name at the door.</p>
         <Link href="/member" className="btn btn-primary mt-6 w-full">Go to my portal</Link>
       </div>
     );
   }
-  const needsOtp = !verified;
+  const needsOtp = otp && !verified;
   async function sendCode(phone: string) {
     setError(""); setInfo(""); setSending(true);
     const res = await fetch("/api/otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone }) });
@@ -68,7 +71,7 @@ export function RegisterForm({ defaults, checkInNote, verified = false }: { defa
       {error && <p className="alert alert-err">{error}</p>}
       <p className="text-xs text-slate-500">We use your details only to care for you as a church family (NDPA 2023).</p>
       <button className="btn btn-primary py-3" disabled={busy || sending}>
-        {needsOtp && !codeSent ? (sending ? "Sending code…" : "Send OTP") : busy ? "Creating your account…" : needsOtp ? "Verify & create my account" : "Create my account"}
+        {needsOtp && !codeSent ? (sending ? "Sending code…" : "Send OTP") : busy ? "Creating your account…" : needsOtp ? "Verify & create my account" : "Register & get my username"}
       </button>
     </form>
   );

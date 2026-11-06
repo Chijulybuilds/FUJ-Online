@@ -16,7 +16,9 @@ export default async function SettingsPage() {
     ["Database", env.useSupabaseData ? "Supabase (service role)" : "Local JSON file (development)", env.useSupabaseData],
     ["Google sign-in", env.googleEnabled ? "Configured" : "Add CLIENT_ID / CLIENT_SECRET", env.googleEnabled],
     ["Shared admin login", env.sharedAdmin ? env.sharedAdmin.email : "Set ADMIN_LOGIN_EMAIL / PASSWORD", Boolean(env.sharedAdmin)],
-    ["WhatsApp (Cloud API)", providers.whatsapp ? (providers.whatsappTemplate ? "Configured · template" : "Configured · no template (24h window only)") : "Not configured", providers.whatsapp],
+    ["Registration", env.registrationOtp ? "SMS OTP required" : "Free — verified in person / Google", true],
+    ["WhatsApp sharing", "Free — Share on WhatsApp button", true],
+    ["WhatsApp (Cloud API, automatic)", providers.whatsapp ? (providers.whatsappTemplate ? "Configured · template" : "Configured · no template (24h window only)") : "Not configured", providers.whatsapp],
     ["SMS (Termii) — OTP & fallback", providers.sms ? "Configured" : "Not configured", providers.sms],
     ["Email (Resend)", providers.email ? "Configured" : "Not configured", providers.email]
   ] as const;

@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import type { Channel, StaffRole } from "@/lib/db/types";
 import { requireAdmin } from "@/lib/auth/session";
 import type { Area } from "@/lib/auth/roles";
-import { createPerson, findByUsername, FriendlyError, updatePerson } from "@/lib/repo/people";
+import { createPerson, findByUsername, FriendlyError, markVerified, updatePerson } from "@/lib/repo/people";
 import { closeCheckIn, createService, openCheckIn, recordAttendance, updateService } from "@/lib/repo/services";
 import { createTask, logContact, runFollowUpAnalysis, updateTask } from "@/lib/repo/care";
 import { sendBroadcast, smsUndelivered, tasksForNonResponders } from "@/lib/repo/messaging";
@@ -14,6 +14,7 @@ import { saveAnnouncement, setAnnouncementStatus, updatePrayer, moderateTestimon
 import { recordDonation } from "@/lib/repo/giving";
 import { saveSettings } from "@/lib/repo/settings";
 import { audit } from "@/lib/repo/audit";
+import { isOurFlyerUrl } from "@/lib/storage";
 import { nowIso, uid } from "@/lib/utils";
 
 type State = { ok?: boolean; message?: string; redirectTo?: string } | null;
@@ -48,7 +49,8 @@ export async function createPersonAction(_: State, fd: FormData): Promise<State>
     if (fullName.length < 2) return { ok: false, message: "Enter the person's full name." };
     const person = await createPerson({
       full_name: fullName, phone: str(fd, "phone"), email: opt(fd, "email"), status: str(fd, "status") === "member" ? "member" : "visitor",
-      gender: opt(fd, "gender"), birthday: opt(fd, "birthday"), address: opt(fd, "address"), how_heard: opt(fd, "how_heard"), notes: opt(fd, "notes")
+      gender: opt(fd, "gender"), birthday: opt(fd, "birthday"), address: opt(fd, "address"), how_heard: opt(fd, "how_heard"), notes: opt(fd, "notes"),
+      verified_via: "admin"
     });
     if (person.status === "visitor") await createTask({ person_id: person.id, category: "first_timer", reason: "New visitor added by staff — welcome call" });
     await audit(actor, "person.create", "people", person.id);
@@ -71,6 +73,13 @@ export async function updatePersonAction(_: State, fd: FormData): Promise<State>
     revalidatePath(`/admin/members/${id}`);
     return { ok: true, message: "Record updated." };
   });
+}
+
+export async function markVerifiedAction(fd: FormData) {
+  const id = str(fd, "id");
+  await guarded("members", async (actor) => { await markVerified(id, "admin"); await audit(actor, "person.verify", "people", id); return null; });
+  revalidatePath(`/admin/members/${id}`);
+  revalidatePath("/admin/members");
 }
 
 export async function setDepartmentAction(fd: FormData) {
@@ -213,7 +222,10 @@ export async function sendBroadcastAction(_: State, fd: FormData): Promise<State
   const result = await guarded("messaging", async (actor) => {
     const title = str(fd, "title"); const body = str(fd, "body");
     if (title.length < 2 || body.length < 2) return { ok: false, message: "Add a title and a message." };
+    const image = str(fd, "image_url");
+    if (image && !isOurFlyerUrl(image)) return { ok: false, message: "Upload the flyer again." };
     const broadcast = await sendBroadcast({
+      image_url: image || null,
       title, body, kind: (str(fd, "kind") as "announcement" | "follow_up" | "general") || "general", audience: str(fd, "audience") || "all",
       channels: channelsFrom(fd), request_response: bool(fd, "request_response"), parent_id: opt(fd, "parent_id"), created_by: actor
     });

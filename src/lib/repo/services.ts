@@ -88,7 +88,8 @@ export async function recordAttendance(input: {
       id: uid(), person_id: input.person.id, service_id: input.serviceId, checked_in_at: now, check_in_method: input.method,
       recorded_by: input.recordedBy ?? null, device_id: input.deviceId ?? null, created_at: now
     });
-    await db().update("people", { id: input.person.id }, { last_seen_at: now, updated_at: now });
+    // Being checked in at church (live QR scan or an usher at the desk) verifies a self-registered person.
+    await db().update("people", { id: input.person.id }, { last_seen_at: now, updated_at: now, ...(input.person.verified_via ? {} : { verified_via: "in_person" as const, verified_at: now }) });
     return { status: "checked_in", attendance, person: input.person };
   } catch (error) {
     if (error instanceof DuplicateError) {

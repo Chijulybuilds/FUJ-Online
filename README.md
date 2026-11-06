@@ -10,12 +10,13 @@ A responsive church-management web app for **Flag of Jesus Global Ministry** (pr
 | **Check-in desk** (`/admin/attendance/desk`) | The no-phone alternative to QR: staff type a member's **name** (or username/phone), tap **Check in**, and can add a first-timer with name + phone in one step. |
 | **QR check-in** | Staff open check-in for a service → full-screen display shows a QR that **rotates every 20 s**. Scanning exchanges the short-lived token for a 15-minute ticket on that phone. **Returning members just type their flag username (no OTP).** First-timers tap *Register* and are checked in automatically. |
 | **Flag usernames** | Every person gets a unique username at first registration: `flag` + first name + 3 digits, e.g. `flaggrace101`. Case-insensitive; the `flag` prefix is optional when typing. |
-| **Registration** | Only **full name + phone number** (verified with a 6-digit **SMS OTP**) and an optional email — or simply **Continue with Google** (then just add a phone number). Ushers can also add first-timers at the check-in desk. |
+| **Registration** | Only **full name + phone number** and an optional email — or **Continue with Google**. **No paid SMS OTP**: people are verified for free — automatically at their **first in-person check-in** (live QR or usher desk), by **Google**, or by an admin (**Mark verified**). The directory shows an *Unverified* filter for online sign-ups not yet seen in church. (Optional: `REGISTRATION_OTP=true` adds an SMS code via Termii.) |
 | **Member portal** (`/member`) | Username card, messages from the church (read + reply), announcements, prayer requests + prayer wall ("I prayed"), testimonies, attendance history, giving details/history, profile. Sign in with Google or username + phone number. |
 | **Admin** (`/admin` → `/admin/login`) | Not linked from the public site: go to `yoursite/admin`. Sign in with the **shared FUJ admin email + password** (each person adds their name so actions stay attributable), or individual staff can use Google. |
 | **Admin pages** | Dashboard, people directory (search, CSV export), member records, services, attendance, QR display, usher manual check-in, pastoral care, broadcasts + tracking, inbox, announcements, prayer moderation, testimony moderation, departments, giving, reports, settings & staff roles. |
 | **Pastoral care** | Absence analysis (runs automatically when check-in closes, or on demand) flags regular attenders who missed the last *N* services and first-time guests. Tasks have priority, assignee, due date, confidential notes, call/WhatsApp shortcuts and a contact log. It never changes membership status automatically. |
-| **WhatsApp → SMS delivery** | Broadcasts (and inbox replies / announcements) can go to every contact's phone: **WhatsApp first** (WhatsApp and WhatsApp Business), **SMS automatically** for numbers that aren't on WhatsApp. The app learns who is on WhatsApp from delivery receipts, records per-recipient WhatsApp/SMS status, counts WhatsApp "read" receipts as reads, and turns WhatsApp replies into Inbox responses. |
+| **Free WhatsApp sharing** | Broadcasts can carry a **flyer image**. After sending, **Share on WhatsApp** opens WhatsApp's share sheet with the flyer + message so you post it to the church's WhatsApp **broadcast lists, groups, Status or Channel** — free. Every recipient row also has a one-tap personal WhatsApp link, and **Members → Contacts for WhatsApp (.vcf)** loads everyone into the church phone. |
+| **Automatic WhatsApp → SMS (optional, paid)** | Broadcasts (and inbox replies / announcements) can go to every contact's phone: **WhatsApp first** (WhatsApp and WhatsApp Business), **SMS automatically** for numbers that aren't on WhatsApp. The app learns who is on WhatsApp from delivery receipts, records per-recipient WhatsApp/SMS status, counts WhatsApp "read" receipts as reads, and turns WhatsApp replies into Inbox responses. |
 | **Broadcasts & follow-up tracking** | Send to everyone / members / visitors / first-timers / absentees / a department / one person, with `{first_name}` personalisation. Track **read** and **responded** per recipient, send a **follow-up broadcast** to non-readers or non-responders, or hand non-responders to pastoral care as tasks. Replies land in the admin **Inbox**. In-app delivery always works; SMS (Termii) and email (Resend) when configured. |
 | **Roles** | `super_admin`, `admin`, `pastor`, `pastoral_worker`, `finance_admin`, `department_leader` (usher). Each sees only their areas (e.g. finance can't read prayer requests; "private" prayer requests are pastor/admin only). |
 
@@ -29,11 +30,11 @@ npm run dev
 
 Open http://localhost:3000.
 
-**Without Supabase** (`SUPABASE_SERVICE_ROLE_KEY` empty) the app stores data in `.data/flagupjesus-db.json` and seeds demo data. Admin: open http://localhost:3000/admin and sign in with `admin@flagupjesus.local` / `FlagUpJesus@2026` (local demo only), or use "Developer sign-in" with `pastor@…`, `care@…`, `finance@…`, `usher@flagupjesus.local` to try other roles. Demo member: `flaggrace101` / `08031234567`. Without an SMS provider, the registration OTP is shown on screen in development.
+**Without Supabase** (`SUPABASE_SERVICE_ROLE_KEY` empty) the app stores data in `.data/flagupjesus-db.json` and seeds demo data. Admin: open http://localhost:3000/admin and sign in with `admin@flagupjesus.local` / `FlagUpJesus@2026` (local demo only), or use "Developer sign-in" with `pastor@…`, `care@…`, `finance@…`, `usher@flagupjesus.local` to try other roles. Demo member: `flaggrace101` / `08031234567`. Flyers uploaded locally are stored in `.data/uploads/`.
 
 ## 2. Connect Supabase (database)
 
-1. In the Supabase SQL Editor run **every** file in `supabase/migrations/` in order (`0001` → `0006`). `0005` and `0006` are idempotent (`0006` adds OTP codes and WhatsApp delivery tracking).
+1. In the Supabase SQL Editor run **every** file in `supabase/migrations/` in order (`0001` → `0007`). `0005`–`0007` are idempotent (`0006`: WhatsApp delivery tracking, `0007`: free verification + flyers, and the public `flyers` Storage bucket).
 2. Optionally run `supabase/seed.sql`.
 3. Put the Project URL, anon key and **service-role key** in `.env.local`. The service-role key is used only on the server (route handlers / server actions); permissions are enforced in the app layer and RLS stays on so the anon key cannot read church data.
 4. Check `GET /api/health` → `{"mode":"supabase","database":"ready"}`. If you see `PGRST205`, run `notify pgrst, 'reload schema';`.
@@ -48,18 +49,34 @@ The app runs the Google OAuth flow itself using `CLIENT_ID` / `CLIENT_SECRET` (a
 
 Members can sign in with Google (linked by Google account / email) or with username + phone.
 
-## 4. Admin login, SMS OTP and WhatsApp
+## 4. Admin login, verification and WhatsApp
 
-**Shared admin login** — set `ADMIN_LOGIN_EMAIL` and `ADMIN_LOGIN_PASSWORD` (12+ characters in production) and optionally `ADMIN_LOGIN_ROLE` (default `super_admin`). Every FUJ admin signs in at `/admin` with these and types their own name, which is recorded in the audit log and on broadcasts. Change the password whenever someone leaves the team; sign-in attempts are rate-limited and failures are audited.
+**Shared admin login** — set `ADMIN_LOGIN_EMAIL` and `ADMIN_LOGIN_PASSWORD` (12+ characters in production) and optionally `ADMIN_LOGIN_ROLE` (default `super_admin`). Every FUJ admin signs in at `/admin` and types their own name, which is recorded on audit logs and broadcasts. Change the password whenever someone leaves the team.
 
-**SMS (Termii)** — `TERMII_API_KEY` and `TERMII_BASE_URL` (both shown in the Termii dashboard's API settings — newer accounts have their own base URL), `TERMII_SENDER_ID` (an approved sender ID from **IDs**), optional `TERMII_CHANNEL=dnd` to reach numbers on Do-Not-Disturb. Used for registration OTPs and for SMS broadcasts / WhatsApp fallback. In production, phone registration is unavailable until SMS is configured (Google still works).
+**Verification without SMS (default, free)** — registration is name + phone (+ email). A self-registered person is *unverified* until they are seen in church: their first check-in (scanning the live, rotating QR — which only works in the room — or an usher checking them in at the desk) verifies them automatically. Google sign-ups are verified by Google. Admins can **Mark verified** on any member record. No smartphone? The usher checks them in by name at **Admin → Check-in desk**, or adds them there as a first-timer.
 
-**WhatsApp Business Cloud API (Meta)**
-1. In Meta for Developers create an app → add **WhatsApp** → register your church's business number. Copy a **permanent access token** (System User) → `WHATSAPP_TOKEN`, and the **Phone number ID** → `WHATSAPP_PHONE_NUMBER_ID`.
-2. Create and get approved a **message template** (category *Utility* or *Marketing*) whose body has two variables, e.g. `*{{1}}*\n\n{{2}}\n\n— FlagUpJesus Global Ministry`, and set `WHATSAPP_TEMPLATE_NAME` (and `WHATSAPP_TEMPLATE_LANG`, default `en`). WhatsApp only delivers free-form messages to people who messaged you in the last 24 h, so broadcasts need this template.
-3. Webhook: callback URL `https://<your-domain>/api/webhooks/whatsapp`, verify token = `WHATSAPP_VERIFY_TOKEN`, subscribe to **messages**. Set `WHATSAPP_APP_SECRET` (App settings → Basic) so receipts are signature-checked.
+### WhatsApp broadcasting — two ways
 
-How delivery works: people marked *not on WhatsApp* get SMS directly; everyone else gets WhatsApp. If WhatsApp rejects the message, or the webhook later reports the number isn't on WhatsApp (error 131026), the SMS version is sent automatically and the person is remembered as *not on WhatsApp*. On a broadcast's tracking page you can also SMS everyone who has no WhatsApp delivery receipt yet. Staff can correct a person's WhatsApp status on their member record.
+**A. Free (works today, no setup):**
+1. **Members → Contacts for WhatsApp (.vcf)** → open the file on the church phone → "Import" (Android: Contacts app; iPhone: open the file → Add all contacts).
+2. In **WhatsApp Business** on that phone create **broadcast lists** (up to 256 contacts each; only people who have saved the church number receive them — ask members to save it), or use a **group / Community / Channel**.
+3. In the admin, write the broadcast, attach the **flyer**, send → on the tracking page tap **Share on WhatsApp** → choose your broadcast lists / groups / Status → send. On a computer it opens WhatsApp Web with the text; download the flyer and attach it.
+4. For individual follow-ups (absentees, first-timers) use the **WhatsApp** link on each recipient row or on the pastoral-care task — it opens a chat with a personalised message.
+
+**B. Automatic (optional): Meta WhatsApp Business Cloud API** — every broadcast goes to each member's WhatsApp by itself, SMS for numbers not on WhatsApp.
+1. Go to **https://developers.facebook.com/apps** → *Create app* → use case **"Connect with customers through WhatsApp"** (type *Business*) → link or create your **Meta Business portfolio** (business.facebook.com).
+2. In the app: **WhatsApp → API Setup**. Meta gives you a free **test number** — add up to 5 recipient numbers you can test with (free while building). Copy **Phone number ID** → `WHATSAPP_PHONE_NUMBER_ID`. The temporary token on that page expires in 24 h; for a permanent one go to **business.facebook.com → Settings → Users → System users** → add a system user (Admin) → *Assign assets* (your app + WhatsApp account) → *Generate token* with `whatsapp_business_messaging` and `whatsapp_business_management` → `WHATSAPP_TOKEN`.
+3. **WhatsApp Manager → Message templates → Create**:
+   - `fuj_broadcast` (category *Marketing* for programs/announcements, *Utility* for reminders) — body: `*{{1}}*` then `{{2}}` then `— FlagUpJesus Global Ministry` → `WHATSAPP_TEMPLATE_NAME=fuj_broadcast`
+   - `fuj_flyer` — header **Image**, same body → `WHATSAPP_FLYER_TEMPLATE_NAME=fuj_flyer`
+   Approval usually takes minutes to a day. (Templates are required: WhatsApp only allows free-form messages to people who messaged you in the last 24 h.)
+4. **WhatsApp → Configuration → Webhook**: callback URL `https://<your-domain>/api/webhooks/whatsapp`, verify token = any secret you choose (`WHATSAPP_VERIFY_TOKEN`), subscribe to **messages**. Copy **App settings → Basic → App secret** → `WHATSAPP_APP_SECRET`. (Needs your deployed https site; it can't call localhost.)
+5. To message real members: **WhatsApp → API Setup → Add phone number** (the church's own number, not already on the WhatsApp app — or migrate it), and complete **business verification** to lift the starting limit (250 people per 24 h).
+6. Cost: Meta bills per delivered template message (marketing templates cost more than utility; see Meta's pricing page for Nigeria). Replies from members open a free 24-hour window. Flyers must be publicly reachable — in production they're served from Supabase Storage automatically.
+
+How automatic delivery works: people marked *not on WhatsApp* get SMS directly; everyone else gets WhatsApp. If WhatsApp rejects a message or later reports the number isn't on WhatsApp (error 131026), the SMS version (with a flyer link) is sent automatically and the person is remembered as *not on WhatsApp*. WhatsApp replies arrive in the admin **Inbox**.
+
+**SMS (Termii, optional)** — `TERMII_API_KEY`, `TERMII_BASE_URL` (both in Termii → Settings / API), `TERMII_SENDER_ID` (approved under **IDs**), optional `TERMII_CHANNEL=dnd`. Only needed for `REGISTRATION_OTP=true` and automatic SMS.
 
 ## 5. Secrets & production
 

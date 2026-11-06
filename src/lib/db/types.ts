@@ -25,6 +25,9 @@ export interface Person {
   /** Whether the phone number is reachable on WhatsApp (learned from delivery receipts). */
   whatsapp: "unknown" | "yes" | "no";
   whatsapp_checked_at: string | null;
+  /** How the person was confirmed to be real: Google, seen in church (check-in), or by an admin. null = self-registered, not yet seen. */
+  verified_via: "google" | "in_person" | "admin" | "otp" | null;
+  verified_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -176,6 +179,8 @@ export interface Broadcast {
   channels: Channel[];
   status: "draft" | "sent";
   request_response: boolean;
+  /** Optional flyer image (public URL). */
+  image_url: string | null;
   parent_id: string | null;
   recipient_count: number;
   created_by: string | null;

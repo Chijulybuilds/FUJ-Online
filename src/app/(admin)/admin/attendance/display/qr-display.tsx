@@ -56,6 +56,7 @@ export function QrDisplay({ serviceId }: { serviceId: string }) {
               <li><b className="text-white">1.</b> Open your phone camera &amp; scan the code</li>
               <li><b className="text-white">2.</b> Type your <b className="text-[#ffc7cb]">flag</b> username</li>
               <li><b className="text-white">3.</b> First time? Tap <i>Register</i> — it takes a minute</li>
+              <li className="pt-2 text-base text-red-100/80">No smartphone? Just tell an usher your name 🙂</li>
             </ol>
             <div className="mt-10 flex items-end gap-8">
               <div><p className="text-6xl font-extrabold tabular-nums" data-testid="live-count">{data?.count ?? 0}</p><p className="text-sm text-slate-400">checked in</p></div>

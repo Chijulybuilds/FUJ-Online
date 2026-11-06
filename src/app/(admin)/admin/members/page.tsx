@@ -14,12 +14,13 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
   const lastSeen = new Map<string, string>();
   attendance.forEach((a) => { if ((lastSeen.get(a.person_id) ?? "") < a.checked_in_at) lastSeen.set(a.person_id, a.checked_in_at); });
   const term = q.toLowerCase();
-  const filtered = people.filter((p) => (!status || p.status === status) && (!term || `${p.full_name} ${p.phone} ${p.normalized_phone} ${p.username} ${p.person_code} ${p.email}`.toLowerCase().includes(term)));
-  const tabs = [["", "All"], ["member", "Members"], ["visitor", "Visitors"], ["inactive", "Inactive"]];
+  const unverified = people.filter((p) => !p.verified_via).length;
+  const filtered = people.filter((p) => (!status || (status === "unverified" ? !p.verified_via : p.status === status)) && (!term || `${p.full_name} ${p.phone} ${p.normalized_phone} ${p.username} ${p.person_code} ${p.email}`.toLowerCase().includes(term)));
+  const tabs = [["", "All"], ["member", "Members"], ["visitor", "Visitors"], ["inactive", "Inactive"], ["unverified", `Unverified (${unverified})`]];
   return (
     <>
       <PageHeading title="People directory" description={`${people.length} people · every person gets a unique flag username at registration.`}
-        action={<><a href="/api/admin/export?type=people" className="btn btn-secondary"><Download size={16} /> Export CSV</a><Link href="/admin/members/new" className="btn btn-primary"><UserPlus size={16} /> Add person</Link></>} />
+        action={<><a href="/api/admin/export?type=people" className="btn btn-secondary"><Download size={16} /> Export CSV</a><a href="/api/admin/export?type=vcf" className="btn btn-secondary" title="Import into the church phone to build WhatsApp broadcast lists"><Download size={16} /> Contacts for WhatsApp (.vcf)</a><Link href="/admin/members/new" className="btn btn-primary"><UserPlus size={16} /> Add person</Link></>} />
       <div className="card">
         <form className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
           <input className="input max-w-sm" name="q" defaultValue={q} placeholder="Search name, phone, username or ID…" aria-label="Search people" />
@@ -35,7 +36,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                   <td><Link href={`/admin/members/${p.id}`} className="font-semibold hover:text-blue-600">{p.full_name}</Link><span className="block text-xs text-slate-400">{p.person_code}</span></td>
                   <td className="username-badge">{p.username}</td>
                   <td>{p.phone}</td>
-                  <td><StatusPill value={p.status} /></td>
+                  <td><StatusPill value={p.status} />{!p.verified_via && <span className="pill pill-amber ml-1" title="Self-registered online and not yet seen in church">unverified</span>}</td>
                   <td>{formatDate(p.joined_at ?? p.created_at)}</td>
                   <td>{formatDate(lastSeen.get(p.id))}</td>
                 </tr>

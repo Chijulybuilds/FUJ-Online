@@ -132,19 +132,13 @@ test("a first-timer scans the QR, registers, gets a flag username and is checked
   await shot(phone, "05-checkin-scanned");
   await phone.getByRole("link", { name: "Register now" }).click();
   await expect(phone.getByText(/checked in to E2E Sunday Service automatically/)).toBeVisible();
-  // Registration is just name + phone (+ optional email), verified by an SMS code.
+  // Registration is just name + phone (+ optional email). No paid SMS OTP: scanning the live QR verifies them in person.
   await expect(phone.getByLabel("Email (optional)")).toBeVisible();
   await expect(phone.getByLabel("Gender")).toHaveCount(0);
+  await expect(phone.getByLabel("Verification code")).toHaveCount(0);
   await phone.getByLabel("Full name").fill("Chiamaka Nwankwo");
   await phone.getByLabel("Phone number").fill("0812 345 6789");
-  await phone.getByRole("button", { name: "Send OTP" }).click();
-  const info = await phone.getByTestId("otp-info").textContent(); // dev mode shows the code (no SMS provider)
-  const code = info!.match(/\d{6}/)![0];
-  await phone.getByLabel("Verification code").fill(code === "000000" ? "111111" : "000000");
-  await phone.getByRole("button", { name: "Verify & create my account" }).click();
-  await expect(phone.getByText(/wrong or has expired/)).toBeVisible();
-  await phone.getByLabel("Verification code").fill(code);
-  await phone.getByRole("button", { name: "Verify & create my account" }).click();
+  await phone.getByRole("button", { name: "Register & get my username" }).click();
   await expect(phone.getByTestId("register-success")).toBeVisible();
   newUsername = (await phone.getByTestId("new-username").textContent())!.trim();
   expect(newUsername).toMatch(/^flagchiamaka\d{3}$/);
@@ -218,16 +212,47 @@ test("check-in desk: admin finds members by name and checks them in; adds a firs
   await shot(admin, "08b-checkin-desk");
 });
 
+test("online self-registration is free and stays 'unverified' until seen in church; contacts export for WhatsApp", async ({ browser }) => {
+  const p = await newDevice(browser);
+  await go(p, "/register");
+  await p.getByLabel("Full name").fill("Obinna Online");
+  await p.getByLabel("Phone number").fill("0705 111 2222");
+  await p.getByRole("button", { name: "Register & get my username" }).click();
+  await expect(p.getByTestId("register-success")).toBeVisible();
+  await p.context().close();
+
+  await go(admin, "/admin/members?status=unverified");
+  await admin.getByRole("link", { name: "Obinna Online" }).click();
+  await expect(admin.getByTestId("verified-state")).toContainText("Not yet");
+  await admin.getByRole("button", { name: "Mark verified" }).click();
+  await expect(admin.getByTestId("verified-state")).toContainText("confirmed by an admin");
+
+  const vcf = await admin.request.get("/api/admin/export?type=vcf");
+  expect(vcf.headers()["content-type"]).toContain("text/vcard");
+  const text = await vcf.text();
+  expect(text).toContain("FN:Obinna Online (FUJ)");
+  expect(text).toContain("TEL;TYPE=CELL:+2347051112222");
+});
+
 test("broadcast with response tracking, member replies, follow-up to non-responders", async ({ browser }) => {
   await go(admin, "/admin/messaging");
   await admin.getByLabel("Audience").selectOption("members");
   await expect(admin.getByTestId("audience-count")).toContainText("recipient");
   await admin.getByLabel("Title").fill("Thanksgiving Sunday");
   await admin.getByRole("textbox", { name: /^Message/ }).fill("Hi {first_name}, will you join us for Thanksgiving Sunday? Reply yes!");
+  await admin.getByLabel("Flyer image").setInputFiles("public/images/fuj/outreach-children.webp");
+  await expect(admin.getByTestId("flyer-preview")).toBeVisible();
   await admin.getByRole("button", { name: "Send broadcast" }).click();
   await admin.waitForURL(/\/admin\/messaging\/[0-9a-f-]{36}\?sent=1/);
   const trackingUrl = admin.url().split("?")[0];
-  await expect(admin.getByText(/Broadcast sent to \d+ people/)).toBeVisible();
+  await expect(admin.getByText(/Sent to \d+ people in the member portal/)).toBeVisible();
+  // Free WhatsApp distribution: flyer + group-friendly text ready to share.
+  const share = admin.getByTestId("share-whatsapp");
+  await expect(share.getByRole("img", { name: "Flyer" })).toBeVisible();
+  await expect(share.getByTestId("share-text")).toContainText("Hi family, will you join us");
+  await expect(share.getByRole("button", { name: "Share on WhatsApp" })).toBeVisible();
+  await expect(admin.getByTestId("recipient-row").filter({ hasText: "Grace Okafor" }).getByRole("link", { name: "WhatsApp" })).toHaveAttribute("href", /^https:\/\/wa\.me\/2348031234567\?text=Hi%20Grace/);
+  await shot(admin, "09b-share-whatsapp");
 
   const member = await newDevice(browser);
   await memberLogin(member, "flaggrace101", "08031234567");
@@ -236,6 +261,9 @@ test("broadcast with response tracking, member replies, follow-up to non-respond
   const msg = member.getByTestId("member-message").filter({ hasText: "Thanksgiving Sunday" });
   await msg.getByRole("button", { name: "Read message" }).click();
   await expect(member.getByText("Hi Grace, will you join us")).toBeVisible();
+  const flyer = member.getByTestId("member-flyer");
+  await expect(flyer).toBeVisible();
+  expect(await flyer.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
   await member.getByLabel("Reply").first().fill("Yes! Coming with my family.");
   await member.getByRole("button", { name: "Reply" }).first().click();
   await expect(member.getByText("your response was sent")).toBeVisible();

@@ -30,6 +30,7 @@ export async function findByEmail(email: string) {
 export type NewPerson = {
   full_name: string; phone: string; email?: string | null; status?: PersonStatus; gender?: string | null; birthday?: string | null;
   address?: string | null; how_heard?: string | null; auth_subject?: string | null; avatar_url?: string | null; notes?: string | null;
+  verified_via?: Person["verified_via"];
 };
 
 async function nextPersonCode() {
@@ -55,7 +56,8 @@ export async function createPerson(input: NewPerson): Promise<Person> {
         first_visit_at: now, joined_at: input.status === "member" ? now : null, notes: input.notes ?? null,
         auth_subject: input.auth_subject ?? null, avatar_url: input.avatar_url ?? null, gender: input.gender || null,
         birthday: input.birthday || null, address: input.address || null, how_heard: input.how_heard || null,
-        last_seen_at: null, whatsapp: "unknown", whatsapp_checked_at: null, created_at: now, updated_at: now
+        last_seen_at: null, whatsapp: "unknown", whatsapp_checked_at: null,
+        verified_via: input.verified_via ?? null, verified_at: input.verified_via ? now : null, created_at: now, updated_at: now
       });
     } catch (error) {
       if (error instanceof DuplicateError && /username|person_code/.test(error.message)) continue;
@@ -91,4 +93,12 @@ export async function peopleById(ids?: string[]) {
   else if (ids.length <= 100) rows = await db().list("people", { where: { id: ids } });
   else { const set = new Set(ids); rows = (await db().list("people")).filter((p) => set.has(p.id)); }
   return new Map(rows.map((p) => [p.id, p]));
+}
+
+/** Marks a person as confirmed real (first in-person check-in, Google, or an admin). Never downgrades. */
+export async function markVerified(personId: string, via: NonNullable<Person["verified_via"]>) {
+  const person = await db().get("people", { id: personId });
+  if (!person || person.verified_via) return person;
+  const [row] = await db().update("people", { id: personId }, { verified_via: via, verified_at: nowIso(), updated_at: nowIso() });
+  return row;
 }

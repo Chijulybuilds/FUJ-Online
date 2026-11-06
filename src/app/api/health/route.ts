@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const base = {
     app: "FlagUpJesus", mode: env.useSupabaseData ? "supabase" : "local", googleAuth: env.googleEnabled,
-    adminLogin: Boolean(env.sharedAdmin), sms: providers.sms, whatsapp: providers.whatsapp, whatsappTemplate: Boolean(providers.whatsappTemplate),
+    adminLogin: Boolean(env.sharedAdmin), registrationOtp: env.registrationOtp, sms: providers.sms, whatsapp: providers.whatsapp, whatsappTemplate: Boolean(providers.whatsappTemplate),
     devLogin: env.devLoginEnabled,
     signingSecret: !process.env.QR_SIGNING_SECRET && !process.env.SESSION_SECRET ? "missing" : (process.env.SESSION_SECRET || process.env.QR_SIGNING_SECRET) === PLACEHOLDER_SECRET ? "placeholder" : "set",
     timestamp: new Date().toISOString()

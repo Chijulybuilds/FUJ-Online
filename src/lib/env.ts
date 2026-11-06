@@ -38,6 +38,8 @@ export const env = {
     if (process.env.NODE_ENV !== "production" && !this.useSupabaseData) return { email: "admin@flagupjesus.local", password: "FlagUpJesus@2026", role };
     return null;
   },
+  /** SMS OTP at registration is off by default (it costs money per SMS). Set REGISTRATION_OTP=true to turn it on. */
+  get registrationOtp(): boolean { return process.env.REGISTRATION_OTP === "true"; },
   get localDbPath() { return process.env.LOCAL_DB_PATH ?? ".data/flagupjesus-db.json"; }
 };
 

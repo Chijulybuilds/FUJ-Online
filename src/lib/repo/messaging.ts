@@ -6,6 +6,7 @@ import { peopleById } from "./people";
 import { createTask } from "./care";
 import { NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp } from "@/lib/messaging/providers";
 import { firstName, normalizePhone } from "@/lib/identity-utils";
+import { absoluteUrl } from "@/lib/storage";
 
 export const AUDIENCES: { value: string; label: string }[] = [
   { value: "all", label: "Everyone (members + visitors)" },
@@ -65,19 +66,20 @@ const personalise = (text: string, person: Person) =>
 
 export async function sendBroadcast(input: {
   title: string; body: string; kind: Broadcast["kind"]; audience: string; channels: Channel[]; request_response: boolean;
-  parent_id?: string | null; created_by: string;
+  parent_id?: string | null; created_by: string; image_url?: string | null;
 }) {
   const recipients = await resolveAudience(input.audience);
   const now = nowIso();
   const channels: Channel[] = Array.from(new Set<Channel>(["in_app", ...input.channels]));
   const broadcast = await db().insert("broadcasts", {
     id: uid(), title: input.title, body: input.body, kind: input.kind, audience: input.audience, channels, status: "sent",
-    request_response: input.request_response, parent_id: input.parent_id ?? null, recipient_count: recipients.length,
+    request_response: input.request_response, image_url: input.image_url ?? null, parent_id: input.parent_id ?? null, recipient_count: recipients.length,
     created_by: input.created_by, sent_at: now, created_at: now
   });
   for (const person of recipients) {
     const text = personalise(input.body, person);
-    const phone = channels.includes("whatsapp") ? await deliverByPhone(person, input.title, text) : channels.includes("sms") ? await smsOnly(person, input.title, text) : null;
+    const image = input.image_url ? absoluteUrl(input.image_url) : null;
+    const phone = channels.includes("whatsapp") ? await deliverByPhone(person, input.title, text, image) : channels.includes("sms") ? await smsOnly(person, input.title, text, image) : null;
     const email_status = channels.includes("email") ? (person.email ? await sendEmail(person.email, input.title, text) : "skipped") : null;
     await db().insert("broadcast_recipients", {
       id: uid(), broadcast_id: broadcast.id, person_id: person.id, read_at: null, response: null, responded_at: null,
@@ -89,10 +91,10 @@ export async function sendBroadcast(input: {
 }
 
 type PhoneDelivery = Pick<BroadcastRecipient, "sms_status" | "whatsapp_status" | "whatsapp_message_id" | "channel_used">;
-const smsText = (title: string, text: string) => `${title}: ${text}`;
+const smsText = (title: string, text: string, image?: string | null) => `${title}: ${text}${image ? ` Flyer: ${image}` : ""}`;
 
-async function smsOnly(person: Person, title: string, text: string): Promise<PhoneDelivery> {
-  const sms_status = await sendSms(person.normalized_phone, smsText(title, text));
+async function smsOnly(person: Person, title: string, text: string, image?: string | null): Promise<PhoneDelivery> {
+  const sms_status = await sendSms(person.normalized_phone, smsText(title, text, image));
   return { sms_status, whatsapp_status: null, whatsapp_message_id: null, channel_used: sms_status === "sent" ? "sms" : null };
 }
 
@@ -101,15 +103,15 @@ async function smsOnly(person: Person, title: string, text: string): Promise<Pho
  * or when WhatsApp rejects the message immediately. Asynchronous "not on WhatsApp" failures arrive via
  * the WhatsApp webhook and are retried by SMS there (see handleWhatsAppStatus).
  */
-export async function deliverByPhone(person: Person, title: string, text: string): Promise<PhoneDelivery> {
+export async function deliverByPhone(person: Person, title: string, text: string, image?: string | null): Promise<PhoneDelivery> {
   if (person.whatsapp === "no" || !providers.whatsapp) {
-    const r = await smsOnly(person, title, text);
+    const r = await smsOnly(person, title, text, image);
     return { ...r, whatsapp_status: person.whatsapp === "no" ? "not_on_whatsapp" : providers.whatsapp ? null : "not_configured" };
   }
-  const wa = await sendWhatsApp(person.normalized_phone, title, text);
+  const wa = await sendWhatsApp(person.normalized_phone, title, text, image);
   if (wa.status === "sent") return { sms_status: null, whatsapp_status: "sent", whatsapp_message_id: wa.id ?? null, channel_used: "whatsapp" };
   if (wa.errorCode && NOT_ON_WHATSAPP_CODES.has(wa.errorCode)) await markWhatsApp(person.id, "no");
-  const r = await smsOnly(person, title, text);
+  const r = await smsOnly(person, title, text, image);
   return { ...r, whatsapp_status: "failed" };
 }
 
@@ -134,7 +136,7 @@ export async function handleWhatsAppStatus(status: { id: string; status: string;
     if (!row.sms_status || row.sms_status === "failed") {
       const [person, broadcast] = await Promise.all([db().get("people", { id: row.person_id }), db().get("broadcasts", { id: row.broadcast_id })]);
       if (person && broadcast) {
-        patch.sms_status = await sendSms(person.normalized_phone, smsText(broadcast.title, personalise(broadcast.body, person)));
+        patch.sms_status = await sendSms(person.normalized_phone, smsText(broadcast.title, personalise(broadcast.body, person), broadcast.image_url ? absoluteUrl(broadcast.image_url) : null));
         if (patch.sms_status === "sent") patch.channel_used = "sms";
         fellBack = true;
       }
@@ -166,7 +168,7 @@ export async function smsUndelivered(broadcastId: string) {
   for (const r of rows.filter((x) => x.whatsapp_status === "sent" && !x.sms_status)) {
     const person = await db().get("people", { id: r.person_id });
     if (!person) continue;
-    const sms_status = await sendSms(person.normalized_phone, smsText(broadcast.title, personalise(broadcast.body, person)));
+    const sms_status = await sendSms(person.normalized_phone, smsText(broadcast.title, personalise(broadcast.body, person), broadcast.image_url ? absoluteUrl(broadcast.image_url) : null));
     await db().update("broadcast_recipients", { id: r.id }, { sms_status, channel_used: sms_status === "sent" ? "sms" : r.channel_used });
     if (sms_status === "sent") sent++;
   }

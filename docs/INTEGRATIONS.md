@@ -7,7 +7,9 @@ Google OAuth 2.0 (authorization-code flow) is implemented in `/api/auth/google` 
 Supabase Postgres via the server-only service-role key (`src/lib/db/supabase.ts`). Without it, a local JSON store is used for development.
 
 ## Messaging
-Broadcasts are always delivered in-app (member portal) with read/response tracking. The phone channel is **WhatsApp first** (Meta WhatsApp Business Cloud API, approved template `WHATSAPP_TEMPLATE_NAME`) with **automatic SMS fallback** (Termii) for numbers that aren't on WhatsApp — detected from synchronous errors or the `131026` failure receipt on `/api/webhooks/whatsapp`. Receipts also mark people as on/not on WhatsApp and record reads; inbound WhatsApp messages become Inbox responses. Email via Resend is optional. Registration OTP codes are sent by SMS (Termii).
+**Free path (default):** broadcasts with an optional flyer image reach the member portal, and the tracking page offers **Share on WhatsApp** (Web Share API with the flyer, or WhatsApp Web) for the church's broadcast lists / groups / Status / Channel, plus per-recipient `wa.me` links and a `.vcf` contacts export.
+
+**Automatic path (optional, paid by Meta):** Broadcasts are always delivered in-app (member portal) with read/response tracking. The phone channel is **WhatsApp first** (Meta WhatsApp Business Cloud API, approved template `WHATSAPP_TEMPLATE_NAME`) with **automatic SMS fallback** (Termii) for numbers that aren't on WhatsApp — detected from synchronous errors or the `131026` failure receipt on `/api/webhooks/whatsapp`. Receipts also mark people as on/not on WhatsApp and record reads; inbound WhatsApp messages become Inbox responses. Email via Resend is optional. Registration OTP codes are sent by SMS (Termii).
 
 ## Payments
 Not enabled. Finance staff record cash/transfer giving. Choose Paystack or Flutterwave, verify webhook signatures server-side, and never mark a donation paid from a client redirect.

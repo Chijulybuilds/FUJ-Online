@@ -62,18 +62,26 @@ export type WhatsAppResult = { status: SendResult; id?: string; errorCode?: numb
  * reaches people who messaged the church number in the last 24 hours (failures fall back to SMS).
  * Delivery to numbers that are not on WhatsApp fails asynchronously (webhook error 131026).
  */
-export async function sendWhatsApp(to: string, title: string, body: string): Promise<WhatsAppResult> {
+export async function sendWhatsApp(to: string, title: string, body: string, imageUrl?: string | null): Promise<WhatsAppResult> {
   if (!providers.whatsapp) return { status: "skipped" };
+  const recipient = to.replace(/^\+/, "");
+  const lang = { code: process.env.WHATSAPP_TEMPLATE_LANG ?? "en" };
+  const bodyParams = (extra = "") => [{ type: "text", text: templateSafe(title, 60) }, { type: "text", text: templateSafe(body + extra) }];
+  const flyerTemplate = process.env.WHATSAPP_FLYER_TEMPLATE_NAME;
   const template = providers.whatsappTemplate;
-  const payload = template
-    ? {
-        messaging_product: "whatsapp", to: to.replace(/^\+/, ""), type: "template",
-        template: {
-          name: template, language: { code: process.env.WHATSAPP_TEMPLATE_LANG ?? "en" },
-          components: [{ type: "body", parameters: [{ type: "text", text: templateSafe(title, 60) }, { type: "text", text: templateSafe(body) }] }]
-        }
-      }
-    : { messaging_product: "whatsapp", to: to.replace(/^\+/, ""), type: "text", text: { preview_url: true, body: `*${title}*\n\n${body}`.slice(0, 4096) } };
+  let payload: Record<string, unknown>;
+  if (imageUrl && flyerTemplate) {
+    // Approved template with an IMAGE header: the flyer arrives as a picture with the message under it.
+    payload = { messaging_product: "whatsapp", to: recipient, type: "template", template: { name: flyerTemplate, language: lang, components: [
+      { type: "header", parameters: [{ type: "image", image: { link: imageUrl } }] }, { type: "body", parameters: bodyParams() }] } };
+  } else if (template) {
+    payload = { messaging_product: "whatsapp", to: recipient, type: "template", template: { name: template, language: lang, components: [
+      { type: "body", parameters: bodyParams(imageUrl ? ` · Flyer: ${imageUrl}` : "") }] } };
+  } else if (imageUrl) {
+    payload = { messaging_product: "whatsapp", to: recipient, type: "image", image: { link: imageUrl, caption: `*${title}*\n\n${body}`.slice(0, 1024) } };
+  } else {
+    payload = { messaging_product: "whatsapp", to: recipient, type: "text", text: { preview_url: true, body: `*${title}*\n\n${body}`.slice(0, 4096) } };
+  }
   try {
     const res = await fetch(`https://graph.facebook.com/${process.env.WHATSAPP_API_VERSION ?? "v21.0"}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
       method: "POST",

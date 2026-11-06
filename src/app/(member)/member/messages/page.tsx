@@ -22,6 +22,10 @@ export default async function MemberMessages({ searchParams }: { searchParams: P
               </div>
               {expanded ? (
                 <>
+                  {m.broadcast.image_url && (
+                    // eslint-disable-next-line @next/next/no-img-element -- uploaded flyer
+                    <a href={m.broadcast.image_url} target="_blank" rel="noreferrer"><img src={m.broadcast.image_url} alt={`Flyer: ${m.broadcast.title}`} className="mt-3 max-h-96 w-auto rounded-xl border border-slate-100" data-testid="member-flyer" /></a>
+                  )}
                   <p className="mt-3 whitespace-pre-line text-sm text-slate-700">{m.broadcast.body.replaceAll("{first_name}", me.name.split(" ")[0])}</p>
                   {m.response && <div className="mt-4 rounded-xl bg-blue-50 p-3 text-sm"><p className="text-xs font-semibold text-blue-700">Your reply</p><p className="mt-1 whitespace-pre-line">{m.response}</p></div>}
                   <ActionForm action={respondAction} className="mt-4 flex flex-col gap-2 sm:flex-row" resetOnSuccess>

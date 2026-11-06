@@ -108,7 +108,41 @@ describe("broadcast delivery: WhatsApp first, SMS fallback", () => {
   });
 });
 
-describe("registration OTP", () => {
+describe("flyers on automatic WhatsApp / SMS", () => {
+  it("sends the flyer as the image header of the flyer template, and as a link by SMS", async () => {
+    process.env.WHATSAPP_FLYER_TEMPLATE_NAME = "church_flyer";
+    await people.createPerson({ full_name: "Funke Flyer", phone: "08030000006", status: "member" });
+    const g = await people.createPerson({ full_name: "Gbenga Sms", phone: "08030000007", status: "member" });
+    await db().update("people", { id: g.id }, { whatsapp: "no" });
+    calls.length = 0;
+    await messaging.sendBroadcast({ title: "Youth Night", body: "Come!", kind: "announcement", audience: "members", channels: ["whatsapp"], request_response: false, created_by: "t", image_url: "/api/media/123e4567-e89b-12d3-a456-426614174000.jpg" });
+    const toF = wa().find((c) => (c.body as { to: string }).to === "2348030000006")!.body as { template: { name: string; components: { type: string; parameters: { image?: { link: string } }[] }[] } };
+    expect(toF.template.name).toBe("church_flyer");
+    expect(toF.template.components[0]).toMatchObject({ type: "header" });
+    expect(toF.template.components[0].parameters[0].image!.link).toMatch(/^http:\/\/localhost:3000\/api\/media\/.+\.jpg$/);
+    const toG = sms().find((c) => (c.body as { to: string }).to === "2348030000007")!.body as { sms: string };
+    expect(toG.sms).toContain("Flyer: http://localhost:3000/api/media/");
+    delete process.env.WHATSAPP_FLYER_TEMPLATE_NAME;
+  });
+});
+
+describe("free verification (no OTP)", () => {
+  it("a self-registered person is unverified until their first in-person check-in", async () => {
+    const services = await import("../../src/lib/repo/services");
+    const p = await people.createPerson({ full_name: "Halima Selfreg", phone: "08030000008" });
+    expect(p.verified_via).toBeNull();
+    const svc = await services.createService({ title: "Sunday", category: "Sunday worship", starts_at: new Date().toISOString() });
+    await services.recordAttendance({ person: p, serviceId: svc.id, method: "manual", recordedBy: "usher" });
+    const after = (await db().get("people", { id: p.id }))!;
+    expect(after.verified_via).toBe("in_person");
+    expect(after.verified_at).not.toBeNull();
+    // never downgraded
+    await people.markVerified(p.id, "admin");
+    expect((await db().get("people", { id: p.id }))!.verified_via).toBe("in_person");
+  });
+});
+
+describe("registration OTP (optional, REGISTRATION_OTP=true)", () => {
   it("sends a 6-digit code by SMS and verifies it exactly once", async () => {
     await otp.requestOtp("0809 111 2222");
     const text = (sms().at(-1)!.body as { sms: string }).sms;
