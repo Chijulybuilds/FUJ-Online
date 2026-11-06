@@ -129,7 +129,37 @@ npm run test:all   # everything above
 | `/api/webhooks/whatsapp` | WhatsApp delivery receipts + inbound replies |
 | `/api/health` | Health / configuration check |
 
-## 9. Project layout
+## 9. Deploying
+
+The app needs a Node server (route handlers, server actions, uploads) — not a static export. Vercel or any Next.js-compatible Node host works.
+
+1. Run the checks locally: `npm run test:all`.
+2. Apply all migrations (`0001` → `0008`) to the production Supabase project and check `/api/health`.
+3. In the host's environment settings add: `NEXT_PUBLIC_APP_URL` (your https domain), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CLIENT_ID`, `CLIENT_SECRET`, `ADMIN_LOGIN_EMAIL`, `ADMIN_LOGIN_PASSWORD` (12+ chars) and a random `QR_SIGNING_SECRET` (`openssl rand -base64 48`). Never put secrets in `NEXT_PUBLIC_*` variables.
+4. Add `https://<your-domain>/api/auth/google/callback` to the Google OAuth client's authorised redirect URIs.
+5. Deploy, then open `https://<your-domain>/api/health` — expect `"mode":"supabase","database":"ready"` and `"adminLogin":true`.
+
+On a plain Node host:
+
+```bash
+npm ci
+npm run build
+npm start
+```
+
+## 10. Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| `/api/health` shows `"mode":"local"` | `SUPABASE_SERVICE_ROLE_KEY` or `NEXT_PUBLIC_SUPABASE_URL` is missing; restart the server after editing `.env.local`. |
+| `/api/health` shows `database: unavailable` / `PGRST205` | Run the migrations in the same Supabase project as the URL, then `notify pgrst, 'reload schema';`. |
+| `/admin/login` says the admin login isn't set up | Set `ADMIN_LOGIN_EMAIL` and `ADMIN_LOGIN_PASSWORD` (12+ characters in production) and restart. |
+| Google sign-in returns "oauth_exchange" | The redirect URI in Google Cloud must exactly match `<NEXT_PUBLIC_APP_URL>/api/auth/google/callback`. |
+| QR display says check-in isn't open | Open check-in for the service first (Services → service → Open check-in). |
+| Flyer upload fails in production | Run migration `0007` (creates the public `flyers` storage bucket) and check the service-role key. |
+| Port 3000 is busy | `npm run dev -- --port 3001`. |
+
+## 11. Project layout
 
 ```
 src/
