@@ -10,7 +10,7 @@ import { googleRedirectUri } from "@/lib/auth/google";
 /** Starts the Google OAuth 2.0 authorization-code flow using CLIENT_ID / CLIENT_SECRET. */
 export async function GET(request: NextRequest) {
   const intent = parseIntent(request.nextUrl.searchParams.get("intent"));
-  if (!env.googleEnabled) return NextResponse.redirect(new URL(`/login?error=google_not_configured`, request.url));
+  if (!env.googleEnabled) return NextResponse.redirect(new URL(intent === "admin" ? "/admin/login?error=google_not_configured" : "/login?error=google_not_configured", request.url));
   const state = randomBytes(16).toString("hex");
   const store = await cookies();
   store.set(COOKIE.oauth, signPayload({ state, intent, exp: Math.floor(Date.now() / 1000) + 600 }, "oauth"), cookieOptions(600));

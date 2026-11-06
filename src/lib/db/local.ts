@@ -21,7 +21,7 @@ const g = globalThis as unknown as { __fujLocalStore?: { path: string; data: Sto
 
 function emptyStore(): Store {
   return {
-    people: [], services: [], qr_sessions: [], attendance: [], follow_up_tasks: [], follow_up_logs: [],
+    people: [], otp_codes: [], services: [], qr_sessions: [], attendance: [], follow_up_tasks: [], follow_up_logs: [],
     announcements: [], prayer_requests: [], testimonies: [], donations: [], broadcasts: [], broadcast_recipients: [],
     admin_users: [], departments: [], member_departments: [], church_settings: [], audit_logs: []
   };

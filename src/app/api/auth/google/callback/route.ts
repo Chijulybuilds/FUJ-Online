@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const saved = verifyPayload<{ state: string; intent: Intent; exp: number }>(store.get(COOKIE.oauth)?.value, "oauth");
   store.delete(COOKIE.oauth);
   const fail = (code: string, intent?: Intent) =>
-    NextResponse.redirect(new URL(`/login?error=${code}${intent === "admin" ? "&as=staff" : ""}`, request.url));
+    NextResponse.redirect(new URL(intent === "admin" ? `/admin/login?error=${code}` : `/login?error=${code}`, request.url));
   if (!saved || saved.state !== params.get("state")) return fail("oauth_state");
   if (params.get("error") || !params.get("code")) return fail("oauth_cancelled", saved.intent);
   try {

@@ -22,6 +22,8 @@ export default defineConfig({
       LOCAL_DB_PATH: ".data/e2e/db.json",
       QR_SIGNING_SECRET: "e2e-secret-value-that-is-long-enough-123456",
       ALLOW_DEV_LOGIN: "true",
+      ADMIN_LOGIN_EMAIL: "admin@flagupjesus.org", ADMIN_LOGIN_PASSWORD: "E2E-shared-admin-pass-2026",
+      WHATSAPP_TOKEN: "", WHATSAPP_PHONE_NUMBER_ID: "", TERMII_API_KEY: "", TERMII_SENDER_ID: "",
       NEXT_PUBLIC_SUPABASE_URL: "", NEXT_PUBLIC_SUPABASE_ANON_KEY: "", SUPABASE_SERVICE_ROLE_KEY: "", CLIENT_ID: "", CLIENT_SECRET: ""
     }
   }

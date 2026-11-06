@@ -7,6 +7,7 @@ import { threadForPerson } from "@/lib/repo/messaging";
 import { replyToPersonAction } from "@/lib/actions/admin";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/utils";
+import { providers } from "@/lib/messaging/providers";
 
 export default async function Conversation({ params }: { params: Promise<{ conversationId: string }> }) {
   await requireAdmin("inbox");
@@ -31,6 +32,7 @@ export default async function Conversation({ params }: { params: Promise<{ conve
           <input type="hidden" name="person_id" value={person.id} />
           <input className="input" name="title" placeholder="Subject (optional)" />
           <textarea className="input" name="body" placeholder={`Reply to ${person.full_name.split(" ")[0]}…`} required />
+          {(providers.whatsapp || providers.sms) && <label className="checkbox"><input type="checkbox" name="channels" value="whatsapp" defaultChecked /> Also send to their phone ({person.whatsapp === "no" ? "SMS" : providers.whatsapp ? "WhatsApp, or SMS if not on WhatsApp" : "SMS"})</label>}
           <SubmitButton pendingText="Sending…">Send reply</SubmitButton>
         </ActionForm>
       </div>

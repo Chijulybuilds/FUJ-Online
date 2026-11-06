@@ -9,7 +9,9 @@ import { requireAdmin } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { attendanceForPerson } from "@/lib/repo/services";
-import { createTaskAction, setDepartmentAction, updatePersonAction } from "@/lib/actions/admin";
+import { createTaskAction, markVerifiedAction, setDepartmentAction, updatePersonAction } from "@/lib/actions/admin";
+
+const VERIFIED_LABEL = { google: "Google account", in_person: "checked in at church", admin: "confirmed by an admin", otp: "SMS code" } as const;
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 export default async function MemberDetails({ params, searchParams }: { params: Promise<{ memberId: string }>; searchParams: Promise<{ created?: string }> }) {
@@ -29,6 +31,12 @@ export default async function MemberDetails({ params, searchParams }: { params: 
     <>
       <PageHeading title={person.full_name} description={<>{person.person_code} · <StatusPill value={person.status} /></>}
         action={<><a className="btn btn-secondary" href={`tel:${person.normalized_phone}`}><Phone size={15} /> Call</a><a className="btn btn-secondary" target="_blank" rel="noreferrer" href={`https://wa.me/${wa}`}><MessageCircle size={15} /> WhatsApp</a></>} />
+      {!person.verified_via && (
+        <div className="alert alert-warn mb-5 flex flex-wrap items-center justify-between gap-3">
+          <span>This person registered online and hasn&apos;t been seen in church yet. They&apos;re verified automatically at their first check-in, or you can confirm them now.</span>
+          <form action={markVerifiedAction}><input type="hidden" name="id" value={person.id} /><button className="btn btn-secondary btn-sm">Mark verified</button></form>
+        </div>
+      )}
       {created && <p className="alert alert-ok mb-5">Record created. Their check-in username is <b className="username-badge">{person.username}</b> — share it with them.</p>}
       <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
         <section className="card p-6">
@@ -44,9 +52,10 @@ export default async function MemberDetails({ params, searchParams }: { params: 
             <label className="label">Status<select className="input mt-1" name="status" defaultValue={person.status}>{["visitor", "member", "inactive", "transferred", "left_ministry"].map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}</select></label>
             <label className="label">Gender<select className="input mt-1" name="gender" defaultValue={person.gender ?? ""}><option value="">—</option><option value="female">Female</option><option value="male">Male</option></select></label>
             <label className="label">Birthday<input className="input mt-1" type="date" name="birthday" defaultValue={person.birthday ?? ""} /></label>
+            <label className="label">On WhatsApp?<span className="hint">Learned automatically from delivery receipts</span><select className="input mt-1" name="whatsapp" defaultValue={person.whatsapp ?? "unknown"}><option value="unknown">Unknown — try WhatsApp first</option><option value="yes">Yes — WhatsApp</option><option value="no">No — send SMS</option></select></label>
             <label className="label">Address<input className="input mt-1" name="address" defaultValue={person.address ?? ""} /></label>
             <label className="label sm:col-span-2">Notes<textarea className="input mt-1" name="notes" defaultValue={person.notes ?? ""} /></label>
-            <dl className="kv sm:col-span-2 mt-2"><dt>First visit</dt><dd>{formatDate(person.first_visit_at)}</dd><dt>Joined</dt><dd>{formatDate(person.joined_at)}</dd><dt>Heard via</dt><dd>{person.how_heard ?? "—"}</dd><dt>Sign-in</dt><dd>{person.auth_subject?.startsWith("google:") ? "Google linked" : "Username + phone"}</dd></dl>
+            <dl className="kv sm:col-span-2 mt-2"><dt>First visit</dt><dd>{formatDate(person.first_visit_at)}</dd><dt>Joined</dt><dd>{formatDate(person.joined_at)}</dd><dt>Heard via</dt><dd>{person.how_heard ?? "—"}</dd><dt>Sign-in</dt><dd>{person.auth_subject?.startsWith("google:") ? "Google linked" : "Username + phone"}</dd><dt>Verified</dt><dd data-testid="verified-state">{person.verified_via ? `Yes — ${VERIFIED_LABEL[person.verified_via]} · ${formatDate(person.verified_at)}` : "Not yet (self-registered, not seen in church)"}</dd></dl>
             <div className="sm:col-span-2"><SubmitButton>Save changes</SubmitButton></div>
           </ActionForm>
         </section>

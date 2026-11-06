@@ -9,10 +9,11 @@ import { db } from "@/lib/db";
 type State = { ok?: boolean; message?: string } | null;
 const str = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
 
-export async function markReadAction(fd: FormData) {
+export async function markReadAction(_: State, fd: FormData): Promise<State> {
   const me = await requireMember();
   await markRead(str(fd, "id"), me.personId);
   revalidatePath("/member", "layout");
+  return null;
 }
 
 export async function respondAction(_: State, fd: FormData): Promise<State> {

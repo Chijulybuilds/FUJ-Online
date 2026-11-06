@@ -3,8 +3,9 @@ import { cookies } from "next/headers";
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import type { StaffRole } from "@/lib/db/types";
 import { nowIso, uid } from "@/lib/utils";
-import { findByEmail } from "@/lib/repo/people";
+import { findByEmail, markVerified } from "@/lib/repo/people";
 import { recordAttendance } from "@/lib/repo/services";
 import { verifyTicket } from "@/lib/security/qr-token";
 import { audit } from "@/lib/repo/audit";
@@ -22,6 +23,23 @@ export async function deviceId() {
     store.set(COOKIE.device, id, cookieOptions(400 * 86400));
   }
   return id;
+}
+
+/** Signs in with the shared FUJ admin account. `displayName` is recorded on actions (audit, broadcasts). */
+export async function signInSharedAdmin(displayName: string) {
+  const shared = env.sharedAdmin;
+  if (!shared) return null;
+  const role = (["super_admin", "admin", "pastor", "pastoral_worker", "finance_admin", "department_leader"].includes(shared.role) ? shared.role : "super_admin") as StaffRole;
+  let staff = await db().get("admin_users", { email: shared.email });
+  if (!staff) staff = await db().insert("admin_users", { id: uid(), email: shared.email, full_name: "FUJ Admin", role, active: true, last_login_at: null, created_at: nowIso() });
+  else if (staff.role !== role) staff = (await db().update("admin_users", { id: staff.id }, { role }))[0] ?? staff;
+  if (!staff.active) return null;
+  await db().update("admin_users", { id: staff.id }, { last_login_at: nowIso() });
+  const name = displayName.trim() ? `${displayName.trim().slice(0, 60)} (FUJ Admin)` : "FUJ Admin";
+  const store = await cookies();
+  store.set(COOKIE.admin, adminToken({ uid: staff.id, email: staff.email, name, role: staff.role, shared: true }), cookieOptions(ADMIN_TTL));
+  await audit(name, "staff.sign_in_shared", "admin_users", staff.id);
+  return staff;
 }
 
 export async function signInStaff(email: string, fallbackName: string) {
@@ -57,9 +75,9 @@ export async function checkInFromTicket(personId: string) {
 /** Shared tail of every sign-in method: decides where a verified identity lands. */
 export async function completeIdentity(identity: Omit<Identity, "exp">, intent: Intent): Promise<string> {
   if (intent === "admin") {
-    if (!identity.email) return "/login?as=staff&error=no_email";
+    if (!identity.email) return "/admin/login?error=no_email";
     const staff = await signInStaff(identity.email, identity.name);
-    return staff ? "/admin" : "/login?as=staff&error=not_staff";
+    return staff ? "/admin" : "/admin/login?error=not_staff";
   }
   const subject = `${identity.provider}:${identity.sub}`;
   let person = await db().get("people", { auth_subject: subject });
@@ -68,6 +86,7 @@ export async function completeIdentity(identity: Omit<Identity, "exp">, intent: 
     if (person && !person.auth_subject) await db().update("people", { id: person.id }, { auth_subject: subject, avatar_url: person.avatar_url ?? identity.avatar, updated_at: nowIso() });
   }
   if (person) {
+    if (identity.provider === "google") await markVerified(person.id, "google");
     await setMemberSession(person);
     const checkedIn = await checkInFromTicket(person.id).catch(() => null);
     return checkedIn ? "/check-in" : "/member";
