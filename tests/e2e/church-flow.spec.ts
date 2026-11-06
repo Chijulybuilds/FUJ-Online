@@ -106,6 +106,10 @@ test("landing: red Donate button jumps to the ministry bank account; departments
   await expect(page.locator("#give")).toContainText("5600605313");
   await expect(page.locator("#give")).toContainText("FlagUp Jesus Global Ministry");
   await expect(page.locator("#reach")).toContainText("United Kingdom");
+  const footer = page.locator("footer");
+  await expect(footer).toContainText("2nd Floor, MBM Plaza (beside Shell IA), Rumuobiakani, Port Harcourt");
+  await expect(footer.getByRole("link", { name: "07042741000" })).toHaveAttribute("href", "tel:07042741000");
+  await expect(footer.getByRole("link", { name: "flagupjesusglobal@gmail.com" })).toHaveAttribute("href", "mailto:flagupjesusglobal@gmail.com");
   await expect(page.locator('svg.ng-map [data-place="United Kingdom"]')).toHaveCount(1);
   const res = await page.request.get("/admin/departments");
   expect(res.status()).toBe(404);

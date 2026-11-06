@@ -30,7 +30,7 @@ npm run dev
 
 Open http://localhost:3000.
 
-**Without Supabase** (`SUPABASE_SERVICE_ROLE_KEY` empty) the app stores data in `.data/flagupjesus-db.json`. It starts **empty** — no sample members, services or offerings; only the ministry name and bank account. Anything FUJ hasn't provided yet (address, phone, email, service times, livestream link) shows as a dashed **[placeholder]** until you fill it in **Admin → Settings**. Set `ADMIN_LOGIN_EMAIL` / `ADMIN_LOGIN_PASSWORD` in `.env.local`, then open http://localhost:3000/admin. Flyers uploaded locally are stored in `.data/uploads/`. (The automated tests use their own fictional sample data from `tests/e2e/fixtures/`, written to a throwaway database.)
+**Without Supabase** (`SUPABASE_SERVICE_ROLE_KEY` empty) the app stores data in `.data/flagupjesus-db.json`. It starts **empty** — no sample members, services or offerings; only the ministry name, contact details and bank account. Anything FUJ hasn't provided yet (address, phone, email, service times, livestream link) shows as a dashed **[placeholder]** until you fill it in **Admin → Settings**. Set `ADMIN_LOGIN_EMAIL` / `ADMIN_LOGIN_PASSWORD` in `.env.local`, then open http://localhost:3000/admin. Flyers uploaded locally are stored in `.data/uploads/`. (The automated tests use their own fictional sample data from `tests/e2e/fixtures/`, written to a throwaway database.)
 
 ## 2. Connect Supabase (database)
 
@@ -149,6 +149,7 @@ tests/unit, tests/integration, tests/e2e
 ## Brand and scope
 
 - Ministry: FlagUpJesus Global Ministry · Application: FlagUpJesus
-- Giving: Fidelity Bank · 5600605313 · FlagUp Jesus Global Ministry (editable in Admin → Settings)
+- Contact: 2nd Floor, MBM Plaza (beside Shell IA), Rumuobiakani, Port Harcourt · 07042741000 · flagupjesusglobal@gmail.com
+- Giving: Fidelity Bank · 5600605313 · FlagUp Jesus Global Ministry (contact and bank details are editable in Admin → Settings)
 - V1: single church location · Sermon repository deferred to V2
 - Online card payments: not enabled — giving is recorded by finance staff; a payment provider must confirm via verified webhooks.

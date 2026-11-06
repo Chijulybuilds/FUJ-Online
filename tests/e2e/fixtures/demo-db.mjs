@@ -106,8 +106,8 @@ export function buildFixture() {
   return {
     church_settings: [{
       id: true, church_name: "FlagUpJesus Global Ministry", app_name: "FlagUpJesus", timezone: "Africa/Lagos",
-      contact_email: "test@example.org", contact_phone: "+10000000000", tagline: "Test tagline",
-      address: "Port Harcourt, Rivers State, Nigeria",
+      contact_email: null, contact_phone: null, tagline: "Test tagline",
+      address: null,
       service_times: "Word Experience (Sunday Service)|Sundays · 9:00 AM\nBible Study|Wednesdays · 5:30 PM\nPrayer Meeting|Fridays · 6:00 PM",
       livestream_url: "https://example.org/live", bank_name: "Fidelity Bank", account_name: "FlagUp Jesus Global Ministry",
       account_number: "5600605313", absence_threshold: 2, created_at: stamp, updated_at: stamp

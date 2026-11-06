@@ -5,7 +5,9 @@ import { nowIso } from "@/lib/utils";
 
 const DEFAULTS: ChurchSettings = {
   id: true, church_name: "FlagUpJesus Global Ministry", app_name: "FlagUpJesus", timezone: "Africa/Lagos",
-  contact_email: null, contact_phone: null, tagline: null, address: null,
+  // Provided by FUJ.
+  contact_email: "flagupjesusglobal@gmail.com", contact_phone: "07042741000", tagline: null,
+  address: "2nd Floor, MBM Plaza (beside Shell IA), Rumuobiakani, Port Harcourt",
   service_times: null,
   livestream_url: null,
   // Provided by FUJ.
