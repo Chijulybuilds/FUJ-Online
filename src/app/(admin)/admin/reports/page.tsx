@@ -1,4 +1,41 @@
 import { PageHeading } from "@/components/ui/page-heading";
-export default function Page() {
- return <><PageHeading title="Reports & analytics" description="Explore attendance, membership and giving trends."/><div className="card p-6"><div className="grid gap-4 sm:grid-cols-2"><div className="rounded-xl border border-slate-100 p-5"><p className="text-sm font-semibold">Membership growth</p><div className="mt-6 flex h-28 items-end gap-2">{[30,42,38,55,62,75,68,90].map((h,i)=><div key={i} className="flex-1 rounded-t bg-blue-500" style={{height:`${h}%`}}/>)}</div></div><div className="rounded-xl border border-slate-100 p-5"><p className="text-sm font-semibold">Attendance trend</p><div className="mt-6 flex h-28 items-end gap-2">{[55,48,66,61,70,77,72,88].map((h,i)=><div key={i} className="flex-1 rounded-t bg-emerald-500" style={{height:`${h}%`}}/>)}</div></div></div></div></>;
+import { requireAdmin } from "@/lib/auth/session";
+import { can } from "@/lib/auth/roles";
+import { dashboardStats, monthlySeries } from "@/lib/repo/reports";
+import { listBroadcasts } from "@/lib/repo/messaging";
+import { formatCurrency, formatDate } from "@/lib/utils";
+
+function Bars({ data, format = (v: number) => String(v) }: { data: { label: string; value: number }[]; format?: (v: number) => string }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  return <div className="bar-chart">{data.map((d, i) => <div className="bar" key={d.label + i}><b>{format(d.value)}</b><span className="fill" style={{ height: `${(d.value / max) * 100}%`, animationDelay: `${i * 0.05}s` }} /><small>{d.label}</small></div>)}</div>;
+}
+
+export default async function ReportsPage() {
+  const admin = await requireAdmin("reports");
+  const [stats, months, broadcasts] = await Promise.all([dashboardStats(), monthlySeries(6), can(admin.role, "messaging") ? listBroadcasts() : Promise.resolve([])]);
+  const services = [...stats.summaries].reverse();
+  const retention = stats.totalPeople ? Math.round((stats.members / stats.totalPeople) * 100) : 0;
+  return (
+    <>
+      <PageHeading title="Reports & analytics" description="Attendance, growth, giving and engagement trends." action={<a className="btn btn-secondary" href="/api/admin/export?type=attendance">Export attendance CSV</a>} />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="card p-6"><h2 className="mb-5 font-bold">Attendance per service</h2>{services.length ? <Bars data={services.map((s) => ({ label: formatDate(s.service.starts_at, { day: "2-digit", month: "short" }), value: s.total }))} /> : <p className="empty">No data</p>}</section>
+        <section className="card p-6"><h2 className="mb-5 font-bold">New people per month</h2><Bars data={months.map((m) => ({ label: m.label, value: m.newPeople }))} /></section>
+        <section className="card p-6"><h2 className="mb-5 font-bold">Check-ins per month</h2><Bars data={months.map((m) => ({ label: m.label, value: m.checkIns }))} /></section>
+        {can(admin.role, "giving") && <section className="card p-6"><h2 className="mb-5 font-bold">Giving per month</h2><Bars data={months.map((m) => ({ label: m.label, value: m.giving }))} format={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} /><p className="mt-3 text-xs text-slate-500">This month: {formatCurrency(stats.givingThisMonth)}</p></section>}
+        <section className="card p-6">
+          <h2 className="mb-4 font-bold">Membership</h2>
+          <dl className="kv"><dt>Total people</dt><dd>{stats.totalPeople}</dd><dt>Members</dt><dd>{stats.members} ({retention}%)</dd><dt>Visitors</dt><dd>{stats.visitors}</dd><dt>Open follow-ups</dt><dd>{stats.openTasks}</dd><dt>All-time check-ins</dt><dd>{stats.totalCheckIns}</dd></dl>
+          <h3 className="mb-2 mt-5 text-sm font-semibold">Visitor → member journey</h3>
+          <div className="progress"><span style={{ width: `${retention}%` }} /></div>
+        </section>
+        {broadcasts.length > 0 && (
+          <section className="card p-6">
+            <h2 className="mb-4 font-bold">Broadcast engagement</h2>
+            <ul className="space-y-3 text-sm">{broadcasts.slice(0, 6).map((b) => <li key={b.id}><div className="flex justify-between gap-3"><span className="truncate">{b.title}</span><span className="text-slate-500">{b.stats.readRate}% read · {b.stats.responseRate}% replied</span></div><div className="progress mt-1"><span style={{ width: `${b.stats.readRate}%` }} /></div></li>)}</ul>
+          </section>
+        )}
+      </div>
+    </>
+  );
 }

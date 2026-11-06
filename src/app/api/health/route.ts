@@ -1,28 +1,20 @@
 import { NextResponse } from "next/server";
-import { IS_DEMO_MODE } from "@/lib/constants";
-import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { env, PLACEHOLDER_SECRET } from "@/lib/env";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const mode = IS_DEMO_MODE ? "demo" : "supabase";
-  if (IS_DEMO_MODE) {
-    return NextResponse.json({ ok: true, app: "FlagUpJesus", mode, database: "not_configured", timestamp: new Date().toISOString() });
-  }
-
+  const base = {
+    app: "FlagUpJesus", mode: env.useSupabaseData ? "supabase" : "local", googleAuth: env.googleEnabled,
+    devLogin: env.devLoginEnabled,
+    signingSecret: !process.env.QR_SIGNING_SECRET && !process.env.SESSION_SECRET ? "missing" : (process.env.SESSION_SECRET || process.env.QR_SIGNING_SECRET) === PLACEHOLDER_SECRET ? "placeholder" : "set",
+    timestamp: new Date().toISOString()
+  };
   try {
-    const supabase = await createClient();
-    const { error } = await supabase.from("profiles").select("id").limit(0);
-    if (error) {
-      return NextResponse.json(
-        { ok: false, app: "FlagUpJesus", mode, database: "unavailable", databaseErrorCode: error.code ?? "UNKNOWN", timestamp: new Date().toISOString() },
-        { status: 503 }
-      );
-    }
-
-    return NextResponse.json({ ok: true, app: "FlagUpJesus", mode, database: "ready", timestamp: new Date().toISOString() });
-  } catch {
-    return NextResponse.json(
-      { ok: false, app: "FlagUpJesus", mode, database: "unavailable", timestamp: new Date().toISOString() },
-      { status: 503 }
-    );
+    await db().list("church_settings", { limit: 1 });
+    return NextResponse.json({ ok: true, ...base, database: "ready" });
+  } catch (error) {
+    return NextResponse.json({ ok: false, ...base, database: "unavailable", detail: error instanceof Error ? error.message.slice(0, 200) : "unknown" }, { status: 503 });
   }
 }

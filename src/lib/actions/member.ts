@@ -1,0 +1,55 @@
+"use server";
+import { revalidatePath } from "next/cache";
+import { requireMember } from "@/lib/auth/session";
+import { markRead, respond } from "@/lib/repo/messaging";
+import { submitTestimony } from "@/lib/repo/content";
+import { FriendlyError, updatePerson } from "@/lib/repo/people";
+import { db } from "@/lib/db";
+
+type State = { ok?: boolean; message?: string } | null;
+const str = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
+
+export async function markReadAction(fd: FormData) {
+  const me = await requireMember();
+  await markRead(str(fd, "id"), me.personId);
+  revalidatePath("/member", "layout");
+}
+
+export async function respondAction(_: State, fd: FormData): Promise<State> {
+  const me = await requireMember();
+  const text = str(fd, "response");
+  if (text.length < 1) return { ok: false, message: "Write a response first." };
+  if (text.length > 1000) return { ok: false, message: "Please keep your response under 1000 characters." };
+  const row = await respond(str(fd, "id"), me.personId, text);
+  if (!row) return { ok: false, message: "Message not found." };
+  revalidatePath("/member", "layout");
+  return { ok: true, message: "Thank you — your response was sent to the church team." };
+}
+
+export async function submitTestimonyAction(_: State, fd: FormData): Promise<State> {
+  const me = await requireMember();
+  const title = str(fd, "title"); const body = str(fd, "body");
+  if (title.length < 3 || body.length < 20) return { ok: false, message: "Add a short title and at least a couple of sentences." };
+  await submitTestimony({ person_id: me.personId, title: title.slice(0, 140), body: body.slice(0, 5000), consent_to_publish: fd.get("consent") === "on" });
+  revalidatePath("/member/testimonies");
+  return { ok: true, message: "Thank you for sharing! Your testimony will appear once the pastoral team reviews it." };
+}
+
+export async function updateProfileAction(_: State, fd: FormData): Promise<State> {
+  const me = await requireMember();
+  try {
+    const email = str(fd, "email");
+    await updatePerson(me.personId, { phone: str(fd, "phone"), email: email || null, address: str(fd, "address") || null, birthday: str(fd, "birthday") || null });
+  } catch (error) {
+    return { ok: false, message: error instanceof FriendlyError ? error.message : "Could not update your profile." };
+  }
+  revalidatePath("/member/profile");
+  return { ok: true, message: "Profile updated." };
+}
+
+export async function myPrayerCloseAction(fd: FormData) {
+  const me = await requireMember();
+  const row = await db().get("prayer_requests", { id: str(fd, "id"), person_id: me.personId });
+  if (row) await db().update("prayer_requests", { id: row.id }, { status: str(fd, "status") === "answered" ? "answered" : "closed", updated_at: new Date().toISOString() });
+  revalidatePath("/member/prayer-requests");
+}

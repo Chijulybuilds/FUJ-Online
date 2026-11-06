@@ -1,14 +1,51 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, CalendarDays, CircleDollarSign, HeartHandshake, Home, Megaphone, MessageSquare, Settings, ShieldCheck, Users, QrCode } from "lucide-react";
+import { BarChart3, BookOpen, CalendarDays, CircleDollarSign, HeartHandshake, Home, Inbox, Megaphone, MessageSquare, QrCode, Send, Settings, ShieldCheck, Users } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
-const groups = [
- { label:"OVERVIEW", links:[["Dashboard","/admin",Home],["Members","/admin/members",Users],["Services","/admin/services",CalendarDays],["Attendance","/admin/attendance",QrCode]] },
- { label:"MINISTRY", links:[["Pastoral care","/admin/pastoral-care",HeartHandshake],["Departments","/admin/departments",ShieldCheck],["Announcements","/admin/announcements",Megaphone],["Prayer requests","/admin/prayer-requests",MessageSquare],["Testimonies","/admin/testimonies",BookOpen]] },
- { label:"MANAGEMENT", links:[["Giving","/admin/giving",CircleDollarSign],["Reports","/admin/reports",BarChart3],["Settings","/admin/settings",Settings]] }
-] as const;
-export function Sidebar() {
- const pathname=usePathname();
- return <aside className="sidebar"><Link href="/admin" className="flex h-[76px] items-center gap-3 border-b border-white/10 px-4"><span className="flex h-12 w-[68px] shrink-0 items-center justify-center rounded-lg bg-white px-1"><BrandLogo className="h-full w-full object-contain"/></span><span className="brand-text"><span className="block text-base font-bold text-white">FlagUpJesus</span><span className="block text-[10px] text-slate-400">ONLINE CHURCH</span></span></Link><nav className="flex-1 space-y-7 overflow-y-auto px-3 py-7">{groups.map(group=><div key={group.label}><p className="side-caption mb-2 px-3 text-[10px] font-bold tracking-[.15em] text-slate-500">{group.label}</p><div className="space-y-1">{group.links.map(([label,href,Icon])=><Link key={href} href={href} className={`nav-link ${pathname===href || (href!=="/admin" && pathname.startsWith(href)) ? "active":""}`}><Icon size={18}/><span className="nav-label">{label}</span></Link>)}</div></div>)}</nav><div className="border-t border-white/10 p-4"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-700 text-xs font-bold text-white">FOJ</div><div className="profile-copy"><p className="text-xs font-semibold text-white">Church Admin</p><p className="text-[10px] text-slate-400">Administrator</p></div></div></div></aside>;
+import { NAV_GROUPS } from "./nav-config";
+import type { Area } from "@/lib/auth/roles";
+
+const ICONS = { home: Home, users: Users, calendar: CalendarDays, qr: QrCode, heart: HeartHandshake, send: Send, inbox: Inbox, megaphone: Megaphone, message: MessageSquare, book: BookOpen, shield: ShieldCheck, money: CircleDollarSign, chart: BarChart3, settings: Settings };
+
+export function NavLinks({ areas, onNavigate }: { areas: Area[]; onNavigate?: () => void }) {
+  const pathname = usePathname();
+  return (
+    <nav className="flex-1 space-y-7 overflow-y-auto px-3 py-7">
+      {NAV_GROUPS.map((group) => {
+        const links = group.links.filter((l) => areas.includes(l.area));
+        if (!links.length) return null;
+        return (
+          <div key={group.label}>
+            <p className="side-caption mb-2 px-3 text-[10px] font-bold tracking-[.15em] text-slate-500">{group.label}</p>
+            <div className="space-y-1">
+              {links.map(({ label, href, icon }) => {
+                const Icon = ICONS[icon as keyof typeof ICONS];
+                const active = pathname === href || (href !== "/admin" && pathname.startsWith(href));
+                return <Link key={href} href={href} prefetch={false} onClick={onNavigate} className={`nav-link ${active ? "active" : ""}`}><Icon size={18} /><span className="nav-label">{label}</span></Link>;
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
+export function Sidebar({ areas, name, roleLabel }: { areas: Area[]; name: string; roleLabel: string }) {
+  return (
+    <aside className="sidebar">
+      <Link href="/admin" className="flex h-[76px] items-center gap-3 border-b border-white/10 px-4">
+        <span className="logo-chip flex h-12 w-[68px] shrink-0 items-center justify-center rounded-lg px-1"><BrandLogo className="h-full w-full object-contain" /></span>
+        <span className="brand-text"><span className="block text-base font-bold text-white">FlagUpJesus</span><span className="block text-[10px] text-slate-400">ONLINE CHURCH</span></span>
+      </Link>
+      <NavLinks areas={areas} />
+      <div className="border-t border-white/10 p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-700 text-xs font-bold text-white">{name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()}</div>
+          <div className="profile-copy min-w-0"><p className="truncate text-xs font-semibold text-white">{name}</p><p className="text-[10px] text-slate-400">{roleLabel}</p></div>
+        </div>
+      </div>
+    </aside>
+  );
 }
