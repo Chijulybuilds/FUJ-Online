@@ -1,0 +1,36 @@
+/** Simplified outline of Nigeria with pulsing markers for where FlagUpJesus serves. */
+const OUTLINE: [number, number][] = [[2.7,6.4],[2.7,9.1],[3.6,11.7],[3.6,12.5],[4.2,13.5],[5.3,13.8],[6.4,13.6],[7.8,13.3],[9,12.8],[10.6,13.3],[12.3,13.1],[13.6,13.7],[14.2,12.4],[14.6,11.6],[13.6,10.2],[13.3,9],[12.4,8.4],[11.8,7],[11,6.4],[9.8,5.8],[8.6,4.7],[7.1,4.4],[6,4.3],[5.2,5.3],[4.4,6.3]];
+const pt = ([lon, lat]: [number, number]) => [(lon - 2.3) * 30, (14.2 - lat) * 31] as const;
+
+export const PLACES = [
+  { name: "Port Harcourt", note: "Headquarters", lonlat: [7.0, 4.82] as [number, number], hq: true, dx: 12, dy: 18 },
+  { name: "Lagos", note: "Miracle Service & Love Campaigns", lonlat: [3.4, 6.52] as [number, number], dx: 12, dy: -10 },
+  { name: "Abuja", note: "Youth outreach groups", lonlat: [7.49, 9.06] as [number, number], dx: 12, dy: 4 },
+  { name: "Bayelsa", note: "Medical outreach", lonlat: [6.26, 4.93] as [number, number], dx: -86, dy: 22 }
+];
+
+export function NigeriaMap() {
+  const d = OUTLINE.map((c, i) => `${i ? "L" : "M"}${pt(c).join(" ")}`).join(" ") + " Z";
+  return (
+    <svg viewBox="0 0 390 320" className="ng-map" role="img" aria-label="Map of Nigeria showing Port Harcourt (headquarters), Lagos, Abuja and Bayelsa">
+      <defs>
+        <linearGradient id="ngfill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="rgba(255,255,255,.10)" /><stop offset="1" stopColor="rgba(255,255,255,.03)" /></linearGradient>
+      </defs>
+      <path d={d} fill="url(#ngfill)" stroke="rgba(255,217,160,.55)" strokeWidth="1.5" strokeLinejoin="round" className="ng-outline" />
+      {PLACES.filter((p) => !p.hq).map((p) => {
+        const [x, y] = pt(p.lonlat); const [hx, hy] = pt(PLACES[0].lonlat);
+        return <path key={`arc-${p.name}`} d={`M${hx} ${hy} Q ${(hx + x) / 2 - 30} ${(hy + y) / 2 - 40} ${x} ${y}`} className="ng-arc" />;
+      })}
+      {PLACES.map((p, i) => {
+        const [x, y] = pt(p.lonlat);
+        return (
+          <g key={p.name} style={{ animationDelay: `${i * 0.5}s` }} className="ng-pin">
+            <circle cx={x} cy={y} r={p.hq ? 16 : 11} className="ng-pulse" style={{ animationDelay: `${i * 0.6}s` }} />
+            <circle cx={x} cy={y} r={p.hq ? 6 : 4.5} fill={p.hq ? "#ffd9a0" : "#ff6b74"} />
+            <text x={x + p.dx} y={y + p.dy} className="ng-label">{p.name}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}

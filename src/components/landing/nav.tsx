@@ -5,7 +5,7 @@ import { ArrowRight, Menu, X } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
-const LINKS = [["#services", "Services"], ["#watch", "Watch"], ["#checkin", "Check-in"], ["#testimonies", "Testimonies"], ["#prayer", "Prayer"], ["#give", "Give"]];
+const LINKS = [["#mission", "Our heartbeat"], ["#outreach", "Love Missions"], ["#gatherings", "Worship"], ["#reach", "Our reach"], ["#prayer", "Prayer"], ["#give", "Partner"]];
 
 export function LandingNav() {
   const [scrolled, setScrolled] = useState(false);

@@ -102,8 +102,8 @@ export function buildSeed(): Partial<{ [N in TableName]: Tables[N][] }> {
     church_settings: [{
       id: true, church_name: "Flag of Jesus Global Ministry", app_name: "FlagUpJesus", timezone: "Africa/Lagos",
       contact_email: "hello@flagupjesus.org", contact_phone: "+234 800 000 0000", tagline: "Raising the flag of Jesus in every nation.",
-      address: "Main auditorium, Lagos, Nigeria",
-      service_times: "Sunday Celebration Service|Sundays · 9:00 AM\nMidweek Bible Study|Wednesdays · 5:30 PM\nPrayer Meeting|Fridays · 6:00 PM",
+      address: "Port Harcourt, Rivers State, Nigeria",
+      service_times: "Word Experience (Sunday Service)|Sundays · 9:00 AM\nBible Study|Wednesdays · 5:30 PM\nPrayer Meeting|Fridays · 6:00 PM",
       livestream_url: "https://www.youtube.com/@flagofjesus/live", bank_name: "Demo Bank", account_name: "Flag of Jesus Global Ministry",
       account_number: "0123456789", absence_threshold: 2, created_at: stamp, updated_at: stamp
     }],
