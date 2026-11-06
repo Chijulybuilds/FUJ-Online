@@ -1,6 +1,6 @@
 const BOOKS = [
   { title: "The 5 Dimensions of Grace", blurb: "Unpacking the systematic framework of spiritual grace.", tone: "book-red", n: "5" },
-  { title: "The 7 Stages of Progress", blurb: "A handbook for structural personal growth, spiritual discipline and avoiding stagnation.", tone: "book-gold", n: "7" }
+  { title: "The 7 Stages of Progress", blurb: "A handbook for structural personal growth, spiritual discipline and avoiding stagnation.", tone: "book-ink", n: "7" }
 ];
 
 /** CSS 3D book covers for Pastor Caleb's core titles. */

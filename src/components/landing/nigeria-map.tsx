@@ -16,7 +16,7 @@ export function NigeriaMap() {
       <defs>
         <linearGradient id="ngfill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="rgba(255,255,255,.10)" /><stop offset="1" stopColor="rgba(255,255,255,.03)" /></linearGradient>
       </defs>
-      <path d={d} fill="url(#ngfill)" stroke="rgba(255,217,160,.55)" strokeWidth="1.5" strokeLinejoin="round" className="ng-outline" />
+      <path d={d} fill="url(#ngfill)" stroke="rgba(255,199,203,.55)" strokeWidth="1.5" strokeLinejoin="round" className="ng-outline" />
       {PLACES.filter((p) => !p.hq).map((p) => {
         const [x, y] = pt(p.lonlat); const [hx, hy] = pt(PLACES[0].lonlat);
         return <path key={`arc-${p.name}`} d={`M${hx} ${hy} Q ${(hx + x) / 2 - 30} ${(hy + y) / 2 - 40} ${x} ${y}`} className="ng-arc" />;
@@ -26,7 +26,7 @@ export function NigeriaMap() {
         return (
           <g key={p.name} style={{ animationDelay: `${i * 0.5}s` }} className="ng-pin">
             <circle cx={x} cy={y} r={p.hq ? 16 : 11} className="ng-pulse" style={{ animationDelay: `${i * 0.6}s` }} />
-            <circle cx={x} cy={y} r={p.hq ? 6 : 4.5} fill={p.hq ? "#ffd9a0" : "#ff6b74"} />
+            <circle cx={x} cy={y} r={p.hq ? 6 : 4.5} fill={p.hq ? "#ffc7cb" : "#ff6b74"} />
             <text x={x + p.dx} y={y + p.dy} className="ng-label">{p.name}</text>
           </g>
         );

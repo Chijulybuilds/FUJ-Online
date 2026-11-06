@@ -8,6 +8,7 @@ import { LandingNav } from "@/components/landing/nav";
 import { LayerRail } from "@/components/landing/layer-rail";
 import { Countdown } from "@/components/landing/countdown";
 import { Particles } from "@/components/landing/particles";
+import { HeroReel } from "@/components/landing/hero-reel";
 import { Slideshow } from "@/components/landing/slideshow";
 import { PhotoMarquee } from "@/components/landing/photo-marquee";
 import { ScrollWords } from "@/components/landing/scroll-words";
@@ -26,7 +27,7 @@ import { formatDate, formatDateTime } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 const LAYERS = [
-  { id: "founder", label: "The Founder" },
+  { id: "founder", label: "Welcome" },
   { id: "mission", label: "Our Heartbeat" },
   { id: "outreach", label: "Love Missions" },
   { id: "gatherings", label: "Word & Worship" },
@@ -75,50 +76,36 @@ export default async function HomePage() {
       <LandingNav />
       <LayerRail layers={LAYERS} />
 
-      {/* ============ LAYER 01 — THE FOUNDER ============ */}
+      {/* ============ LAYER 01 — WELCOME ============ */}
       <section id="founder" className="lp-hero layer">
-        <div className="lp-aurora" aria-hidden><span /><span /><span /></div>
-        <div className="lp-rays" aria-hidden />
+        <div className="hero-flag" aria-hidden><span className="f1" /><span className="f2" /><span className="f3" /></div>
         <div className="lp-grain" aria-hidden />
-        <Particles />
-        <div className="mx-auto grid w-full max-w-7xl items-center gap-10 px-5 pb-20 pt-28 lg:grid-cols-[1.15fr_.85fr] lg:gap-14 lg:pt-32">
-          <div>
+        <Particles count={16} />
+        <HeroReel />
+        <div className="relative z-[2] mx-auto w-full max-w-7xl px-5 pb-16 pt-28 lg:pb-24 lg:pt-32">
+          <div className="max-w-2xl lg:max-w-[52%]">
             <span className="lp-eyebrow lp-fade"><span className={live ? "live-dot" : "hero-eyebrow-dot"} /> {live ? "LIVE NOW" : "FLAGUPJESUS GLOBAL MINISTRY · PORT HARCOURT"}</span>
             <h1 className="lp-title mt-7">
               <Words text="Raise the flag." delay={0.1} /><br />
               <span className="lp-word"><span style={{ animationDelay: ".45s" }}><em>Lift up Jesus.</em></span></span>
             </h1>
-            <p className="lp-fade mt-7 max-w-xl text-lg leading-8 text-white/75" style={{ animationDelay: ".7s" }}>
+            <p className="hero-sub lp-fade mt-7" style={{ animationDelay: ".7s" }}>
               A non-denominational Christian ministry pairing uncompromising, apostolic teaching with feet-on-the-ground love —
-              raising <b className="text-white">gospel giants</b> and carrying hope, medicine and food to the communities that need it most.
+              raising <b>gospel giants</b> and carrying hope, medicine and food to the communities that need it most.
             </p>
             <div className="lp-fade mt-9 flex flex-wrap gap-3" style={{ animationDelay: ".85s" }}>
-              <a className="btn lp-btn-light px-6 py-3" href={watchUrl} {...external}><PlayCircle size={18} /> {live ? "Join the live service" : "Worship with us"}</a>
-              <a className="btn lp-btn-glass px-6 py-3" href="#outreach">See the Love Missions <ArrowRight size={17} /></a>
+              <a className="btn lp-btn-light px-6 py-3 text-base" href={watchUrl} {...external}><PlayCircle size={18} /> {live ? "Join the live service" : "Worship with us"}</a>
+              <a className="btn lp-btn-glass px-6 py-3 text-base" href="#outreach">See the Love Missions <ArrowRight size={17} /></a>
             </div>
             {data?.next && (
               <div className="lp-fade mt-12" style={{ animationDelay: "1s" }}>
-                <p className="mb-3 text-xs font-bold tracking-[.18em] text-white/55">{live ? data.next.title.toUpperCase() : `NEXT: ${data.next.title.toUpperCase()} · ${formatDateTime(data.next.starts_at).toUpperCase()}`}</p>
+                <p className="mb-3 text-xs font-bold tracking-[.18em] text-white/60">{live ? data.next.title.toUpperCase() : `NEXT: ${data.next.title.toUpperCase()} · ${formatDateTime(data.next.starts_at).toUpperCase()}`}</p>
                 <Countdown target={data.next.starts_at} live={live} />
               </div>
             )}
           </div>
-          <div className="lp-fade order-first lg:order-none" style={{ animationDelay: ".4s" }}>
-            <div className="founder">
-              <span className="ring" aria-hidden /><span className="ring r2" aria-hidden />
-              <div className="frame">
-                <Image src={PHOTOS.pastor.src} alt={PHOTOS.pastor.alt} fill priority sizes="(max-width: 1024px) 90vw, 440px" className="object-cover object-top" />
-              </div>
-              <div className="name text-white">
-                <p className="text-xs font-bold tracking-[.2em] text-[#ffd9a0]">FOUNDER &amp; LEAD PASTOR</p>
-                <p className="mt-1 text-2xl font-extrabold">Pastor Umanuwa D. Caleb</p>
-              </div>
-              <div className="badge lp-float -left-6 top-14 hidden sm:block" style={{ animationDelay: "-2s" }}><BookOpen size={16} className="mb-1 text-[#ffd9a0]" />Author · Philanthropist<br />Songwriter</div>
-              <div className="badge lp-float -right-5 top-1/2 hidden sm:block" style={{ animationDelay: "-4s" }}><HandHeart size={16} className="mb-1 text-[#ff9aa1]" />Word <b>+</b> Works</div>
-            </div>
-          </div>
         </div>
-        <a href="#mission" className="absolute bottom-8 left-1/2 hidden -translate-x-1/2 lg:block" aria-label="Scroll to the next layer"><span className="lp-scroll-cue block" /></a>
+        <a href="#mission" className="absolute bottom-8 left-1/2 z-[2] hidden -translate-x-1/2 lg:block" aria-label="Scroll to the next layer"><span className="lp-scroll-cue block" /></a>
       </section>
 
       <div className="lp-marquee" aria-hidden>
@@ -163,7 +150,7 @@ export default async function HomePage() {
           <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 lg:grid-cols-[.9fr_1.1fr]">
             <div>
               <Reveal><LayerTag n={3}>Global Love Campaigns</LayerTag></Reveal>
-              <Reveal delay={0.05}><h2 className="lp-h2 mt-5">We don&apos;t wait for people to find the altar. <em className="!text-[#ffd9a0]">We take it to them.</em></h2></Reveal>
+              <Reveal delay={0.05}><h2 className="lp-h2 mt-5">We don&apos;t wait for people to find the altar. <em className="!text-[#ffc7cb]">We take it to them.</em></h2></Reveal>
               <Reveal delay={0.1}><p className="mt-6 max-w-xl text-lg leading-8 muted">Through our International Love Missions — the <b className="text-white">FlagUp Jesus Army</b> — volunteers systematically enter economically disadvantaged suburbs and villages with the gospel and real relief.</p></Reveal>
               <div className="mt-8 grid gap-3">
                 {[
@@ -239,7 +226,7 @@ export default async function HomePage() {
           <div className="grid items-center gap-12 lg:grid-cols-2">
             <div>
               <Reveal><LayerTag n={5}>From Port Harcourt to the nations</LayerTag></Reveal>
-              <Reveal delay={0.05}><h2 className="lp-h2 mt-5">Rooted in Rivers State. <em className="!text-[#ffd9a0]">Growing everywhere.</em></h2></Reveal>
+              <Reveal delay={0.05}><h2 className="lp-h2 mt-5">Rooted in Rivers State. <em className="!text-[#ffc7cb]">Growing everywhere.</em></h2></Reveal>
               <Reveal delay={0.1}><p className="mt-6 max-w-lg text-lg leading-8 muted">Firmly rooted in Port Harcourt, FlagUpJesus is scaling fast — with Lagos Miracle Services and Love Campaigns, youth teams in Abuja winning souls on the streets, and medical missions reaching communities across the Niger Delta.</p></Reveal>
               <div className="mt-8">
                 {PLACES.map((p, k) => (
@@ -326,7 +313,7 @@ export default async function HomePage() {
         <div className="mx-auto grid max-w-7xl gap-12 px-5 lg:grid-cols-2">
           <Reveal>
             <p className="lp-kicker !text-red-300">We&apos;ll pray with you</p>
-            <h2 className="lp-h2 mt-4">You don&apos;t have to <em className="!text-[#ffd9a0]">carry it alone.</em></h2>
+            <h2 className="lp-h2 mt-4">You don&apos;t have to <em className="!text-[#ffc7cb]">carry it alone.</em></h2>
             <p className="mt-6 max-w-lg text-lg leading-8 muted">Our pastoral team reads and prays over every request. Requests stay confidential unless you choose to share them on the prayer wall.</p>
             {data && data.wall.length > 0 && (
               <ul className="mt-8 space-y-3">{data.wall.slice(0, 3).map((p) => <li key={p.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm"><p className="line-clamp-2 text-white/85">{p.request_text}</p><p className="mt-2 text-xs text-white/50">— {p.displayName} · 🙏 {p.prayed_count} praying</p></li>)}</ul>
@@ -367,7 +354,7 @@ export default async function HomePage() {
       <section className="px-5 pb-20">
         <Reveal className="mx-auto max-w-7xl">
           <div className="lp-cta relative flex flex-wrap items-center justify-between gap-8 overflow-hidden p-10 sm:p-14">
-            <div className="relative max-w-2xl"><h2 className="text-3xl font-extrabold leading-tight sm:text-5xl">You belong here. <span className="font-display italic text-[#ffd9a0]">Come as you are.</span></h2><p className="mt-4 text-white/75">Register in a minute and receive your personal flag username for every service.</p></div>
+            <div className="relative max-w-2xl"><h2 className="text-3xl font-extrabold leading-tight sm:text-5xl">You belong here. <span className="font-display italic text-[#ffc7cb]">Come as you are.</span></h2><p className="mt-4 text-white/75">Register in a minute and receive your personal flag username for every service.</p></div>
             <div className="relative flex flex-wrap gap-3"><Link href="/register" className="btn lp-btn-light px-6 py-3">Register now <ArrowRight size={16} /></Link><Link href="/login" className="btn lp-btn-glass px-6 py-3">Sign in</Link></div>
           </div>
         </Reveal>
