@@ -5,9 +5,9 @@ const pt = ([lon, lat]: [number, number]) => [(lon - 2.3) * 30, (14.2 - lat) * 3
 type Place = { name: string; note: string; lonlat?: [number, number]; xy?: [number, number]; hq?: boolean; abroad?: boolean; dx: number; dy: number };
 
 export const PLACES: Place[] = [
-  { name: "Port Harcourt", note: "Headquarters", lonlat: [7.0, 4.82], hq: true, dx: 12, dy: 18 },
-  { name: "Lagos", note: "Miracle Service & Love Campaigns", lonlat: [3.4, 6.52], dx: 12, dy: -10 },
-  { name: "Abuja", note: "Youth outreach groups", lonlat: [7.49, 9.06], dx: 12, dy: 4 },
+  { name: "Port Harcourt", note: "The Headquarters of Love", lonlat: [7.0, 4.82], hq: true, dx: 12, dy: 18 },
+  { name: "Lagos", note: "Medical & village outreaches", lonlat: [3.4, 6.52], dx: 12, dy: -10 },
+  { name: "Abuja", note: "Village & medical outreaches", lonlat: [7.49, 9.06], dx: 12, dy: 4 },
   { name: "Bayelsa", note: "Medical outreach", lonlat: [6.26, 4.93], dx: -86, dy: 22 },
   // Far north of the map: drawn above Nigeria with a long arc from Port Harcourt.
   { name: "United Kingdom", note: "International", xy: [34, -44], abroad: true, dx: 14, dy: 4 }
@@ -19,7 +19,7 @@ export function NigeriaMap() {
   const d = OUTLINE.map((c, i) => `${i ? "L" : "M"}${pt(c).join(" ")}`).join(" ") + " Z";
   const [hx, hy] = xyOf(PLACES[0]);
   return (
-    <svg viewBox="0 -70 390 390" className="ng-map" role="img" aria-label="Map showing where FlagUpJesus serves: Port Harcourt (headquarters), Lagos, Abuja and Bayelsa in Nigeria, and the United Kingdom">
+    <svg viewBox="0 -70 390 390" className="ng-map" role="img" aria-label="Map showing where FlagUpJesus serves: Port Harcourt (the Headquarters of Love), Lagos, Abuja and Bayelsa in Nigeria, and the United Kingdom">
       <defs>
         <linearGradient id="ngfill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="rgba(255,255,255,.10)" /><stop offset="1" stopColor="rgba(255,255,255,.03)" /></linearGradient>
       </defs>

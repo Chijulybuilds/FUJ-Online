@@ -223,7 +223,7 @@ export default async function HomePage() {
             <div>
               <Reveal><LayerTag n={5}>From Port Harcourt to the nations</LayerTag></Reveal>
               <Reveal delay={0.05}><h2 className="lp-h2 mt-5">Rooted in Rivers State. <em className="!text-[#ffc7cb]">Growing everywhere.</em></h2></Reveal>
-              <Reveal delay={0.1}><p className="mt-6 max-w-lg text-lg leading-8 muted">Firmly rooted in Port Harcourt, FlagUpJesus is scaling fast — with Lagos Miracle Services and Love Campaigns, youth teams in Abuja winning souls on the streets, medical missions reaching communities across the Niger Delta, and a presence beyond Nigeria in the United Kingdom.</p></Reveal>
+              <Reveal delay={0.1}><p className="mt-6 max-w-lg text-lg leading-8 muted">Firmly rooted in Port Harcourt — our Headquarters of Love — FlagUpJesus keeps reaching further: medical and village outreaches in Lagos and Abuja, medical missions to communities across the Niger Delta, and a presence beyond Nigeria in the United Kingdom.</p></Reveal>
               <div className="mt-8">
                 {PLACES.map((p, k) => (
                   <Reveal key={p.name} delay={0.1 + k * 0.07}><div className="place-row"><span className={`dot ${p.hq ? "hq" : p.abroad ? "abroad" : ""}`} /><p className="font-bold">{p.name}</p><p className="ml-auto text-sm muted">{p.note}</p></div></Reveal>
