@@ -1,5 +1,5 @@
 const TONE: Record<string, string> = {
-  member: "pill-green", visitor: "pill-blue", inactive: "pill-gray", transferred: "pill-gray", left_ministry: "pill-gray",
+  member: "pill-green", inactive: "pill-gray", transferred: "pill-gray", left_ministry: "pill-gray",
   scheduled: "pill-blue", active: "pill-green", completed: "pill-gray", cancelled: "pill-red",
   open: "pill-amber", in_progress: "pill-blue", dismissed: "pill-gray",
   draft: "pill-gray", published: "pill-green", archived: "pill-gray",

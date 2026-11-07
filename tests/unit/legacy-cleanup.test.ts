@@ -36,3 +36,16 @@ describe("old sample data clean-up", () => {
     expect(cleanLegacyDemoData(store)).toBe(0);
   });
 });
+
+describe("everyone is a member (local database)", () => {
+  it("turns old visitor records into verified members", () => {
+    const store = { people: [
+      { id: "a1b2c3d4-0000-4000-8000-000000000001", status: "visitor", joined_at: null, first_visit_at: "2026-11-01T10:00:00.000Z", created_at: "2026-11-01T10:00:00.000Z", verified_via: null, verified_at: null },
+      { id: "a1b2c3d4-0000-4000-8000-000000000002", status: "inactive", joined_at: "2025-01-01T00:00:00.000Z", first_visit_at: null, created_at: "2025-01-01T00:00:00.000Z", verified_via: "google", verified_at: "2025-01-01T00:00:00.000Z" }
+    ] };
+    expect(cleanLegacyDemoData(store)).toBe(2);
+    expect(store.people[0]).toMatchObject({ status: "member", joined_at: "2026-11-01T10:00:00.000Z", verified_via: "registration", verified_at: "2026-11-01T10:00:00.000Z" });
+    expect(store.people[1]).toMatchObject({ status: "inactive", verified_via: "google" });
+    expect(cleanLegacyDemoData(store)).toBe(0);
+  });
+});

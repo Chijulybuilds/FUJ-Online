@@ -28,10 +28,10 @@ export function buildFixture() {
   const peopleSeed = [
     ["Grace Okafor", "08031234567", "flaggrace101", "member", 700],
     ["David Nwosu", "08062345678", "flagdavid102", "member", 900],
-    ["Amara Eze", "08093456789", "flagamara103", "visitor", 10],
+    ["Amara Eze", "08093456789", "flagamara103", "member", 10],
     ["Samuel James", "08024567890", "flagsamuel104", "member", 1200],
     ["Esther Bello", "08055678901", "flagesther105", "member", 400],
-    ["Daniel Peter", "08076789012", "flagdaniel106", "visitor", 6],
+    ["Daniel Peter", "08076789012", "flagdaniel106", "member", 6],
     ["Blessing Adebayo", "08087890123", "flagblessing107", "member", 600],
     ["Michael Obi", "08098901234", "flagmichael108", "member", 300],
     ["Joy Chukwu", "08019012345", "flagjoy109", "member", 500],
@@ -40,10 +40,10 @@ export function buildFixture() {
   const people = peopleSeed.map(([name, phone, username, status, joined], i) => ({
     id: id(), person_code: `FOJ-${String(i + 1).padStart(4, "0")}`, username, full_name: name, phone,
     normalized_phone: normalizePhone(phone), email: `${username.replace("flag", "")}@example.com`, status,
-    first_visit_at: iso(daysAgo(joined)), joined_at: status === "member" ? iso(daysAgo(joined)) : null, notes: null,
+    first_visit_at: iso(daysAgo(joined)), joined_at: iso(daysAgo(joined)), notes: null,
     auth_subject: null, avatar_url: null, gender: null, birthday: null, address: null, how_heard: null,
     last_seen_at: null, whatsapp: i % 4 === 3 ? "no" : i % 2 === 0 ? "yes" : "unknown", whatsapp_checked_at: null,
-    verified_via: "in_person", verified_at: iso(daysAgo(joined)),
+    verified_via: "registration", verified_at: iso(daysAgo(joined)),
     created_at: iso(daysAgo(joined)), updated_at: iso(daysAgo(joined))
   }));
 
@@ -74,7 +74,7 @@ export function buildFixture() {
   const sundays = services.filter((s) => s.status === "completed" && s.category === "Sunday worship");
   sundays.forEach((svc, w) => {
     people.forEach((p, i) => {
-      if (p.status === "visitor" && w < sundays.length - 1) return; // visitors only came last Sunday
+      if ((i === 2 || i === 5) && w < sundays.length - 1) return; // new members (Amara, Daniel) only came last Sunday
       if ((i === 3 || i === 6) && w >= sundays.length - 2) return;
       if ((i + w) % 7 === 5) return; // occasional absence
       attendance.push({
@@ -116,7 +116,7 @@ export function buildFixture() {
     announcements: [
       { id: id(), title: "Thanksgiving Sunday", body: "Join us this Sunday as we give thanks to God for His faithfulness. Come with a friend!", audience: "all", status: "published", published_at: iso(daysAgo(2)), pinned: true, is_public: true, author: "Church Admin", created_at: iso(daysAgo(2)), updated_at: iso(daysAgo(2)) },
       { id: id(), title: "Workers' Prayer Meeting", body: "All workers should gather on Saturday at 7:00 AM for prayer.", audience: "members", status: "published", published_at: iso(daysAgo(5)), pinned: false, is_public: false, author: "Pastor John", created_at: iso(daysAgo(5)), updated_at: iso(daysAgo(5)) },
-      { id: id(), title: "New Members' Welcome Class", body: "Our next welcome class holds after the second service.", audience: "visitors", status: "draft", published_at: null, pinned: false, is_public: true, author: "Church Admin", created_at: iso(daysAgo(1)), updated_at: iso(daysAgo(1)) }
+      { id: id(), title: "New Members' Welcome Class", body: "Our next welcome class holds after the second service.", audience: "all", status: "draft", published_at: null, pinned: false, is_public: true, author: "Church Admin", created_at: iso(daysAgo(1)), updated_at: iso(daysAgo(1)) }
     ],
     prayer_requests: [
       { id: id(), person_id: people[0].id, request_text: "Please pray for my mother's healing and quick recovery.", visibility: "public", status: "praying", consent_to_share: true, requester_name: null, requester_contact: null, is_anonymous: false, prayed_count: 14, admin_note: null, assignee: null, on_wall: true, created_at: iso(daysAgo(4)), updated_at: iso(daysAgo(4)) },

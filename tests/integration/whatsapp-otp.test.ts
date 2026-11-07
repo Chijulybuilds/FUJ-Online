@@ -60,7 +60,7 @@ describe("broadcast delivery: WhatsApp first, SMS fallback", () => {
   });
 
   it("falls back to SMS when the WhatsApp webhook reports 'not on WhatsApp', and remembers it", async () => {
-    const c = await people.createPerson({ full_name: "Chidi Unknown", phone: "08030000003", status: "visitor" });
+    const c = await people.createPerson({ full_name: "Chidi Unknown", phone: "08030000003", status: "member" });
     const bc = await messaging.sendBroadcast({ title: "Welcome", body: "Glad you came", kind: "general", audience: `person:${c.id}`, channels: ["whatsapp"], request_response: false, created_by: "test" });
     const row = (await db().list("broadcast_recipients", { where: { broadcast_id: bc.id } }))[0];
     calls.length = 0;
@@ -78,7 +78,7 @@ describe("broadcast delivery: WhatsApp first, SMS fallback", () => {
   });
 
   it("falls back immediately when WhatsApp rejects synchronously", async () => {
-    const d = await people.createPerson({ full_name: "Dayo Reject", phone: "08030000004", status: "visitor" });
+    const d = await people.createPerson({ full_name: "Dayo Reject", phone: "08030000004", status: "member" });
     waBehaviour = "reject";
     const bc = await messaging.sendBroadcast({ title: "Hi", body: "x", kind: "general", audience: `person:${d.id}`, channels: ["whatsapp"], request_response: false, created_by: "test" });
     const row = (await db().list("broadcast_recipients", { where: { broadcast_id: bc.id } }))[0];
@@ -125,19 +125,17 @@ describe("flyers on automatic WhatsApp / SMS", () => {
   });
 });
 
-describe("free verification (no OTP)", () => {
-  it("a self-registered person is unverified until their first in-person check-in", async () => {
+describe("everyone is a member, verified at sign-up", () => {
+  it("a self-registered person is a member and verified immediately; check-in doesn't change that", async () => {
     const services = await import("../../src/lib/repo/services");
     const p = await people.createPerson({ full_name: "Halima Selfreg", phone: "08030000008" });
-    expect(p.verified_via).toBeNull();
+    expect(p.status).toBe("member");
+    expect(p.joined_at).not.toBeNull();
+    expect(p.verified_via).toBe("registration");
+    expect(p.verified_at).not.toBeNull();
     const svc = await services.createService({ title: "Sunday", category: "Sunday worship", starts_at: new Date().toISOString() });
     await services.recordAttendance({ person: p, serviceId: svc.id, method: "manual", recordedBy: "usher" });
-    const after = (await db().get("people", { id: p.id }))!;
-    expect(after.verified_via).toBe("in_person");
-    expect(after.verified_at).not.toBeNull();
-    // never downgraded
-    await people.markVerified(p.id, "admin");
-    expect((await db().get("people", { id: p.id }))!.verified_via).toBe("in_person");
+    expect((await db().get("people", { id: p.id }))!.verified_via).toBe("registration");
   });
 });
 

@@ -30,6 +30,16 @@ export function configProblems(): string[] {
   const app = runtimeEnv("NEXT_PUBLIC_APP_URL");
   if (production && app && !app.startsWith("https://")) problems.push("NEXT_PUBLIC_APP_URL should start with https:// (e.g. https://www.flagupjesus.org)");
   if (!env.googleEnabled) problems.push("CLIENT_ID / CLIENT_SECRET (Google sign-in) are missing");
+
+  // Messaging channels are optional, but each needs ALL of its keys.
+  const pairs: [string, string][] = [["WHATSAPP_TOKEN", "WHATSAPP_PHONE_NUMBER_ID"], ["TERMII_API_KEY", "TERMII_SENDER_ID"], ["RESEND_API_KEY", "EMAIL_FROM"]];
+  for (const [a, b] of pairs) {
+    if (has(a) !== has(b)) problems.push(`${has(a) ? b : a} is missing (${a} and ${b} work together)`);
+  }
+  if (has("WHATSAPP_PHONE_NUMBER_ID") && !/^\d{10,20}$/.test(runtimeEnv("WHATSAPP_PHONE_NUMBER_ID"))) problems.push("WHATSAPP_PHONE_NUMBER_ID should be the long numeric Phone number ID from Meta (not the phone number)");
+  if (has("WHATSAPP_TOKEN") && !has("WHATSAPP_TEMPLATE_NAME")) problems.push("WHATSAPP_TEMPLATE_NAME is missing — without an approved template WhatsApp only reaches people who messaged the church number in the last 24 hours");
+  if (production && has("WHATSAPP_TOKEN") && !has("WHATSAPP_APP_SECRET")) problems.push("WHATSAPP_APP_SECRET is missing — needed to accept WhatsApp delivery receipts and replies");
+  if (has("EMAIL_FROM") && !/@/.test(runtimeEnv("EMAIL_FROM"))) problems.push("EMAIL_FROM should look like: FlagUpJesus <news@flagupjesus.org>");
   return problems;
 }
 

@@ -88,8 +88,7 @@ export async function recordAttendance(input: {
       id: uid(), person_id: input.person.id, service_id: input.serviceId, checked_in_at: now, check_in_method: input.method,
       recorded_by: input.recordedBy ?? null, device_id: input.deviceId ?? null, created_at: now
     });
-    // Being checked in at church (live QR scan or an usher at the desk) verifies a self-registered person.
-    await db().update("people", { id: input.person.id }, { last_seen_at: now, updated_at: now, ...(input.person.verified_via ? {} : { verified_via: "in_person" as const, verified_at: now }) });
+    await db().update("people", { id: input.person.id }, { last_seen_at: now, updated_at: now });
     return { status: "checked_in", attendance, person: input.person };
   } catch (error) {
     if (error instanceof DuplicateError) {
@@ -102,8 +101,15 @@ export async function recordAttendance(input: {
 
 export async function attendanceForService(serviceId: string) {
   const rows = await db().list("attendance", { where: { service_id: serviceId }, order: { column: "checked_in_at", ascending: false } });
-  const people = await peopleById(rows.map((r) => r.person_id));
-  return rows.map((r) => ({ ...r, person: people.get(r.person_id) ?? null }));
+  const ids = rows.map((r) => r.person_id);
+  const [people, history] = await Promise.all([
+    peopleById(ids),
+    ids.length && ids.length <= 100 ? db().list("attendance", { where: { person_id: ids } }) : ids.length ? db().list("attendance") : Promise.resolve([])
+  ]);
+  // Each person's earliest check-in: if it's this service, it was their first time in church.
+  const firstId = new Map<string, { id: string; at: string }>();
+  for (const a of history) { const cur = firstId.get(a.person_id); if (!cur || a.checked_in_at < cur.at) firstId.set(a.person_id, { id: a.id, at: a.checked_in_at }); }
+  return rows.map((r) => ({ ...r, person: people.get(r.person_id) ?? null, firstTime: firstId.get(r.person_id)?.id === r.id }));
 }
 
 export async function attendanceForPerson(personId: string) {
@@ -116,14 +122,13 @@ export async function attendanceForPerson(personId: string) {
 export async function serviceSummaries(limit = 12) {
   const services = (await listServices()).filter((s) => s.status !== "cancelled" && new Date(s.starts_at).getTime() <= Date.now() + 86400000);
   const attendance = await db().list("attendance");
-  const people = await peopleById();
   return services.slice(0, limit).map((service) => {
     const rows = attendance.filter((a) => a.service_id === service.id);
-    const visitors = rows.filter((a) => people.get(a.person_id)?.status === "visitor").length;
-    const firstTimers = rows.filter((a) => {
+    // New members = people whose first-ever check-in was this service.
+    const newMembers = rows.filter((a) => {
       const first = attendance.filter((x) => x.person_id === a.person_id).sort((x, y) => x.checked_in_at.localeCompare(y.checked_in_at))[0];
       return first?.id === a.id;
     }).length;
-    return { service, total: rows.length, visitors, members: rows.length - visitors, firstTimers };
+    return { service, total: rows.length, newMembers };
   });
 }

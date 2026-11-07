@@ -1,12 +1,12 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, UserCheck, CalendarDays, CircleDollarSign, HeartHandshake, Home, Inbox, Megaphone, MessageSquare, QrCode, Send, Settings, ShieldCheck, Users } from "lucide-react";
+import { Award, BarChart3, BookOpen, UserCheck, CalendarDays, CircleDollarSign, HeartHandshake, Home, Inbox, Megaphone, MessageSquare, QrCode, Send, Settings, ShieldCheck, Users } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { NAV_GROUPS } from "./nav-config";
 import type { Area } from "@/lib/auth/roles";
 
-const ICONS = { check: UserCheck, home: Home, users: Users, calendar: CalendarDays, qr: QrCode, heart: HeartHandshake, send: Send, inbox: Inbox, megaphone: Megaphone, message: MessageSquare, book: BookOpen, shield: ShieldCheck, money: CircleDollarSign, chart: BarChart3, settings: Settings };
+const ICONS = { check: UserCheck, home: Home, users: Users, leaders: Award, calendar: CalendarDays, qr: QrCode, heart: HeartHandshake, send: Send, inbox: Inbox, megaphone: Megaphone, message: MessageSquare, book: BookOpen, shield: ShieldCheck, money: CircleDollarSign, chart: BarChart3, settings: Settings };
 
 export function NavLinks({ areas, onNavigate }: { areas: Area[]; onNavigate?: () => void }) {
   const pathname = usePathname();

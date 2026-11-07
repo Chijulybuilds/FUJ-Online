@@ -13,6 +13,7 @@ const UNIQUE: Partial<Record<TableName, string[][]>> = {
   attendance: [["id"], ["person_id", "service_id"]],
   admin_users: [["id"], ["email"]],
   broadcast_recipients: [["id"], ["broadcast_id", "person_id"]],
+  leaders: [["id"], ["person_id"]],
   church_settings: [["id"]]
 };
 
@@ -22,7 +23,7 @@ function emptyStore(): Store {
   return {
     people: [], otp_codes: [], services: [], qr_sessions: [], attendance: [], follow_up_tasks: [], follow_up_logs: [],
     announcements: [], prayer_requests: [], testimonies: [], donations: [], broadcasts: [], broadcast_recipients: [],
-    admin_users: [], church_settings: [], audit_logs: []
+    admin_users: [], leaders: [], church_settings: [], audit_logs: []
   };
 }
 
@@ -35,7 +36,7 @@ function load(path: string): Store {
     data = { ...emptyStore(), ...raw };
     if (removed) {
       persist(path, data);
-      console.info(`[FlagUpJesus] Removed ${removed} old sample records/settings from the local database.`);
+      console.info(`[FlagUpJesus] Updated ${removed} old records/settings in the local database.`);
     }
   } else {
     data = { ...emptyStore(), ...buildSeed() };

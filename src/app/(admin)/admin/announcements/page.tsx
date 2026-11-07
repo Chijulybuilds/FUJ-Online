@@ -7,7 +7,6 @@ import { announcementStatusAction, saveAnnouncementAction } from "@/lib/actions/
 import { providers } from "@/lib/messaging/providers";
 import { formatDate } from "@/lib/utils";
 
-const AUD = { all: "Everyone", members: "Members", visitors: "Visitors" } as Record<string, string>;
 
 export default async function AnnouncementsPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
   await requireAdmin("announcements");
@@ -24,7 +23,6 @@ export default async function AnnouncementsPage({ searchParams }: { searchParams
             {current && <input type="hidden" name="id" value={current.id} />}
             <label className="label">Title<input className="input mt-1" name="title" required defaultValue={current?.title} /></label>
             <label className="label">Body<textarea className="input mt-1 min-h-32" name="body" required defaultValue={current?.body} /></label>
-            <label className="label">Audience<select className="input mt-1" name="audience" defaultValue={current?.audience ?? "all"}><option value="all">Everyone</option><option value="members">Members</option><option value="visitors">Visitors</option></select></label>
             <div className="flex flex-wrap gap-5">
               <label className="checkbox"><input type="checkbox" name="pinned" defaultChecked={current?.pinned} /> Pin to top</label>
               <label className="checkbox"><input type="checkbox" name="is_public" defaultChecked={current?.is_public ?? true} /> Show on public landing page</label>
@@ -32,7 +30,8 @@ export default async function AnnouncementsPage({ searchParams }: { searchParams
             <div className="rounded-xl border border-slate-100 p-4">
               <label className="checkbox"><input type="checkbox" name="broadcast" /> Also broadcast when publishing</label>
               <div className="mt-2 flex gap-5 pl-6 text-xs">
-                <label className="checkbox"><input type="checkbox" name="channels" value="whatsapp" disabled={!providers.sms && !providers.whatsapp} /> WhatsApp / SMS</label>
+                <label className="checkbox"><input type="checkbox" name="channels" value="whatsapp" disabled={!providers.whatsapp} /> WhatsApp</label>
+                <label className="checkbox"><input type="checkbox" name="channels" value="sms" disabled={!providers.sms} /> SMS</label>
                 <label className="checkbox"><input type="checkbox" name="channels" value="email" disabled={!providers.email} /> Email</label>
               </div>
             </div>
@@ -43,7 +42,7 @@ export default async function AnnouncementsPage({ searchParams }: { searchParams
           {items.map((a) => (
             <article key={a.id} className="p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><p className="font-semibold">{a.pinned && "📌 "}{a.title}</p><p className="mt-1 text-xs text-slate-500">{AUD[a.audience] ?? a.audience} · {formatDate(a.published_at ?? a.created_at)} · {a.is_public ? "public" : "portal only"}</p></div>
+                <div><p className="font-semibold">{a.pinned && "📌 "}{a.title}</p><p className="mt-1 text-xs text-slate-500">{formatDate(a.published_at ?? a.created_at)} · {a.is_public ? "public" : "portal only"}</p></div>
                 <StatusPill value={a.status} />
               </div>
               <p className="mt-2 line-clamp-2 text-sm text-slate-600">{a.body}</p>

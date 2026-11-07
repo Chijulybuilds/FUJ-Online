@@ -12,7 +12,7 @@ export async function dashboardStats() {
   return {
     totalPeople: people.length,
     members: people.filter((p) => p.status === "member").length,
-    visitors: people.filter((p) => p.status === "visitor").length,
+    inactive: people.filter((p) => p.status !== "member").length,
     newThisMonth: people.filter((p) => new Date(p.created_at) >= monthStart).length,
     openTasks: tasks.filter((t) => t.status === "open" || t.status === "in_progress").length,
     pendingPrayers: prayers.filter((p) => p.status === "pending").length,

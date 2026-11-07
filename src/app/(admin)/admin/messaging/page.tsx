@@ -3,26 +3,29 @@ import { PageHeading } from "@/components/ui/page-heading";
 import { StatusPill } from "@/components/ui/status-pill";
 import { requireAdmin } from "@/lib/auth/session";
 import { AUDIENCES, listBroadcasts } from "@/lib/repo/messaging";
+import { leaderUnits } from "@/lib/repo/leaders";
 import { providers } from "@/lib/messaging/providers";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/utils";
 import { Compose } from "./compose";
 
-export default async function MessagingPage({ searchParams }: { searchParams: Promise<{ to?: string }> }) {
+export default async function MessagingPage({ searchParams }: { searchParams: Promise<{ to?: string; audience?: string }> }) {
   await requireAdmin("messaging");
-  const { to } = await searchParams;
-  const [broadcasts, person] = await Promise.all([
-    listBroadcasts(), to ? db().get("people", { id: to }).catch(() => null) : null
+  const { to, audience } = await searchParams;
+  const [broadcasts, person, units] = await Promise.all([
+    listBroadcasts(), to ? db().get("people", { id: to }).catch(() => null) : null, leaderUnits().catch(() => [])
   ]);
   const audiences = [
     ...(person ? [{ value: `person:${person.id}`, label: `Direct: ${person.full_name}` }] : []),
-    ...AUDIENCES
+    ...AUDIENCES,
+    ...units.map((u) => ({ value: `leaders:${u.unit}`, label: `Leaders — ${u.unit} (${u.count})` }))
   ];
+  const preset = audiences.find((a) => a.value.toLowerCase() === (audience ?? "").toLowerCase())?.value;
   return (
     <>
       <PageHeading title="Broadcasts & follow-up" description="Send announcements and follow-up messages, then track who read and who responded." />
       <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
-        <section className="card p-6"><h2 className="mb-4 font-bold">New broadcast</h2><Compose audiences={audiences} defaultAudience={person ? `person:${person.id}` : "all"} sms={providers.sms} email={providers.email} whatsapp={providers.whatsapp} /></section>
+        <section className="card p-6"><h2 className="mb-4 font-bold">New broadcast</h2><Compose audiences={audiences} defaultAudience={person ? `person:${person.id}` : preset ?? "all"} sms={providers.sms} email={providers.email} whatsapp={providers.whatsapp} /></section>
         <section className="card">
           <div className="border-b border-slate-100 p-5"><h2 className="font-bold">Sent ({broadcasts.length})</h2></div>
           <ul className="divide-y divide-slate-100">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, QrCode, UserCheck, Users, UserPlus } from "lucide-react";
+import { Download, QrCode, Users, UserPlus } from "lucide-react";
 import { PageHeading } from "@/components/ui/page-heading";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -27,21 +27,20 @@ export default async function AttendancePage() {
           ))}
         </div>
       )}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <StatCard label="Last service" value={last?.total ?? 0} change={last ? formatDate(last.service.starts_at) : "—"} icon={<Users size={18} />} />
-        <StatCard label="Members present" value={last?.members ?? 0} change={last?.total ? `${Math.round((last.members / last.total) * 100)}% of attendance` : "—"} icon={<UserCheck size={18} />} tone="green" />
-        <StatCard label="Visitors" value={last?.visitors ?? 0} change={`${last?.firstTimers ?? 0} first-timers`} icon={<UserPlus size={18} />} tone="violet" />
+        <StatCard label="New members" value={last?.newMembers ?? 0} change="First time in church at the last service" icon={<UserPlus size={18} />} tone="violet" />
         <StatCard label="Average attendance" value={avg} change={`Across ${summaries.length} services`} icon={<Users size={18} />} tone="amber" />
       </div>
       <div className="card">
         <div className="table-wrap">
           <table className="data-table">
-            <thead><tr><th>Service</th><th>Date</th><th>Status</th><th>Total</th><th>Members</th><th>Visitors</th><th>First-timers</th></tr></thead>
+            <thead><tr><th>Service</th><th>Date</th><th>Status</th><th>Checked in</th><th>New members</th></tr></thead>
             <tbody>
               {summaries.map((s) => (
-                <tr key={s.service.id}><td><Link className="font-semibold hover:text-blue-600" href={`/admin/services/${s.service.id}`}>{s.service.title}</Link></td><td>{formatDateTime(s.service.starts_at)}</td><td><StatusPill value={s.service.status} /></td><td><b>{s.total}</b></td><td>{s.members}</td><td>{s.visitors}</td><td>{s.firstTimers}</td></tr>
+                <tr key={s.service.id}><td><Link className="font-semibold hover:text-blue-600" href={`/admin/services/${s.service.id}`}>{s.service.title}</Link></td><td>{formatDateTime(s.service.starts_at)}</td><td><StatusPill value={s.service.status} /></td><td><b>{s.total}</b></td><td>{s.newMembers}</td></tr>
               ))}
-              {!summaries.length && <tr><td colSpan={7} className="text-center text-slate-500">No services yet.</td></tr>}
+              {!summaries.length && <tr><td colSpan={5} className="text-center text-slate-500">No services yet.</td></tr>}
             </tbody>
           </table>
         </div>

@@ -14,20 +14,17 @@ export default async function ReportsPage() {
   const admin = await requireAdmin("reports");
   const [stats, months, broadcasts] = await Promise.all([dashboardStats(), monthlySeries(6), can(admin.role, "messaging") ? listBroadcasts() : Promise.resolve([])]);
   const services = [...stats.summaries].reverse();
-  const retention = stats.totalPeople ? Math.round((stats.members / stats.totalPeople) * 100) : 0;
   return (
     <>
       <PageHeading title="Reports & analytics" description="Attendance, growth, giving and engagement trends." action={<a className="btn btn-secondary" href="/api/admin/export?type=attendance">Export attendance CSV</a>} />
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card p-6"><h2 className="mb-5 font-bold">Attendance per service</h2>{services.length ? <Bars data={services.map((s) => ({ label: formatDate(s.service.starts_at, { day: "2-digit", month: "short" }), value: s.total }))} /> : <p className="empty">No data</p>}</section>
-        <section className="card p-6"><h2 className="mb-5 font-bold">New people per month</h2><Bars data={months.map((m) => ({ label: m.label, value: m.newPeople }))} /></section>
+        <section className="card p-6"><h2 className="mb-5 font-bold">New members per month</h2><Bars data={months.map((m) => ({ label: m.label, value: m.newPeople }))} /></section>
         <section className="card p-6"><h2 className="mb-5 font-bold">Check-ins per month</h2><Bars data={months.map((m) => ({ label: m.label, value: m.checkIns }))} /></section>
         {can(admin.role, "giving") && <section className="card p-6"><h2 className="mb-5 font-bold">Giving per month</h2><Bars data={months.map((m) => ({ label: m.label, value: m.giving }))} format={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} /><p className="mt-3 text-xs text-slate-500">This month: {formatCurrency(stats.givingThisMonth)}</p></section>}
         <section className="card p-6">
           <h2 className="mb-4 font-bold">Membership</h2>
-          <dl className="kv"><dt>Total people</dt><dd>{stats.totalPeople}</dd><dt>Members</dt><dd>{stats.members} ({retention}%)</dd><dt>Visitors</dt><dd>{stats.visitors}</dd><dt>Open follow-ups</dt><dd>{stats.openTasks}</dd><dt>All-time check-ins</dt><dd>{stats.totalCheckIns}</dd></dl>
-          <h3 className="mb-2 mt-5 text-sm font-semibold">Visitor → member journey</h3>
-          <div className="progress"><span style={{ width: `${retention}%` }} /></div>
+          <dl className="kv"><dt>Active members</dt><dd>{stats.members}</dd><dt>Inactive / moved</dt><dd>{stats.inactive}</dd><dt>New this month</dt><dd>{stats.newThisMonth}</dd><dt>Open follow-ups</dt><dd>{stats.openTasks}</dd><dt>All-time check-ins</dt><dd>{stats.totalCheckIns}</dd></dl>
         </section>
         {broadcasts.length > 0 && (
           <section className="card p-6">

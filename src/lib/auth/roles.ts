@@ -1,10 +1,10 @@
 import type { StaffRole } from "@/lib/db/types";
 
 export type Area =
-  | "dashboard" | "members" | "services" | "attendance" | "care" | "messaging" | "inbox" | "announcements"
+  | "dashboard" | "members" | "leaders" | "services" | "attendance" | "care" | "messaging" | "inbox" | "announcements"
   | "prayer" | "testimonies" | "giving" | "reports" | "settings" | "staff";
 
-const ALL: Area[] = ["dashboard", "members", "services", "attendance", "care", "messaging", "inbox", "announcements", "prayer", "testimonies", "giving", "reports", "settings"];
+const ALL: Area[] = ["dashboard", "members", "leaders", "services", "attendance", "care", "messaging", "inbox", "announcements", "prayer", "testimonies", "giving", "reports", "settings"];
 
 export const ROLE_ACCESS: Record<StaffRole, Area[]> = {
   super_admin: [...ALL, "staff"],

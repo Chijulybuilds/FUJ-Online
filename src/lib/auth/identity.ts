@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import type { StaffRole } from "@/lib/db/types";
 import { nowIso, uid } from "@/lib/utils";
-import { findByEmail, markVerified } from "@/lib/repo/people";
+import { findByEmail } from "@/lib/repo/people";
 import { recordAttendance } from "@/lib/repo/services";
 import { verifyTicket } from "@/lib/security/qr-token";
 import { audit } from "@/lib/repo/audit";
@@ -86,7 +86,6 @@ export async function completeIdentity(identity: Omit<Identity, "exp">, intent: 
     if (person && !person.auth_subject) await db().update("people", { id: person.id }, { auth_subject: subject, avatar_url: person.avatar_url ?? identity.avatar, updated_at: nowIso() });
   }
   if (person) {
-    if (identity.provider === "google") await markVerified(person.id, "google");
     await setMemberSession(person);
     const checkedIn = await checkInFromTicket(person.id).catch(() => null);
     return checkedIn ? "/check-in" : "/member";

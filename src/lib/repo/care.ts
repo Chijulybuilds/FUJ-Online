@@ -41,13 +41,13 @@ export async function runFollowUpAnalysis() {
   const attendance = await db().list("attendance");
   const people = await peopleById();
   let absentees = 0;
-  let firstTimers = 0;
+  let newMembers = 0;
 
   if (recent.length === threshold) {
     const recentIds = new Set(recent.map((s) => s.id));
     const oldest = new Date(recent[recent.length - 1].starts_at).getTime();
     for (const person of people.values()) {
-      if (!["member", "visitor"].includes(person.status)) continue;
+      if (person.status !== "member") continue;
       const mine = attendance.filter((a) => a.person_id === person.id);
       const attendedBefore = mine.some((a) => new Date(a.checked_in_at).getTime() < oldest);
       if (!attendedBefore || mine.some((a) => recentIds.has(a.service_id))) continue;
@@ -65,13 +65,14 @@ export async function runFollowUpAnalysis() {
   const fortnight = now - 14 * 86400000;
   for (const person of people.values()) {
     const mine = attendance.filter((a) => a.person_id === person.id).sort((a, b) => a.checked_in_at.localeCompare(b.checked_in_at));
-    const firstSeen = mine[0]?.checked_in_at ?? (person.status === "visitor" ? person.created_at : null);
+    // First time in church within the last fortnight (online registrations already get a welcome task).
+    const firstSeen = mine[0]?.checked_in_at ?? null;
     if (!firstSeen || new Date(firstSeen).getTime() < fortnight) continue;
     if (tasks.some((t) => t.person_id === person.id && t.category === "first_timer")) continue;
-    await createTask({ person_id: person.id, category: "first_timer", priority: "normal", reason: "First-time guest — welcome call within 48 hours", due_at: new Date(now + 2 * 86400000).toISOString() });
-    firstTimers++;
+    await createTask({ person_id: person.id, category: "first_timer", priority: "normal", reason: "New member — welcome call within 48 hours", due_at: new Date(now + 2 * 86400000).toISOString() });
+    newMembers++;
   }
-  return { absentees, firstTimers };
+  return { absentees, newMembers };
 }
 
 export async function listTasks() {
