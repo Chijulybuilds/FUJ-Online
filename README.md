@@ -32,7 +32,7 @@ npm run dev
 
 Open http://localhost:3000.
 
-**Without Supabase** (`SUPABASE_SERVICE_ROLE_KEY` empty) the app stores data in `.data/flagupjesus-db.json`. It starts **empty** — no sample members, services or offerings; only the ministry name, contact details and bank account. Anything FUJ hasn't provided yet (address, phone, email, service times, livestream link) shows as a dashed **[placeholder]** until you fill it in **Admin → Settings**. Set `ADMIN_LOGIN_EMAIL` / `ADMIN_LOGIN_PASSWORD` in `.env.local`, then open http://localhost:3000/admin. Flyers uploaded locally are stored in `.data/uploads/`. (The automated tests use their own fictional sample data from `tests/e2e/fixtures/`, written to a throwaway database.) If your local database was created by an earlier version (with sample members, "Demo Bank", a Lagos address…), that old sample data is removed automatically the next time the app starts; records you created yourself are kept.
+**Without Supabase** (`SUPABASE_SERVICE_ROLE_KEY` empty) the app stores data in `.data/flagupjesus-db.json`. It starts **empty** — no sample members, services or offerings; only the ministry name, contact details and bank account. Anything FUJ hasn't provided yet (e.g. the next service date) shows as a dashed **[placeholder]**; the **Watch online** button only appears once a livestream link is set in **Admin → Settings**. Set `ADMIN_LOGIN_EMAIL` / `ADMIN_LOGIN_PASSWORD` in `.env.local`, then open http://localhost:3000/admin. Flyers uploaded locally are stored in `.data/uploads/`. (The automated tests use their own fictional sample data from `tests/e2e/fixtures/`, written to a throwaway database.) If your local database was created by an earlier version (with sample members, "Demo Bank", a Lagos address…), that old sample data is removed automatically the next time the app starts; records you created yourself are kept.
 
 ## 2. Connect Supabase (database)
 
@@ -90,7 +90,7 @@ Members can sign in with Google (linked by Google account / email) or with usern
 SMS is used when *SMS* is ticked on a broadcast, and automatically for people who aren't on WhatsApp.
 
 #### Email (Resend — free tier is enough for V1)
-1. **resend.com** → sign up → **Domains → Add domain** → `flagupjesus.org`. Resend shows a few DNS records (TXT for SPF/DKIM, an MX for the `send` subdomain). Add each one in **Hostinger → Domains → flagupjesus.org → DNS / Nameservers**, then click **Verify** in Resend (can take up to an hour).
+1. **resend.com** → sign up → **Domains → Add domain** → `flagupjesus.org`. Resend lists the DNS records to add — typically a **TXT** `resend._domainkey` (DKIM), two **CNAME**s for sending (`send` and `rsend`, or an MX + TXT on `send` for older accounts) and an optional **TXT** `_dmarc`. In **Hostinger → Domains → flagupjesus.org → DNS / Nameservers** add each one with the same type, the **Name exactly as shown** (Hostinger adds `.flagupjesus.org` itself) and the **full value** (click the value in Resend to copy it — the `[...]` means it's shortened on screen). A CNAME can't share its name with any other record, so delete any old `send` records first. Then click **Verify** in Resend (can take up to an hour).
 2. **API Keys → Create API key** (Sending access) → `RESEND_API_KEY`.
 3. `EMAIL_FROM=FlagUpJesus <news@flagupjesus.org>` (any name @flagupjesus.org works once verified). Replies go to the contact email in **Admin → Settings**.
 Emails include the title, message and flyer, styled in FUJ red.

@@ -209,9 +209,8 @@ export default async function HomePage() {
               <Reveal delay={0.05}><h2 className="lp-h2 mt-5 max-w-2xl">Raising <em>gospel giants.</em></h2></Reveal>
               <Reveal delay={0.1}><p className="mt-5 max-w-xl text-lg muted">Our programmes — weekly, monthly, quarterly and annual — for fellowship, prayer, discipleship and revival.</p></Reveal>
             </div>
-            <Reveal delay={0.1}>{settings?.livestream_url
-              ? <a href={watchUrl} {...external} className="btn btn-primary px-5 py-3"><PlayCircle size={17} /> {live ? "Watch live now" : "Watch online"}</a>
-              : <span className="btn btn-secondary px-5 py-3"><PlayCircle size={17} /> Watch online <Placeholder>livestream link</Placeholder></span>}</Reveal>
+            {/* Only shown once a livestream link is set in Admin → Settings. */}
+            {settings?.livestream_url && <Reveal delay={0.1}><a href={watchUrl} {...external} className="btn btn-primary px-5 py-3" data-testid="watch-online"><PlayCircle size={17} /> {live ? "Watch live now" : "Watch online"}</a></Reveal>}
           </div>
           <Programs programs={times} />
         </div>

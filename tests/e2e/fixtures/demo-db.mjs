@@ -109,7 +109,7 @@ export function buildFixture() {
       contact_email: null, contact_phone: null, tagline: null,
       address: null,
       service_times: null,
-      livestream_url: "https://example.org/live", bank_name: "Fidelity Bank", account_name: "FlagUp Jesus Global Ministry",
+      livestream_url: null, bank_name: "Fidelity Bank", account_name: "FlagUp Jesus Global Ministry",
       account_number: "5600605313", absence_threshold: 2, created_at: stamp, updated_at: stamp
     }],
     admin_users, people, services, attendance,

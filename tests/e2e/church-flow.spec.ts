@@ -108,6 +108,9 @@ test("landing: red Donate button jumps to the ministry bank account; departments
   await expect(page.locator("#reach")).toContainText("United Kingdom");
   // Motto + FUJ programmes
   await expect(page.getByTestId("footer-motto")).toHaveText("We Love, We Give, We Change The World");
+  // No livestream yet: no "Watch online" button or livestream placeholder.
+  await expect(page.getByTestId("watch-online")).toHaveCount(0);
+  await expect(page.getByText(/livestream link/i)).toHaveCount(0);
   await expect(page.locator(".lp-eyebrow").first()).toContainText("WE LOVE · WE GIVE · WE CHANGE THE WORLD");
   // Pastor Caleb's real book covers
   const covers = page.getByTestId("books").getByRole("img");
