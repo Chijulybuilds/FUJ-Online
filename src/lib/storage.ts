@@ -56,5 +56,5 @@ export function isOurFlyerUrl(url: string) {
 
 /** Absolute URL for external services (WhatsApp needs a public https link). */
 export function absoluteUrl(url: string) {
-  return url.startsWith("http") ? url : `${(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}${url}`;
+  return url.startsWith("http") ? url : `${env.appUrl.replace(/\/$/, "")}${url}`;
 }
