@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { handleWhatsAppInbound, handleWhatsAppStatus } from "@/lib/repo/messaging";
+import { cleanEnvValue, runtimeEnv } from "@/lib/env";
 
 /**
  * WhatsApp Business Cloud API webhook.
@@ -10,15 +11,17 @@ import { handleWhatsAppInbound, handleWhatsAppStatus } from "@/lib/repo/messagin
  */
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
-  const expected = process.env.WHATSAPP_VERIFY_TOKEN;
-  if (expected && p.get("hub.mode") === "subscribe" && p.get("hub.verify_token") === expected) {
+  // Forgiving about stray spaces/quotes pasted into either Vercel or Meta's form.
+  const expected = new Set([process.env.WHATSAPP_VERIFY_TOKEN ?? "", runtimeEnv("WHATSAPP_VERIFY_TOKEN")].filter(Boolean));
+  const given = p.get("hub.verify_token") ?? "";
+  if (expected.size && p.get("hub.mode") === "subscribe" && (expected.has(given) || expected.has(cleanEnvValue(given)))) {
     return new NextResponse(p.get("hub.challenge") ?? "", { status: 200, headers: { "Content-Type": "text/plain" } });
   }
   return NextResponse.json({ error: "Verification failed" }, { status: 403 });
 }
 
 function validSignature(raw: string, header: string | null) {
-  const secret = process.env.WHATSAPP_APP_SECRET;
+  const secret = runtimeEnv("WHATSAPP_APP_SECRET");
   if (!secret) return process.env.NODE_ENV !== "production";
   if (!header?.startsWith("sha256=")) return false;
   const expected = Buffer.from(`sha256=${createHmac("sha256", secret).update(raw).digest("hex")}`);

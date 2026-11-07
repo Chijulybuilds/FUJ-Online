@@ -161,3 +161,17 @@ describe("registration OTP (optional, REGISTRATION_OTP=true)", () => {
     await expect(otp.requestOtp("08030000001")).rejects.toThrow(/already registered/);
   });
 });
+
+describe("WhatsApp webhook verification (Meta's 'Verify and save')", () => {
+  it("echoes the challenge for the right token, tolerating stray spaces/quotes, and refuses a wrong one", async () => {
+    const { GET } = await import("../../src/app/api/webhooks/whatsapp/route");
+    const { NextRequest } = await import("next/server");
+    const call = (token: string) => GET(new NextRequest(`https://www.flagupjesus.org/api/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=${encodeURIComponent(token)}&hub.challenge=12345`));
+    process.env.WHATSAPP_VERIFY_TOKEN = ' "fuj-verify-abc123" ';
+    expect(await (await call("fuj-verify-abc123")).text()).toBe("12345");
+    expect(await (await call('"fuj-verify-abc123"')).text()).toBe("12345");
+    expect((await call("wrong")).status).toBe(403);
+    delete process.env.WHATSAPP_VERIFY_TOKEN;
+    expect((await call("fuj-verify-abc123")).status).toBe(403);
+  });
+});
