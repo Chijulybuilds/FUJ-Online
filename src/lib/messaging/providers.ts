@@ -14,6 +14,18 @@ export const providers = {
   get whatsappTemplate() { return process.env.WHATSAPP_TEMPLATE_NAME || null; }
 };
 
+/** Free mailbox providers: nobody can send through Resend "from" these, only from a domain they've verified. */
+const PUBLIC_MAILBOXES = /@(gmail|googlemail|yahoo|ymail|outlook|hotmail|live|msn|icloud|me|aol|proton|protonmail)\.[a-z.]+>?\s*$/i;
+
+/** Why EMAIL_FROM can't work, in plain English (null when it looks fine or isn't set). */
+export function emailFromProblem(from = process.env.EMAIL_FROM ?? ""): string | null {
+  const value = from.trim();
+  if (!value) return null;
+  if (!/@/.test(value)) return "EMAIL_FROM should look like: FlagUpJesus <news@flagupjesus.org>";
+  if (PUBLIC_MAILBOXES.test(value)) return "EMAIL_FROM can't be a Gmail/Yahoo/Outlook address — use an address at your verified domain, e.g. FlagUpJesus <news@flagupjesus.org> (replies still go to the church Gmail)";
+  return null;
+}
+
 export type SendResult = "sent" | "failed" | "skipped";
 
 /** A send attempt plus the provider's own explanation when it fails (shown by the Settings test button). */

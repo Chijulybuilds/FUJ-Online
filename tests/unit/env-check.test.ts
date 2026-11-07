@@ -45,3 +45,20 @@ describe("configProblems", () => {
     expect(cleanEnvValue(undefined)).toBe("");
   });
 });
+
+describe("EMAIL_FROM", () => {
+  it("rejects free mailbox senders (Resend can only send from a verified domain)", async () => {
+    const { emailFromProblem } = await import("@/lib/messaging/providers");
+    expect(emailFromProblem("flagupjesusglobal@gmail.com")).toMatch(/can't be a Gmail/);
+    expect(emailFromProblem("FlagUpJesus <flagupjesusglobal@gmail.com>")).toMatch(/can't be a Gmail/);
+    expect(emailFromProblem("church@yahoo.co.uk")).toMatch(/can't be a Gmail/);
+    expect(emailFromProblem("FlagUpJesus <news@flagupjesus.org>")).toBeNull();
+    expect(emailFromProblem("news@flagupjesus.org")).toBeNull();
+    expect(emailFromProblem("FlagUpJesus")).toMatch(/should look like/);
+    expect(emailFromProblem("")).toBeNull();
+  });
+  it("is listed by the health check", () => {
+    withEnv({ ...good, RESEND_API_KEY: "re_x", EMAIL_FROM: "flagupjesusglobal@gmail.com" });
+    expect(configProblems().join(" ")).toMatch(/EMAIL_FROM can't be a Gmail/);
+  });
+});
