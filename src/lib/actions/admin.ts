@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import type { Channel, StaffRole } from "@/lib/db/types";
@@ -7,7 +8,8 @@ import { requireAdmin } from "@/lib/auth/session";
 import type { Area } from "@/lib/auth/roles";
 import { createPerson, findByUsername, FriendlyError, updatePerson } from "@/lib/repo/people";
 import { closeCheckIn, createService, openCheckIn, recordAttendance, updateService } from "@/lib/repo/services";
-import { createTask, logContact, runFollowUpAnalysis, updateTask } from "@/lib/repo/care";
+import { createTask, logContact, updateTask } from "@/lib/repo/care";
+import { describeRun, runAbsenteeFollowUps } from "@/lib/repo/auto-follow-up";
 import { sendBroadcast, sendTestMessage, smsUndelivered, tasksForNonResponders } from "@/lib/repo/messaging";
 import { saveAnnouncement, setAnnouncementStatus, updatePrayer, moderateTestimony } from "@/lib/repo/content";
 import { recordDonation } from "@/lib/repo/giving";
@@ -109,8 +111,16 @@ export async function closeCheckInAction(fd: FormData) {
   const serviceId = str(fd, "service_id");
   await guarded("attendance", async (actor) => {
     await closeCheckIn(serviceId);
-    await runFollowUpAnalysis();
     await audit(actor, "checkin.close", "services", serviceId);
+    // Right after the service: flag members who've now missed 2 Sundays and send their first follow-up message.
+    after(async () => {
+      try {
+        const r = await runAbsenteeFollowUps();
+        if (r.detected || r.firstSent || r.remindersSent) await audit("Automatic follow-up", "follow_up.auto_run", "follow_up_tasks", null, r as unknown as Record<string, unknown>);
+      } catch (error) {
+        console.error("automatic follow-up after closing check-in failed", error);
+      }
+    });
     return null;
   });
   revalidatePath(`/admin/services/${serviceId}`);
@@ -143,10 +153,11 @@ export async function manualCheckInAction(_: State, fd: FormData): Promise<State
 
 /* ---------------- Pastoral care ---------------- */
 export async function runAnalysisAction(): Promise<State> {
-  return guarded("care", async () => {
-    const r = await runFollowUpAnalysis();
+  return guarded("care", async (actor) => {
+    const r = await runAbsenteeFollowUps();
+    await audit(actor, "follow_up.manual_run", "follow_up_tasks", null, r as unknown as Record<string, unknown>);
     revalidatePath("/admin/pastoral-care");
-    return { ok: true, message: `Created ${r.absentees} absentee and ${r.newMembers} new-member follow-up${r.absentees + r.newMembers === 1 ? "" : "s"}.` };
+    return { ok: true, message: describeRun(r) };
   });
 }
 
@@ -352,12 +363,34 @@ export async function saveSettingsAction(_: State, fd: FormData): Promise<State>
     await saveSettings({
       church_name: str(fd, "church_name") || "FlagUpJesus Global Ministry", tagline: opt(fd, "tagline"), contact_email: opt(fd, "contact_email"),
       contact_phone: opt(fd, "contact_phone"), address: opt(fd, "address"), service_times: opt(fd, "service_times"), livestream_url: opt(fd, "livestream_url"),
-      bank_name: opt(fd, "bank_name"), account_name: opt(fd, "account_name"), account_number: opt(fd, "account_number"),
-      absence_threshold: Math.min(8, Math.max(1, Number(str(fd, "absence_threshold")) || 2))
+      bank_name: opt(fd, "bank_name"), account_name: opt(fd, "account_name"), account_number: opt(fd, "account_number")
     });
     await audit(actor, "settings.update", "church_settings", null);
     revalidatePath("/", "layout");
     return { ok: true, message: "Settings saved." };
+  });
+}
+
+const clampInt = (v: string, min: number, max: number, fallback: number) => {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && v !== "" ? Math.min(max, Math.max(min, n)) : fallback;
+};
+export async function saveFollowUpSettingsAction(_: State, fd: FormData): Promise<State> {
+  return guarded("settings", async (actor) => {
+    const channels = fd.getAll("follow_up_channels").map(String).filter((c): c is "whatsapp" | "sms" | "email" => ["whatsapp", "sms", "email"].includes(c));
+    const first = str(fd, "follow_up_first_message"); const reminder = str(fd, "follow_up_reminder_message");
+    if (first.length > 900 || reminder.length > 900) return { ok: false, message: "Keep each message under 900 characters (WhatsApp and SMS limits)." };
+    await saveSettings({
+      auto_follow_up: bool(fd, "auto_follow_up"),
+      absence_threshold: clampInt(str(fd, "absence_threshold"), 1, 8, 2),
+      follow_up_every_days: clampInt(str(fd, "follow_up_every_days"), 1, 30, 3),
+      follow_up_max_messages: clampInt(str(fd, "follow_up_max_messages"), 0, 100, 0),
+      follow_up_channels: channels, follow_up_first_message: first || null, follow_up_reminder_message: reminder || null
+    });
+    await audit(actor, "settings.follow_up", "church_settings", null, { auto: bool(fd, "auto_follow_up"), channels });
+    revalidatePath("/admin/settings");
+    revalidatePath("/admin/pastoral-care");
+    return { ok: true, message: "Automatic follow-up settings saved." };
   });
 }
 

@@ -14,6 +14,9 @@ export const DEFAULT_SETTINGS: ChurchSettings = {
   livestream_url: null,
   // Provided by FUJ.
   bank_name: "Fidelity Bank", account_name: "FlagUp Jesus Global Ministry", account_number: "5600605313", absence_threshold: 2,
+  // Automatic absence follow-up: on, reminders every 3 days until they come back, on every connected channel.
+  auto_follow_up: true, follow_up_every_days: 3, follow_up_max_messages: 0, follow_up_channels: ["whatsapp", "sms", "email"],
+  follow_up_first_message: null, follow_up_reminder_message: null,
   created_at: new Date(0).toISOString(), updated_at: new Date(0).toISOString()
 };
 

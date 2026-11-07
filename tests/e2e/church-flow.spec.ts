@@ -443,18 +443,37 @@ test("leaders: admin adds leaders by unit and messages them on WhatsApp/SMS/emai
   await expect(admin.getByTestId("messaging-channels").getByText("Not set up")).toHaveCount(3);
 });
 
-test("pastoral care: absence analysis flags absentees and contact can be logged", async () => {
+test("pastoral care: members who miss 2 Sundays are flagged and messaged automatically; contact can be logged", async () => {
   await go(admin, "/admin/pastoral-care");
-  await admin.getByRole("button", { name: "Run absence analysis" }).click();
-  await expect(admin.getByText(/Created \d+ absentee/)).toBeVisible();
+  await expect(admin.getByTestId("auto-follow-up-status")).toContainText("Automatic follow-up is on");
+  await expect(admin.getByTestId("auto-follow-up-status")).toContainText("get a message (app inbox), then a reminder every 3 days until they come back");
+  await expect(admin.getByTestId("auto-follow-up-status")).toContainText("WhatsApp, SMS, email will be added once set up");
+  await admin.getByRole("button", { name: "Check absences now" }).click();
+  await expect(admin.getByText(/[1-9]\d* newly absent members? found · [1-9]\d* first messages? and 0 reminders sent/)).toBeVisible();
   await go(admin, "/admin/pastoral-care?cat=absentee");
-  await admin.getByRole("link", { name: "Samuel James" }).first().click();
-  await admin.getByLabel("Note", { exact: true }).fill("Called — he was travelling, will be back next Sunday.");
+  await expect(admin.getByRole("row").filter({ hasText: "Blessing Adebayo" })).toContainText("1 automatic message");
+  await admin.getByRole("link", { name: "Blessing Adebayo" }).first().click();
+  await expect(admin.getByTestId("auto-messages")).toContainText("1 sent");
+  // Samuel stopped coming on Sundays but was at Wednesday Bible study, so he isn't treated as absent.
+  await expect(admin.getByText("Automatic message", { exact: true })).toBeVisible();
+  await admin.getByLabel("Note", { exact: true }).fill("Called — she was travelling, will be back next Sunday.");
   await admin.getByRole("button", { name: "Log contact" }).click();
   await expect(admin.getByText("Contact logged.")).toBeVisible();
   await admin.reload();
-  await expect(admin.getByText("Called — he was travelling")).toBeVisible();
+  await expect(admin.getByText("Called — she was travelling")).toBeVisible();
   await shot(admin, "12-care-task");
+
+  // The broadcast is tracked like any other, and the settings can be changed.
+  await go(admin, "/admin/messaging");
+  await expect(admin.getByText("We missed you").first()).toBeVisible();
+  await go(admin, "/admin/settings");
+  const card = admin.getByTestId("follow-up-settings");
+  await card.getByLabel("Then remind every").selectOption("5");
+  await card.getByLabel("Keep going").selectOption("8");
+  await card.getByRole("button", { name: "Save follow-up settings" }).click();
+  await expect(admin.getByText("Automatic follow-up settings saved.")).toBeVisible();
+  await go(admin, "/admin/pastoral-care");
+  await expect(admin.getByTestId("auto-follow-up-status")).toContainText("a reminder every 5 days (up to 8 messages)");
 });
 
 test("announcements publish to the member portal and landing page", async ({ browser }) => {

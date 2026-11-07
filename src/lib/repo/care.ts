@@ -15,30 +15,30 @@ export async function createTask(input: {
     id: uid(), person_id: input.person_id, reason: input.reason, category: input.category, priority: input.priority ?? "normal",
     status: "open", assignee: input.assignee ?? null, due_at: input.due_at ?? new Date(Date.now() + 3 * 86400000).toISOString(),
     completed_at: null, notes: null, last_contacted_at: null, source_broadcast_id: input.source_broadcast_id ?? null,
-    created_at: now, updated_at: now
+    auto_messages_sent: 0, last_auto_message_at: null, created_at: now, updated_at: now
   });
 }
 
-async function hasOpenTask(personId: string, category: FollowUpCategory, tasks: FollowUpTask[]) {
-  return tasks.some((t) => t.person_id === personId && t.category === category && (t.status === "open" || t.status === "in_progress"));
-}
-
 /**
- * Absence analysis: flags people who attended before but missed the last N services
- * (N = settings.absence_threshold), and first-time guests from the last 14 days.
- * It only creates follow-up recommendations; it never changes anyone's membership status.
+ * Absence analysis: flags members who attended before but missed the last N Sunday services in a row
+ * (N = settings.absence_threshold, default 2), and people in church for the first time in the last 14 days.
+ * A service only counts if attendance was actually taken (at least one check-in), so a Sunday where nobody
+ * opened check-in never makes the whole church look absent. One absentee task per absence streak: if staff
+ * closed it while the person is still away, it isn't recreated until they come back and miss again.
+ * It never changes anyone's membership status.
  */
 export async function runFollowUpAnalysis() {
   const settings = await getSettings();
   const threshold = Math.max(1, settings.absence_threshold || 2);
   const now = Date.now();
+  const attendance = await db().list("attendance");
+  const taken = new Set(attendance.map((a) => a.service_id));
   const allServices = (await db().list("services", { order: { column: "starts_at", ascending: false } }))
-    .filter((s) => s.status !== "cancelled" && new Date(s.starts_at).getTime() < now);
+    .filter((s) => s.status !== "cancelled" && new Date(s.starts_at).getTime() < now && taken.has(s.id));
   const sundays = allServices.filter((s) => s.category === "Sunday worship");
   const pool = sundays.length >= threshold ? sundays : allServices;
   const recent = pool.slice(0, threshold);
   const tasks = await db().list("follow_up_tasks");
-  const attendance = await db().list("attendance");
   const people = await peopleById();
   let absentees = 0;
   let newMembers = 0;
@@ -50,13 +50,15 @@ export async function runFollowUpAnalysis() {
       if (person.status !== "member") continue;
       const mine = attendance.filter((a) => a.person_id === person.id);
       const attendedBefore = mine.some((a) => new Date(a.checked_in_at).getTime() < oldest);
-      if (!attendedBefore || mine.some((a) => recentIds.has(a.service_id))) continue;
-      if (await hasOpenTask(person.id, "absentee", tasks)) continue;
+      // Present at any of those Sundays — or at any service since (e.g. Wednesday prayers) — means not absent.
+      if (!attendedBefore || mine.some((a) => recentIds.has(a.service_id) || new Date(a.checked_in_at).getTime() >= oldest)) continue;
       const last = mine.sort((a, b) => b.checked_in_at.localeCompare(a.checked_in_at))[0];
+      // Already followed up for this absence (open, or closed by staff since they were last in church).
+      if (tasks.some((t) => t.person_id === person.id && t.category === "absentee" && (t.status === "open" || t.status === "in_progress" || t.created_at > last.checked_in_at))) continue;
       const missed = pool.filter((s) => new Date(s.starts_at).getTime() > new Date(last.checked_in_at).getTime()).length;
       await createTask({
         person_id: person.id, category: "absentee", priority: missed > threshold ? "high" : "normal",
-        reason: `Missed ${missed} consecutive service${missed === 1 ? "" : "s"} — check in on ${firstName(person.full_name)}`
+        reason: `Missed ${missed} consecutive ${pool === sundays ? "Sunday" : "service"}${missed === 1 ? "" : "s"} — check in on ${firstName(person.full_name)}`
       });
       absentees++;
     }

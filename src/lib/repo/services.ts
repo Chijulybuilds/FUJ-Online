@@ -3,6 +3,7 @@ import { db, DuplicateError } from "@/lib/db";
 import type { Attendance, Person, QrSession, Service } from "@/lib/db/types";
 import { nowIso, uid } from "@/lib/utils";
 import { peopleById, FriendlyError } from "./people";
+import { closeAbsenteeTasksOnReturn } from "./auto-follow-up";
 
 export async function listServices() {
   return db().list("services", { order: { column: "starts_at", ascending: false } });
@@ -89,6 +90,9 @@ export async function recordAttendance(input: {
       recorded_by: input.recordedBy ?? null, device_id: input.deviceId ?? null, created_at: now
     });
     await db().update("people", { id: input.person.id }, { last_seen_at: now, updated_at: now });
+    // Back in church: close their absence follow-up so the automatic messages stop.
+    const service = await db().get("services", { id: input.serviceId });
+    await closeAbsenteeTasksOnReturn(input.person.id, service?.title);
     return { status: "checked_in", attendance, person: input.person };
   } catch (error) {
     if (error instanceof DuplicateError) {

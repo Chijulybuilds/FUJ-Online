@@ -37,6 +37,7 @@ describe("configProblems", () => {
     const problems = configProblems().join(" ");
     expect(problems).toMatch(/should look like https/);
     expect(problems).toMatch(/at least 12 characters/);
+    expect(problems).toMatch(/CRON_SECRET is missing/);
   });
   it("cleans quotes and whitespace from pasted values", () => {
     expect(cleanEnvValue(' "https://x.supabase.co" ')).toBe("https://x.supabase.co");
