@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test --trace off",
-    "test:all": "npm run typecheck && npm run lint && npm test && npm run build && npm run test:e2e"
+    "test:all": "npm run typecheck && npm run lint && npm test && npm run build && npm run test:e2e",
+    "db:setup-sql": "node scripts/build-setup-sql.mjs"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",

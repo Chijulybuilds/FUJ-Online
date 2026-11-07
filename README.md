@@ -34,8 +34,8 @@ Open http://localhost:3000.
 
 ## 2. Connect Supabase (database)
 
-1. In the Supabase SQL Editor run **every** file in `supabase/migrations/` in order (`0001` → `0008`). `0005`–`0008` are idempotent (`0006`: WhatsApp delivery tracking, `0007`: free verification + flyers and the public `flyers` Storage bucket, `0008`: removes departments).
-2. Optionally run `supabase/seed.sql`.
+1. **Easiest:** open `supabase/setup.sql`, copy **all** of it into Supabase → **SQL Editor → New query**, and click **Run**. It contains every migration plus FUJ's starting values, and is safe on a brand-new project *and* on one that already ran some or all migrations (it only adds what's missing). Alternatively run the files in `supabase/migrations/` (`0001` → `0008`) in order — each one can also be re-run safely.
+2. After changing a migration, regenerate the combined file with `npm run db:setup-sql` (a test fails if it's out of date).
 3. Put the Project URL, anon key and **service-role key** in `.env.local`. The service-role key is used only on the server (route handlers / server actions); permissions are enforced in the app layer and RLS stays on so the anon key cannot read church data.
 4. Check `GET /api/health` → `{"mode":"supabase","database":"ready"}`. If you see `PGRST205`, run `notify pgrst, 'reload schema';`.
 
@@ -134,7 +134,7 @@ npm run test:all   # everything above
 The app needs a Node server (route handlers, server actions, uploads) — not a static export. Vercel or any Next.js-compatible Node host works.
 
 1. Run the checks locally: `npm run test:all`.
-2. Apply all migrations (`0001` → `0008`) to the production Supabase project and check `/api/health`.
+2. Run `supabase/setup.sql` in the production Supabase project's SQL Editor and check `/api/health`.
 3. In the host's environment settings add: `NEXT_PUBLIC_APP_URL` (your https domain), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CLIENT_ID`, `CLIENT_SECRET`, `ADMIN_LOGIN_EMAIL`, `ADMIN_LOGIN_PASSWORD` (12+ chars) and a random `QR_SIGNING_SECRET` (`openssl rand -base64 48`). Never put secrets in `NEXT_PUBLIC_*` variables.
 4. Add `https://<your-domain>/api/auth/google/callback` to the Google OAuth client's authorised redirect URIs.
 5. Deploy, then open `https://<your-domain>/api/health` — expect `"mode":"supabase","database":"ready"` and `"adminLogin":true`.
@@ -150,12 +150,12 @@ npm start
 ### Live on flagupjesus.org (Vercel + Hostinger domain)
 
 1. **Merge** the latest branch into `master` — Vercel deploys `master` to production.
-2. **Vercel → project `fuj-online` → Settings → Environment Variables** (Production): add every variable from `.env.local`, with `NEXT_PUBLIC_APP_URL=https://flagupjesus.org`. Then **Deployments → ⋯ → Redeploy** (`NEXT_PUBLIC_*` values are baked in at build time).
-3. **Vercel → Settings → Domains → Add** `flagupjesus.org` (and let it add `www.flagupjesus.org` redirecting to it). Vercel then shows the DNS records to create.
+2. **Vercel → project `fuj-online` → Settings → Environment Variables** (Production): add every variable from `.env.local`, with `NEXT_PUBLIC_APP_URL` set to the **primary** domain Vercel shows — `https://www.flagupjesus.org` (Vercel's default; `flagupjesus.org` redirects to it). Tip: you can paste the whole `.env.local` into the first *Key* box to add them all at once, then fix `NEXT_PUBLIC_APP_URL`. Then **Deployments → ⋯ → Redeploy** (`NEXT_PUBLIC_*` values are baked in at build time).
+3. **Vercel → Domains → Add** both `www.flagupjesus.org` and `flagupjesus.org`; keep **www** as the primary and let `flagupjesus.org` redirect to it. Vercel then shows the DNS records to create for each.
 4. **Hostinger → Domains → flagupjesus.org → DNS / Nameservers → DNS records**: delete the existing `A` record for `@` and the `CNAME` for `www` (Hostinger's parking page), then add exactly what Vercel shows — usually `A  @  76.76.21.21` and `CNAME  www  cname.vercel-dns.com`. Leave MX/TXT records alone.
 5. Wait for Vercel to show **Valid Configuration** (minutes, occasionally a few hours); HTTPS is issued automatically.
-6. **Google Cloud → Credentials → your OAuth client**: add `https://flagupjesus.org/api/auth/google/callback` to Authorised redirect URIs; on the **OAuth consent screen** add `flagupjesus.org` as an authorised domain and **publish** the app so anyone (not only test users) can sign in.
-7. Check `https://flagupjesus.org/api/health` → `"mode":"supabase"`, `"database":"ready"`, `"adminLogin":true`, `"googleAuth":true`.
+6. **Google Cloud → Credentials → your OAuth client**: add `https://www.flagupjesus.org/api/auth/google/callback` (the primary domain) to Authorised redirect URIs; on the **OAuth consent screen** add `flagupjesus.org` as an authorised domain and **publish** the app so anyone (not only test users) can sign in.
+7. Check `https://www.flagupjesus.org/api/health` → `"mode":"supabase"`, `"database":"ready"`, `"adminLogin":true`, `"googleAuth":true`.
 
 Turn on **auto-renewal** for the domain in Hostinger so the site never goes offline when it expires.
 
