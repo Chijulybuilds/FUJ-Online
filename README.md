@@ -150,12 +150,12 @@ npm start
 ### Live on flagupjesus.org (Vercel + Hostinger domain)
 
 1. **Merge** the latest branch into `master` — Vercel deploys `master` to production.
-2. **Vercel → project `fuj-online` → Settings → Environment Variables** (Production): add every variable from `.env.local`, with `NEXT_PUBLIC_APP_URL=https://flagupjesus.org`. Then **Deployments → ⋯ → Redeploy** (`NEXT_PUBLIC_*` values are baked in at build time).
-3. **Vercel → Settings → Domains → Add** `flagupjesus.org` (and let it add `www.flagupjesus.org` redirecting to it). Vercel then shows the DNS records to create.
+2. **Vercel → project `fuj-online` → Settings → Environment Variables** (Production): add every variable from `.env.local`, with `NEXT_PUBLIC_APP_URL` set to the **primary** domain Vercel shows — `https://www.flagupjesus.org` (Vercel's default; `flagupjesus.org` redirects to it). Tip: you can paste the whole `.env.local` into the first *Key* box to add them all at once, then fix `NEXT_PUBLIC_APP_URL`. Then **Deployments → ⋯ → Redeploy** (`NEXT_PUBLIC_*` values are baked in at build time).
+3. **Vercel → Domains → Add** both `www.flagupjesus.org` and `flagupjesus.org`; keep **www** as the primary and let `flagupjesus.org` redirect to it. Vercel then shows the DNS records to create for each.
 4. **Hostinger → Domains → flagupjesus.org → DNS / Nameservers → DNS records**: delete the existing `A` record for `@` and the `CNAME` for `www` (Hostinger's parking page), then add exactly what Vercel shows — usually `A  @  76.76.21.21` and `CNAME  www  cname.vercel-dns.com`. Leave MX/TXT records alone.
 5. Wait for Vercel to show **Valid Configuration** (minutes, occasionally a few hours); HTTPS is issued automatically.
-6. **Google Cloud → Credentials → your OAuth client**: add `https://flagupjesus.org/api/auth/google/callback` to Authorised redirect URIs; on the **OAuth consent screen** add `flagupjesus.org` as an authorised domain and **publish** the app so anyone (not only test users) can sign in.
-7. Check `https://flagupjesus.org/api/health` → `"mode":"supabase"`, `"database":"ready"`, `"adminLogin":true`, `"googleAuth":true`.
+6. **Google Cloud → Credentials → your OAuth client**: add `https://www.flagupjesus.org/api/auth/google/callback` (the primary domain) to Authorised redirect URIs; on the **OAuth consent screen** add `flagupjesus.org` as an authorised domain and **publish** the app so anyone (not only test users) can sign in.
+7. Check `https://www.flagupjesus.org/api/health` → `"mode":"supabase"`, `"database":"ready"`, `"adminLogin":true`, `"googleAuth":true`.
 
 Turn on **auto-renewal** for the domain in Hostinger so the site never goes offline when it expires.
 
