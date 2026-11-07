@@ -30,7 +30,7 @@ npm run dev
 
 Open http://localhost:3000.
 
-**Without Supabase** (`SUPABASE_SERVICE_ROLE_KEY` empty) the app stores data in `.data/flagupjesus-db.json`. It starts **empty** — no sample members, services or offerings; only the ministry name, contact details and bank account. Anything FUJ hasn't provided yet (address, phone, email, service times, livestream link) shows as a dashed **[placeholder]** until you fill it in **Admin → Settings**. Set `ADMIN_LOGIN_EMAIL` / `ADMIN_LOGIN_PASSWORD` in `.env.local`, then open http://localhost:3000/admin. Flyers uploaded locally are stored in `.data/uploads/`. (The automated tests use their own fictional sample data from `tests/e2e/fixtures/`, written to a throwaway database.)
+**Without Supabase** (`SUPABASE_SERVICE_ROLE_KEY` empty) the app stores data in `.data/flagupjesus-db.json`. It starts **empty** — no sample members, services or offerings; only the ministry name, contact details and bank account. Anything FUJ hasn't provided yet (address, phone, email, service times, livestream link) shows as a dashed **[placeholder]** until you fill it in **Admin → Settings**. Set `ADMIN_LOGIN_EMAIL` / `ADMIN_LOGIN_PASSWORD` in `.env.local`, then open http://localhost:3000/admin. Flyers uploaded locally are stored in `.data/uploads/`. (The automated tests use their own fictional sample data from `tests/e2e/fixtures/`, written to a throwaway database.) If your local database was created by an earlier version (with sample members, "Demo Bank", a Lagos address…), that old sample data is removed automatically the next time the app starts; records you created yourself are kept.
 
 ## 2. Connect Supabase (database)
 
@@ -147,6 +147,18 @@ npm run build
 npm start
 ```
 
+### Live on flagupjesus.org (Vercel + Hostinger domain)
+
+1. **Merge** the latest branch into `master` — Vercel deploys `master` to production.
+2. **Vercel → project `fuj-online` → Settings → Environment Variables** (Production): add every variable from `.env.local`, with `NEXT_PUBLIC_APP_URL=https://flagupjesus.org`. Then **Deployments → ⋯ → Redeploy** (`NEXT_PUBLIC_*` values are baked in at build time).
+3. **Vercel → Settings → Domains → Add** `flagupjesus.org` (and let it add `www.flagupjesus.org` redirecting to it). Vercel then shows the DNS records to create.
+4. **Hostinger → Domains → flagupjesus.org → DNS / Nameservers → DNS records**: delete the existing `A` record for `@` and the `CNAME` for `www` (Hostinger's parking page), then add exactly what Vercel shows — usually `A  @  76.76.21.21` and `CNAME  www  cname.vercel-dns.com`. Leave MX/TXT records alone.
+5. Wait for Vercel to show **Valid Configuration** (minutes, occasionally a few hours); HTTPS is issued automatically.
+6. **Google Cloud → Credentials → your OAuth client**: add `https://flagupjesus.org/api/auth/google/callback` to Authorised redirect URIs; on the **OAuth consent screen** add `flagupjesus.org` as an authorised domain and **publish** the app so anyone (not only test users) can sign in.
+7. Check `https://flagupjesus.org/api/health` → `"mode":"supabase"`, `"database":"ready"`, `"adminLogin":true`, `"googleAuth":true`.
+
+Turn on **auto-renewal** for the domain in Hostinger so the site never goes offline when it expires.
+
 ## 10. Troubleshooting
 
 | Symptom | Check |
@@ -179,7 +191,9 @@ tests/unit, tests/integration, tests/e2e
 ## Brand and scope
 
 - Ministry: FlagUpJesus Global Ministry · Application: FlagUpJesus
-- Contact: 2nd Floor, MBM Plaza (beside Shell IA), Rumuobiakani, Port Harcourt · 07042741000 · flagupjesusglobal@gmail.com
+- Motto: **We Love, We Give, We Change The World**
+- Contact: 2nd Floor, MBM Plaza (besides Shell IA), Rumuobioakani, Port Harcourt · 07042741000 · flagupjesusglobal@gmail.com
+- Programmes: Word Experience (Sundays 4:30 PM) · Weekly Prayers (Wednesdays 5:00 PM) · Connect (last Sunday monthly) · TFT — The Family Table (last Saturday monthly) · Online Global Prayers (third Friday monthly) · The Forge Retreat (quarterly) · International Prayer & Missions Conference (June, annual) · Jesus Festival (November, annual) — editable in Admin → Settings → Programmes & service times
 - Giving: Fidelity Bank · 5600605313 · FlagUp Jesus Global Ministry (contact and bank details are editable in Admin → Settings)
 - V1: single church location · Sermon repository deferred to V2
 - Online card payments: not enabled — giving is recorded by finance staff; a payment provider must confirm via verified webhooks.

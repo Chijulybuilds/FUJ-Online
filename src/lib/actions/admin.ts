@@ -1,6 +1,5 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import type { Channel, StaffRole } from "@/lib/db/types";
@@ -98,15 +97,19 @@ export async function createServiceAction(_: State, fd: FormData): Promise<State
   return id ? { ok: true, redirectTo: `/admin/services/${id}` } : result;
 }
 
-export async function openCheckInAction(fd: FormData) {
+export async function openCheckInAction(_: State, fd: FormData): Promise<State> {
   const serviceId = str(fd, "service_id");
-  await guarded("attendance", async (actor) => {
+  const result = await guarded("attendance", async (actor) => {
     await openCheckIn(serviceId, Number(str(fd, "minutes")) || 240);
     await audit(actor, "checkin.open", "services", serviceId);
-    return null;
+    return { ok: true };
   });
+  if (!result?.ok) return result;
+  // Going straight to the QR display: navigate client-side (ActionForm has a hard-navigation fallback).
+  // Don't revalidate first — that would re-render this page and unmount the form before it navigates.
+  if (str(fd, "then") === "display") return { ok: true, redirectTo: `/admin/attendance/display?service=${serviceId}` };
   revalidatePath(`/admin/services/${serviceId}`);
-  if (str(fd, "then") === "display") redirect(`/admin/attendance/display?service=${serviceId}`);
+  return { ok: true, message: "Check-in is open." };
 }
 
 export async function closeCheckInAction(fd: FormData) {

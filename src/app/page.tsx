@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowRight, BookOpen, Flame, Globe2, HandHeart, Heart, Mail, MapPin, Mic2, Music, Phone, PlayCircle,
+  ArrowRight, BookOpen, Flame, HandHeart, Heart, Mail, MapPin, Phone, PlayCircle,
   Scissors, ScanLine, ShoppingBasket, Sparkles, Stethoscope
 } from "lucide-react";
 import { LandingNav } from "@/components/landing/nav";
@@ -20,7 +20,9 @@ import { CopyButton } from "@/components/shared/copy-button";
 import { PrayerForm } from "@/components/shared/prayer-form";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { Placeholder } from "@/components/ui/placeholder";
-import { getSettings, parseServiceTimes } from "@/lib/repo/settings";
+import { getSettings } from "@/lib/repo/settings";
+import { DEFAULT_PROGRAMS, MOTTO, parsePrograms } from "@/lib/programs";
+import { Programs } from "@/components/landing/programs";
 import { upcomingService } from "@/lib/repo/services";
 import { publishedAnnouncements, publishedTestimonies, prayerWall } from "@/lib/repo/content";
 import { formatDate, formatDateTime } from "@/lib/utils";
@@ -65,12 +67,14 @@ async function loadLanding() {
 export default async function HomePage() {
   const data = await loadLanding();
   const settings = data?.settings;
-  // Gathering names come from FUJ; days/times are placeholders until set in Admin → Settings.
-  const times = parseServiceTimes(settings?.service_times ?? null);
+  // FUJ programmes (editable in Admin → Settings → Programmes & service times).
+  const times = parsePrograms(settings?.service_times || DEFAULT_PROGRAMS);
   const live = data?.next?.status === "active";
   const watchUrl = settings?.livestream_url || "#gatherings";
   const external = settings?.livestream_url ? { target: "_blank", rel: "noreferrer" } : {};
-  const marquee = ["Gospel", "Love", "Revival", "Healing", "Discipleship", "Compassion", "Mission", "Grace"];
+  const motto = settings?.tagline || MOTTO;
+  const mottoParts = motto.split(",").map((w) => w.trim()).filter(Boolean); // "We Love" · "We Give" · "We Change The World"
+  const marquee = [...mottoParts, ...mottoParts];
   const outreachPhotos = [PHOTOS.children, PHOTOS.medical, PHOTOS.teaching, PHOTOS.elders];
 
   return (
@@ -86,7 +90,7 @@ export default async function HomePage() {
         <HeroReel />
         <div className="relative z-[2] mx-auto w-full max-w-7xl px-5 pb-16 pt-28 lg:pb-24 lg:pt-32">
           <div className="max-w-2xl lg:max-w-[52%]">
-            <span className="lp-eyebrow lp-fade"><span className={live ? "live-dot" : "hero-eyebrow-dot"} /> {live ? "LIVE NOW" : "FLAGUPJESUS GLOBAL MINISTRY · PORT HARCOURT"}</span>
+            <span className="lp-eyebrow lp-fade"><span className={live ? "live-dot" : "hero-eyebrow-dot"} /> {live ? "LIVE NOW" : mottoParts.join(" · ").toUpperCase()}</span>
             <h1 className="lp-title mt-7">
               <Words text="Raise the flag." delay={0.1} /><br />
               <span className="lp-word"><span style={{ animationDelay: ".45s" }}><em>Lift up Jesus.</em></span></span>
@@ -121,8 +125,9 @@ export default async function HomePage() {
       <section id="mission" className="layer lp-section">
         <div className="mx-auto w-full max-w-7xl px-5">
           <Reveal><LayerTag n={2}>Our heartbeat</LayerTag></Reveal>
-          <ScrollWords className="motto mt-8 max-w-5xl" text="“Good news that ignores an empty stomach is only half the message.”" />
-          <Reveal><p className="mt-6 text-sm font-semibold muted">— The FlagUpJesus motto</p></Reveal>
+          <ScrollWords className="motto mt-8 max-w-5xl" text={`${mottoParts.join(". ")}.`} />
+          <Reveal><p className="mt-6 text-sm font-semibold muted" data-testid="motto-caption">— The FlagUpJesus motto</p></Reveal>
+          <Reveal delay={0.05}><p className="font-display mt-10 max-w-3xl text-2xl italic leading-snug sm:text-3xl">“Good news that ignores an empty stomach is only half the message.”</p></Reveal>
           <div className="mt-16 grid items-center gap-6 lg:grid-cols-[1fr_auto_1fr]">
             <Reveal>
               <article className="engine">
@@ -195,37 +200,13 @@ export default async function HomePage() {
             <div>
               <Reveal><LayerTag n={4}>Word &amp; Worship</LayerTag></Reveal>
               <Reveal delay={0.05}><h2 className="lp-h2 mt-5 max-w-2xl">Raising <em>gospel giants.</em></h2></Reveal>
-              <Reveal delay={0.1}><p className="mt-5 max-w-xl text-lg muted">Fellowship, discipleship and revival designed around spiritual growth, a renewed mind and discovering your divine purpose.</p></Reveal>
+              <Reveal delay={0.1}><p className="mt-5 max-w-xl text-lg muted">Our programmes — weekly, monthly, quarterly and annual — for fellowship, prayer, discipleship and revival.</p></Reveal>
             </div>
             <Reveal delay={0.1}>{settings?.livestream_url
               ? <a href={watchUrl} {...external} className="btn btn-primary px-5 py-3"><PlayCircle size={17} /> {live ? "Watch live now" : "Watch online"}</a>
               : <span className="btn btn-secondary px-5 py-3"><PlayCircle size={17} /> Watch online <Placeholder>livestream link</Placeholder></span>}</Reveal>
           </div>
-          <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            {[
-              { I: BookOpen, t: "Word Experience", d: "Our weekly gathering — the Word taught with depth, clarity and power.", tag: "Weekly service" },
-              { I: Sparkles, t: "Bible Study", d: "Deep-dive sessions for spiritual growth, mental refinement and purpose.", tag: "Deep dive" },
-              { I: Globe2, t: "International Prayer & Mission Conference", d: "Equipping believers with supernatural empowerment for kingdom advancement.", tag: "Global gathering" },
-              { I: Music, t: "Unveiled Worship Encounter", d: "Non-judgmental, spirit-led praise and deep worship.", tag: "Encounter" }
-            ].map(({ I, t, d, tag }, k) => (
-              <Reveal key={t} delay={k * 0.08}>
-                <article className="gathering h-full">
-                  <div className="relative flex items-start justify-between"><span className="lp-icon"><I size={22} /></span><span className="pill pill-blue">{tag}</span></div>
-                  <div className="relative mt-8"><h3 className="text-xl font-bold leading-tight">{t}</h3><p className="mt-2 text-sm leading-6 muted">{d}</p></div>
-                </article>
-              </Reveal>
-            ))}
-          </div>
-          <Reveal className="mt-8" delay={0.1}>
-            <div className="lp-card grid gap-6 p-7 md:grid-cols-[auto_1fr] md:items-center">
-              <div className="flex items-center gap-3"><span className="lp-icon"><Mic2 size={22} /></span><p className="text-lg font-bold">Service times</p></div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {times.length
-                  ? times.map((t) => <div key={t.name + t.when}><p className="font-semibold">{t.name}</p><p className="text-sm muted">{t.when || <Placeholder>day &amp; time</Placeholder>}</p></div>)
-                  : ["Word Experience", "Bible Study"].map((name) => <div key={name}><p className="font-semibold">{name}</p><p className="mt-1 text-sm muted"><Placeholder>day &amp; time</Placeholder></p></div>)}
-              </div>
-            </div>
-          </Reveal>
+          <Programs programs={times} />
         </div>
       </section>
 
@@ -371,7 +352,7 @@ export default async function HomePage() {
       {/* ---------------- FOOTER ---------------- */}
       <footer className="border-t py-12" style={{ borderColor: "var(--border)" }}>
         <div className="mx-auto grid max-w-7xl gap-8 px-5 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
-          <div><BrandLogo className="h-14 w-20 object-contain" /><p className="mt-3 max-w-sm text-sm muted">FlagUpJesus Global Ministry — the Word and the Works, from Port Harcourt to the nations.</p></div>
+          <div><span className="lp-logo inline-block rounded-xl px-1"><BrandLogo className="h-14 w-20 object-contain" /></span><p className="mt-3 max-w-sm text-sm muted">FlagUpJesus Global Ministry — the Word and the Works, from Port Harcourt to the nations.</p><p className="mt-3 text-sm font-bold text-[var(--accent)]" data-testid="footer-motto">{motto}</p></div>
           <div className="space-y-2 text-sm"><p className="font-bold">Visit</p><p className="flex items-start gap-2 muted"><MapPin size={14} className="mt-1 shrink-0" /> {settings?.address || <Placeholder>Church address</Placeholder>}</p><p className="flex items-center gap-2 muted"><Phone size={14} /> {settings?.contact_phone ? <a className="hover:text-[var(--accent)]" href={`tel:${settings.contact_phone.replace(/[^\d+]/g, "")}`}>{settings.contact_phone}</a> : <Placeholder>Phone number</Placeholder>}</p><p className="flex items-center gap-2 muted"><Mail size={14} /> {settings?.contact_email ? <a className="hover:text-[var(--accent)]" href={`mailto:${settings.contact_email}`}>{settings.contact_email}</a> : <Placeholder>Email address</Placeholder>}</p></div>
           <div className="space-y-2 text-sm"><p className="font-bold">Follow</p><a href={LINKS.instagram} target="_blank" rel="noreferrer" className="block muted hover:text-[var(--accent)]">Instagram</a><a href={LINKS.facebook} target="_blank" rel="noreferrer" className="block muted hover:text-[var(--accent)]">Facebook</a><a href={LINKS.site} target="_blank" rel="noreferrer" className="block muted hover:text-[var(--accent)]">umanuwacaleb.com</a></div>
           <div className="space-y-2 text-sm"><p className="font-bold">Quick links</p><Link href="/register" className="block muted hover:text-[var(--accent)]">Register</Link><Link href="/login" className="block muted hover:text-[var(--accent)]">Member portal</Link><Link href="/check-in" className="block muted hover:text-[var(--accent)]">Check-in</Link></div>

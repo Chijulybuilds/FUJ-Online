@@ -2,13 +2,14 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { ChurchSettings } from "@/lib/db/types";
 import { nowIso } from "@/lib/utils";
+import { DEFAULT_PROGRAMS, MOTTO, parsePrograms } from "@/lib/programs";
 
 const DEFAULTS: ChurchSettings = {
   id: true, church_name: "FlagUpJesus Global Ministry", app_name: "FlagUpJesus", timezone: "Africa/Lagos",
   // Provided by FUJ.
-  contact_email: "flagupjesusglobal@gmail.com", contact_phone: "07042741000", tagline: null,
-  address: "2nd Floor, MBM Plaza (beside Shell IA), Rumuobiakani, Port Harcourt",
-  service_times: null,
+  contact_email: "flagupjesusglobal@gmail.com", contact_phone: "07042741000", tagline: MOTTO,
+  address: "2nd Floor, MBM Plaza (besides Shell IA), Rumuobioakani, Port Harcourt",
+  service_times: DEFAULT_PROGRAMS,
   livestream_url: null,
   // Provided by FUJ.
   bank_name: "Fidelity Bank", account_name: "FlagUp Jesus Global Ministry", account_number: "5600605313", absence_threshold: 2,
@@ -29,9 +30,5 @@ export async function saveSettings(patch: Partial<ChurchSettings>) {
   return db().insert("church_settings", { ...DEFAULTS, ...patch, created_at: nowIso(), updated_at: nowIso() });
 }
 
-export function parseServiceTimes(value: string | null) {
-  return (value ?? "").split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
-    const [name, when] = line.split("|");
-    return { name: name?.trim() ?? line, when: when?.trim() ?? "" };
-  });
-}
+/** @deprecated use parsePrograms */
+export const parseServiceTimes = parsePrograms;

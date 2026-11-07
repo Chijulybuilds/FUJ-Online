@@ -3,6 +3,7 @@ import { QrCode } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/session";
 import { activeSessions, listServices } from "@/lib/repo/services";
 import { openCheckInAction } from "@/lib/actions/admin";
+import { ActionForm, SubmitButton } from "@/components/ui/action-form";
 import { formatDateTime } from "@/lib/utils";
 import { QrDisplay } from "./qr-display";
 
@@ -21,11 +22,11 @@ export default async function AttendanceDisplayPage({ searchParams }: { searchPa
         <p className="mt-2 text-sm text-slate-300">Choose a service to open check-in. The code on screen will refresh every 20 seconds.</p>
         <div className="mt-6 space-y-2">
           {candidates.map((s) => (
-            <form key={s.id} action={openCheckInAction} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 p-4">
+            <ActionForm key={s.id} action={openCheckInAction} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 p-4">
               <input type="hidden" name="service_id" value={s.id} /><input type="hidden" name="then" value="display" />
               <span><b>{s.title}</b><span className="block text-xs text-slate-400">{formatDateTime(s.starts_at)}</span></span>
-              <button className="btn lp-btn-light btn-sm">Open check-in</button>
-            </form>
+              <SubmitButton className="btn lp-btn-light btn-sm" pendingText="Opening…">Open check-in</SubmitButton>
+            </ActionForm>
           ))}
           {!candidates.length && <p className="text-sm text-slate-400">No upcoming services. <Link className="underline" href="/admin/services/new">Create one</Link>.</p>}
         </div>

@@ -106,8 +106,21 @@ test("landing: red Donate button jumps to the ministry bank account; departments
   await expect(page.locator("#give")).toContainText("5600605313");
   await expect(page.locator("#give")).toContainText("FlagUp Jesus Global Ministry");
   await expect(page.locator("#reach")).toContainText("United Kingdom");
+  // Motto + FUJ programmes
+  await expect(page.getByTestId("footer-motto")).toHaveText("We Love, We Give, We Change The World");
+  await expect(page.locator(".lp-eyebrow").first()).toContainText("WE LOVE · WE GIVE · WE CHANGE THE WORLD");
+  // Pastor Caleb's real book covers
+  const covers = page.getByTestId("books").getByRole("img");
+  await expect(covers).toHaveCount(2);
+  await page.getByTestId("books").scrollIntoViewIfNeeded();
+  await expect(covers.first()).toHaveAttribute("alt", /The 5 Dimensions of Grace/);
+  await expect.poll(() => covers.evaluateAll((imgs) => imgs.every((i) => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth > 0))).toBe(true);
+  const programs = page.getByTestId("program-card");
+  await expect(programs).toHaveCount(8);
+  await expect(programs.filter({ hasText: "Word Experience" })).toContainText("Every Sunday · 4:30 PM");
+  await expect(programs.filter({ hasText: "Jesus Festival" })).toContainText("Annual");
   const footer = page.locator("footer");
-  await expect(footer).toContainText("2nd Floor, MBM Plaza (beside Shell IA), Rumuobiakani, Port Harcourt");
+  await expect(footer).toContainText("2nd Floor, MBM Plaza (besides Shell IA), Rumuobioakani, Port Harcourt");
   await expect(footer.getByRole("link", { name: "07042741000" })).toHaveAttribute("href", "tel:07042741000");
   await expect(footer.getByRole("link", { name: "flagupjesusglobal@gmail.com" })).toHaveAttribute("href", "mailto:flagupjesusglobal@gmail.com");
   await expect(page.locator('svg.ng-map [data-place="United Kingdom"]')).toHaveCount(1);
@@ -127,6 +140,7 @@ test("staff creates a service and opens a rotating QR check-in", async ({ browse
   await admin.getByRole("button", { name: "Create service" }).click();
   await admin.waitForURL(/\/admin\/services\/[0-9a-f-]{36}$/);
   serviceUrl = admin.url();
+  await hydrated(admin);
   await admin.getByRole("button", { name: /Open check-in/ }).click();
   await admin.waitForURL(/attendance\/display/);
   await expect(admin.getByTestId("qr-image")).toBeVisible();
