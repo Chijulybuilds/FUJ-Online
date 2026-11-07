@@ -1,3 +1,4 @@
+-- Safe to run more than once.
 -- Creates an application profile after Supabase Auth creates a user.
 -- It does NOT create a people row from unverified metadata; the registration
 -- workflow must verify the phone and create/link a church person record safely.
@@ -10,6 +11,7 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_auth_user();

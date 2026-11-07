@@ -34,8 +34,8 @@ Open http://localhost:3000.
 
 ## 2. Connect Supabase (database)
 
-1. In the Supabase SQL Editor run **every** file in `supabase/migrations/` in order (`0001` → `0008`). `0005`–`0008` are idempotent (`0006`: WhatsApp delivery tracking, `0007`: free verification + flyers and the public `flyers` Storage bucket, `0008`: removes departments).
-2. Optionally run `supabase/seed.sql`.
+1. **Easiest:** open `supabase/setup.sql`, copy **all** of it into Supabase → **SQL Editor → New query**, and click **Run**. It contains every migration plus FUJ's starting values, and is safe on a brand-new project *and* on one that already ran some or all migrations (it only adds what's missing). Alternatively run the files in `supabase/migrations/` (`0001` → `0008`) in order — each one can also be re-run safely.
+2. After changing a migration, regenerate the combined file with `npm run db:setup-sql` (a test fails if it's out of date).
 3. Put the Project URL, anon key and **service-role key** in `.env.local`. The service-role key is used only on the server (route handlers / server actions); permissions are enforced in the app layer and RLS stays on so the anon key cannot read church data.
 4. Check `GET /api/health` → `{"mode":"supabase","database":"ready"}`. If you see `PGRST205`, run `notify pgrst, 'reload schema';`.
 
@@ -134,7 +134,7 @@ npm run test:all   # everything above
 The app needs a Node server (route handlers, server actions, uploads) — not a static export. Vercel or any Next.js-compatible Node host works.
 
 1. Run the checks locally: `npm run test:all`.
-2. Apply all migrations (`0001` → `0008`) to the production Supabase project and check `/api/health`.
+2. Run `supabase/setup.sql` in the production Supabase project's SQL Editor and check `/api/health`.
 3. In the host's environment settings add: `NEXT_PUBLIC_APP_URL` (your https domain), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CLIENT_ID`, `CLIENT_SECRET`, `ADMIN_LOGIN_EMAIL`, `ADMIN_LOGIN_PASSWORD` (12+ chars) and a random `QR_SIGNING_SECRET` (`openssl rand -base64 48`). Never put secrets in `NEXT_PUBLIC_*` variables.
 4. Add `https://<your-domain>/api/auth/google/callback` to the Google OAuth client's authorised redirect URIs.
 5. Deploy, then open `https://<your-domain>/api/health` — expect `"mode":"supabase","database":"ready"` and `"adminLogin":true`.
