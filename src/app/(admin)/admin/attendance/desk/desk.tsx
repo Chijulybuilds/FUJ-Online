@@ -29,7 +29,7 @@ export function Desk({ serviceId, serviceTitle }: { serviceId: string; serviceTi
     setBusy(null);
     if (!res.ok) { setFlash({ ok: false, text: json.error ?? "Check-in failed." }); return false; }
     const first = json.person.name.split(" ")[0];
-    setFlash({ ok: true, text: json.status === "already" ? `${json.person.name} was already checked in.` : json.created ? `Welcome ${first}! Added as a first-timer (username ${json.person.username}) and checked in.` : `${json.person.name} checked in ✓` });
+    setFlash({ ok: true, text: json.status === "already" ? `${json.person.name} was already checked in.` : json.created ? `Welcome ${first}! Added as a new member (username ${json.person.username}) and checked in.` : `${json.person.name} checked in ✓` });
     setQ(""); input.current?.focus(); await load("");
     return true;
   }
@@ -53,11 +53,11 @@ export function Desk({ serviceId, serviceTitle }: { serviceId: string; serviceTi
                 : <button className="btn btn-primary btn-sm whitespace-nowrap" disabled={busy === r.id} onClick={() => checkIn({ personId: r.id })}>{busy === r.id ? "…" : "Check in"}</button>}
             </li>
           ))}
-          {!rows.length && <li className="py-6 text-center text-sm text-slate-500">{q ? "No one matches. Add them as a first-timer →" : "No one checked in yet."}</li>}
+          {!rows.length && <li className="py-6 text-center text-sm text-slate-500">{q ? "No one matches. Add them as a new member →" : "No one checked in yet."}</li>}
         </ul>
       </section>
       <section className="card h-fit p-6">
-        <h2 className="flex items-center gap-2 font-bold"><UserPlus size={18} className="text-blue-600" /> First-timer?</h2>
+        <h2 className="flex items-center gap-2 font-bold"><UserPlus size={18} className="text-blue-600" /> New member?</h2>
         <p className="mt-1 text-xs text-slate-500">Add them in seconds — they get a flag username and a welcome follow-up task.</p>
         <form className="mt-4 space-y-3" onSubmit={async (e) => {
           e.preventDefault(); setAdding(true);
@@ -65,8 +65,8 @@ export function Desk({ serviceId, serviceTitle }: { serviceId: string; serviceTi
           const ok = await checkIn({ fullName: String(fd.get("fullName")), phone: String(fd.get("phone")) });
           setAdding(false); if (ok) form.reset();
         }}>
-          <input className="input" name="fullName" required placeholder="Full name" aria-label="First-timer full name" defaultValue={q && !rows.length ? q : undefined} key={rows.length ? "x" : q} />
-          <input className="input" name="phone" required inputMode="tel" placeholder="Phone number" aria-label="First-timer phone" />
+          <input className="input" name="fullName" required placeholder="Full name" aria-label="New member full name" defaultValue={q && !rows.length ? q : undefined} key={rows.length ? "x" : q} />
+          <input className="input" name="phone" required inputMode="tel" placeholder="Phone number" aria-label="New member phone" />
           <button className="btn btn-secondary w-full" disabled={adding}>{adding ? "Adding…" : "Add & check in"}</button>
         </form>
       </section>

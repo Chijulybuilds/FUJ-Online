@@ -1,13 +1,11 @@
 import { PageHeading } from "@/components/ui/page-heading";
 import { requireMember } from "@/lib/auth/session";
-import { db } from "@/lib/db";
 import { publishedAnnouncements } from "@/lib/repo/content";
 import { formatDate } from "@/lib/utils";
 
 export default async function MemberAnnouncements() {
-  const me = await requireMember();
-  const person = await db().get("people", { id: me.personId });
-  const items = await publishedAnnouncements({ audienceFor: person?.status === "visitor" ? "visitor" : "member" });
+  await requireMember();
+  const items = await publishedAnnouncements();
   return (
     <>
       <PageHeading title="Church updates" description="Announcements from your church community." />

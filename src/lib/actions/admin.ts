@@ -5,13 +5,14 @@ import { db } from "@/lib/db";
 import type { Channel, StaffRole } from "@/lib/db/types";
 import { requireAdmin } from "@/lib/auth/session";
 import type { Area } from "@/lib/auth/roles";
-import { createPerson, findByUsername, FriendlyError, markVerified, updatePerson } from "@/lib/repo/people";
+import { createPerson, findByUsername, FriendlyError, updatePerson } from "@/lib/repo/people";
 import { closeCheckIn, createService, openCheckIn, recordAttendance, updateService } from "@/lib/repo/services";
 import { createTask, logContact, runFollowUpAnalysis, updateTask } from "@/lib/repo/care";
-import { sendBroadcast, smsUndelivered, tasksForNonResponders } from "@/lib/repo/messaging";
+import { sendBroadcast, sendTestMessage, smsUndelivered, tasksForNonResponders } from "@/lib/repo/messaging";
 import { saveAnnouncement, setAnnouncementStatus, updatePrayer, moderateTestimony } from "@/lib/repo/content";
 import { recordDonation } from "@/lib/repo/giving";
 import { saveSettings } from "@/lib/repo/settings";
+import { addLeader, removeLeader, updateLeader } from "@/lib/repo/leaders";
 import { audit } from "@/lib/repo/audit";
 import { isOurFlyerUrl } from "@/lib/storage";
 import { nowIso, uid } from "@/lib/utils";
@@ -47,11 +48,10 @@ export async function createPersonAction(_: State, fd: FormData): Promise<State>
     const fullName = str(fd, "full_name");
     if (fullName.length < 2) return { ok: false, message: "Enter the person's full name." };
     const person = await createPerson({
-      full_name: fullName, phone: str(fd, "phone"), email: opt(fd, "email"), status: str(fd, "status") === "member" ? "member" : "visitor",
+      full_name: fullName, phone: str(fd, "phone"), email: opt(fd, "email"), status: "member",
       gender: opt(fd, "gender"), birthday: opt(fd, "birthday"), address: opt(fd, "address"), how_heard: opt(fd, "how_heard"), notes: opt(fd, "notes"),
       verified_via: "admin"
     });
-    if (person.status === "visitor") await createTask({ person_id: person.id, category: "first_timer", reason: "New visitor added by staff — welcome call" });
     await audit(actor, "person.create", "people", person.id);
     newId = person.id;
     return { ok: true };
@@ -64,7 +64,7 @@ export async function updatePersonAction(_: State, fd: FormData): Promise<State>
     const id = str(fd, "id");
     await updatePerson(id, {
       full_name: str(fd, "full_name"), phone: str(fd, "phone"), email: opt(fd, "email"),
-      status: z.enum(["visitor", "member", "inactive", "transferred", "left_ministry"]).parse(str(fd, "status")),
+      status: z.enum(["member", "inactive", "transferred", "left_ministry"]).parse(str(fd, "status")),
       gender: opt(fd, "gender"), birthday: opt(fd, "birthday"), address: opt(fd, "address"), notes: opt(fd, "notes"),
       ...(fd.has("whatsapp") ? { whatsapp: z.enum(["unknown", "yes", "no"]).parse(str(fd, "whatsapp")) } : {})
     });
@@ -72,13 +72,6 @@ export async function updatePersonAction(_: State, fd: FormData): Promise<State>
     revalidatePath(`/admin/members/${id}`);
     return { ok: true, message: "Record updated." };
   });
-}
-
-export async function markVerifiedAction(fd: FormData) {
-  const id = str(fd, "id");
-  await guarded("members", async (actor) => { await markVerified(id, "admin"); await audit(actor, "person.verify", "people", id); return null; });
-  revalidatePath(`/admin/members/${id}`);
-  revalidatePath("/admin/members");
 }
 
 /* ---------------- Services & attendance ---------------- */
@@ -153,7 +146,7 @@ export async function runAnalysisAction(): Promise<State> {
   return guarded("care", async () => {
     const r = await runFollowUpAnalysis();
     revalidatePath("/admin/pastoral-care");
-    return { ok: true, message: `Created ${r.absentees} absentee and ${r.firstTimers} first-timer follow-up${r.absentees + r.firstTimers === 1 ? "" : "s"}.` };
+    return { ok: true, message: `Created ${r.absentees} absentee and ${r.newMembers} new-member follow-up${r.absentees + r.newMembers === 1 ? "" : "s"}.` };
   });
 }
 
@@ -244,17 +237,58 @@ export async function replyToPersonAction(_: State, fd: FormData): Promise<State
   });
 }
 
+export async function sendTestMessageAction(_: State, fd: FormData): Promise<State> {
+  return guarded("settings", async (actor) => {
+    const channel = str(fd, "channel");
+    if (!["whatsapp", "sms", "email"].includes(channel)) return { ok: false, message: "Choose a channel." };
+    const result = await sendTestMessage(channel, str(fd, "to"));
+    await audit(actor, "messaging.test", "settings", null, { channel, ok: result.ok });
+    return result;
+  });
+}
+
+/* ---------------- Leaders ---------------- */
+const leaderInput = (fd: FormData) => ({ full_name: str(fd, "full_name"), unit: str(fd, "unit"), phone: str(fd, "phone"), email: opt(fd, "email") });
+
+export async function addLeaderAction(_: State, fd: FormData): Promise<State> {
+  return guarded("leaders", async (actor) => {
+    const { leader, person, linked } = await addLeader(leaderInput(fd), actor);
+    await audit(actor, "leader.add", "leaders", leader.id, { unit: leader.unit, linked });
+    revalidatePath("/admin/leaders");
+    return { ok: true, message: linked ? `${person.full_name} was already registered — added to the leaders list (${leader.unit}).` : `${person.full_name} added to the leaders list (${leader.unit}).` };
+  });
+}
+
+export async function updateLeaderAction(_: State, fd: FormData): Promise<State> {
+  return guarded("leaders", async (actor) => {
+    const id = str(fd, "id");
+    await updateLeader(id, leaderInput(fd));
+    await audit(actor, "leader.update", "leaders", id);
+    revalidatePath("/admin/leaders");
+    return { ok: true, message: "Leader updated." };
+  });
+}
+
+export async function removeLeaderAction(_: State, fd: FormData): Promise<State> {
+  return guarded("leaders", async (actor) => {
+    const removed = await removeLeader(str(fd, "id"));
+    if (!removed) return { ok: false, message: "That leader was already removed — refresh the page." };
+    await audit(actor, "leader.remove", "leaders", removed.id, { unit: removed.unit });
+    // The row (and this form) disappears, so confirm with a banner on the reloaded page.
+    return { ok: true, redirectTo: `/admin/leaders?removed=${encodeURIComponent(removed.name)}` };
+  });
+}
+
 /* ---------------- Announcements, prayer, testimonies ---------------- */
 export async function saveAnnouncementAction(_: State, fd: FormData): Promise<State> {
   return guarded("announcements", async (actor) => {
     const title = str(fd, "title"); const body = str(fd, "body");
     if (!title || !body) return { ok: false, message: "Add a title and body." };
     const status = str(fd, "intent") === "publish" ? "published" : "draft";
-    const row = await saveAnnouncement({ id: opt(fd, "id") ?? undefined, title, body, audience: str(fd, "audience") || "all", status, pinned: bool(fd, "pinned"), is_public: bool(fd, "is_public") }, actor);
+    const row = await saveAnnouncement({ id: opt(fd, "id") ?? undefined, title, body, audience: "all", status, pinned: bool(fd, "pinned"), is_public: bool(fd, "is_public") }, actor);
     let note = "";
     if (status === "published" && bool(fd, "broadcast")) {
-      const audience = row.audience === "visitors" ? "visitors" : row.audience === "members" ? "members" : "all";
-      const b = await sendBroadcast({ title, body, kind: "announcement", audience, channels: channelsFrom(fd), request_response: false, created_by: actor });
+      const b = await sendBroadcast({ title, body, kind: "announcement", audience: "all", channels: channelsFrom(fd), request_response: false, created_by: actor });
       note = ` Broadcast to ${b.recipient_count} people.`;
     }
     await audit(actor, `announcement.${status}`, "announcements", row.id);

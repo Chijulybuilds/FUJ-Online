@@ -18,7 +18,7 @@ import { env } from "@/lib/env";
  * Set REGISTRATION_OTP=true (with Termii configured) to require an SMS code as well.
  */
 export async function POST(request: NextRequest) {
-  // Generous per-IP limit: on Sunday many first-timers share the church Wi-Fi.
+  // Generous per-IP limit: on Sunday many new members share the church Wi-Fi.
   if (!rateLimit(`register:${clientIp(request.headers)}`, 40, 10 * 60000)) return NextResponse.json({ error: "Too many registrations from this network. Please wait." }, { status: 429 });
   const store = await cookies();
   const identity = await getIdentity();
@@ -32,14 +32,14 @@ export async function POST(request: NextRequest) {
   }
   try {
     const person = await createPerson({
-      full_name: d.fullName, phone: d.phone, email: d.email || identity?.email || null, status: "visitor",
+      full_name: d.fullName, phone: d.phone, email: d.email || identity?.email || null, status: "member",
       auth_subject: identity ? `${identity.provider}:${identity.sub}` : null, avatar_url: identity?.avatar ?? null,
-      verified_via: identity?.provider === "google" ? "google" : otpUsed ? "otp" : null
+      verified_via: identity?.provider === "google" ? "google" : otpUsed ? "otp" : "registration"
     });
     store.delete(COOKIE.identity);
     await setMemberSession(person);
     const checkIn = await checkInFromTicket(person.id).catch(() => null);
-    await createTask({ person_id: person.id, category: "first_timer", reason: "New registration — welcome call within 48 hours", due_at: new Date(Date.now() + 2 * 86400000).toISOString() });
+    await createTask({ person_id: person.id, category: "first_timer", reason: "New member — welcome call within 48 hours", due_at: new Date(Date.now() + 2 * 86400000).toISOString() });
     await audit(null, "person.self_register", "people", person.id, { via: identity?.provider ?? (otpUsed ? "phone_otp" : "phone") });
     return NextResponse.json({ username: person.username, name: person.full_name, checkedIn: Boolean(checkIn) });
   } catch (error) {

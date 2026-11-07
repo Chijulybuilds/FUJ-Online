@@ -47,10 +47,13 @@ export function Compose({ audiences, defaultAudience, parentId, defaultKind = "g
         {uploading && <span className="hint">Uploading…</span>}
         {flyerError && <span className="mt-1 block text-xs font-normal text-red-600">{flyerError}</span>}
       </div>
-      <fieldset className="flex flex-wrap gap-5">
-        <label className="checkbox"><input type="checkbox" checked readOnly disabled /> In-app (member portal)</label>
-        <label className="checkbox"><input type="checkbox" name="channels" value="whatsapp" disabled={!sms && !whatsapp} defaultChecked={sms || whatsapp} /> <span>Automatic WhatsApp / SMS{!whatsapp && !sms ? <span className="block text-xs text-slate-400">optional paid add-on — you can share to WhatsApp for free after sending</span> : !whatsapp ? <span className="block text-xs text-slate-400">WhatsApp API not configured — everyone gets SMS</span> : !sms ? <span className="block text-xs text-slate-400">SMS not configured — no fallback</span> : <span className="block text-xs text-slate-400">WhatsApp first, SMS if not on WhatsApp</span>}</span></label>
-        <label className="checkbox"><input type="checkbox" name="channels" value="email" disabled={!email} /> Email {!email && <span className="text-xs text-slate-400">(add RESEND_API_KEY)</span>}</label>
+      <fieldset className="grid gap-3 rounded-xl border border-slate-100 p-4" data-testid="channels">
+        <legend className="px-1 text-sm font-semibold">Send to</legend>
+        <label className="checkbox"><input type="checkbox" checked readOnly disabled /> <span>App inbox <span className="block text-xs text-slate-400">Always — members see it in their portal</span></span></label>
+        <label className="checkbox"><input type="checkbox" name="channels" value="whatsapp" disabled={!whatsapp} defaultChecked={whatsapp} /> <span>WhatsApp <span className="block text-xs text-slate-400">{whatsapp ? (sms ? "Personal WhatsApp message · SMS for anyone not on WhatsApp" : "Personal WhatsApp message") : "Not set up yet — see Settings → Messaging channels"}</span></span></label>
+        <label className="checkbox"><input type="checkbox" name="channels" value="sms" disabled={!sms} defaultChecked={sms && !whatsapp} /> <span>SMS text message <span className="block text-xs text-slate-400">{sms ? (whatsapp ? "Also text everyone (on top of WhatsApp)" : "Text message to everyone's phone") : "Not set up yet — see Settings → Messaging channels"}</span></span></label>
+        <label className="checkbox"><input type="checkbox" name="channels" value="email" disabled={!email} defaultChecked={email} /> <span>Email <span className="block text-xs text-slate-400">{email ? "To everyone who has an email address" : "Not set up yet — see Settings → Messaging channels"}</span></span></label>
+        {!whatsapp && !sms && <p className="text-xs text-slate-500">Free option: after sending, use “Share on WhatsApp” on the message page.</p>}
       </fieldset>
       <label className="checkbox"><input type="checkbox" name="request_response" defaultChecked /> Ask recipients to respond (tracked)</label>
       <div><SubmitButton pendingText="Sending…">Send broadcast</SubmitButton></div>

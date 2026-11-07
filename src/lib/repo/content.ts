@@ -8,11 +8,10 @@ import { peopleById } from "./people";
 export async function listAnnouncements() {
   return db().list("announcements", { order: { column: "created_at", ascending: false } });
 }
-export async function publishedAnnouncements(opts: { publicOnly?: boolean; audienceFor?: "member" | "visitor" } = {}) {
+export async function publishedAnnouncements(opts: { publicOnly?: boolean } = {}) {
   const rows = await db().list("announcements", { where: { status: "published" }, order: { column: "published_at", ascending: false } });
   return rows
     .filter((a) => !opts.publicOnly || a.is_public)
-    .filter((a) => !opts.audienceFor || a.audience === "all" || (opts.audienceFor === "member" ? a.audience === "members" : a.audience === "visitors"))
     .sort((a, b) => Number(b.pinned) - Number(a.pinned));
 }
 export async function saveAnnouncement(input: Partial<Announcement> & { title: string; body: string }, author: string) {

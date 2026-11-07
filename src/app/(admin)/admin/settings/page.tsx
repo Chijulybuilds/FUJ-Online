@@ -3,7 +3,7 @@ import { ActionForm, SubmitButton } from "@/components/ui/action-form";
 import { requireAdmin } from "@/lib/auth/session";
 import { can, ROLE_LABELS } from "@/lib/auth/roles";
 import { getSettings } from "@/lib/repo/settings";
-import { addStaffAction, saveSettingsAction, toggleStaffAction } from "@/lib/actions/admin";
+import { addStaffAction, saveSettingsAction, sendTestMessageAction, toggleStaffAction } from "@/lib/actions/admin";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { providers } from "@/lib/messaging/providers";
@@ -16,11 +16,16 @@ export default async function SettingsPage() {
     ["Database", env.useSupabaseData ? "Supabase (service role)" : "Local JSON file (development)", env.useSupabaseData],
     ["Google sign-in", env.googleEnabled ? "Configured" : "Add CLIENT_ID / CLIENT_SECRET", env.googleEnabled],
     ["Shared admin login", env.sharedAdmin ? env.sharedAdmin.email : "Set ADMIN_LOGIN_EMAIL / PASSWORD", Boolean(env.sharedAdmin)],
-    ["Registration", env.registrationOtp ? "SMS OTP required" : "Free — verified in person / Google", true],
+    ["Registration", env.registrationOtp ? "SMS OTP required" : "Free — everyone is a member from sign-up", true],
     ["WhatsApp sharing", "Free — Share on WhatsApp button", true],
     ["WhatsApp (Cloud API, automatic)", providers.whatsapp ? (providers.whatsappTemplate ? "Configured · template" : "Configured · no template (24h window only)") : "Not configured", providers.whatsapp],
     ["SMS (Termii) — OTP & fallback", providers.sms ? "Configured" : "Not configured", providers.sms],
     ["Email (Resend)", providers.email ? "Configured" : "Not configured", providers.email]
+  ] as const;
+  const channels = [
+    ["WhatsApp", providers.whatsapp, providers.whatsapp ? (providers.whatsappTemplate ? `Template “${providers.whatsappTemplate}” · reaches everyone` : "No template yet — only reaches people who messaged the church number in the last 24h") : "Meta WhatsApp Cloud API: WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_TEMPLATE_NAME", "whatsapp"],
+    ["SMS", providers.sms, providers.sms ? `Termii · sender “${process.env.TERMII_SENDER_ID}”` : "Termii: TERMII_API_KEY, TERMII_SENDER_ID", "sms"],
+    ["Email", providers.email, providers.email ? `Resend · from ${process.env.EMAIL_FROM}` : "Resend: RESEND_API_KEY, EMAIL_FROM", "email"]
   ] as const;
   return (
     <>
@@ -43,6 +48,26 @@ export default async function SettingsPage() {
           </ActionForm>
         </section>
         <div className="space-y-6">
+          <section className="card p-6" id="messaging" data-testid="messaging-channels">
+            <h2 className="font-bold">Messaging channels</h2>
+            <p className="mt-1 text-xs text-slate-500">Where broadcasts can go besides the app inbox. Connect a channel by adding its keys in Vercel → Settings → Environment Variables, then redeploy (step-by-step guide in the README).</p>
+            <ul className="mt-4 space-y-3 text-sm">
+              {channels.map(([name, ok, how]) => (
+                <li key={name} className="flex items-start justify-between gap-3">
+                  <span><b>{name}</b><span className="block text-xs text-slate-500">{how}</span></span>
+                  <span className={`pill shrink-0 ${ok ? "pill-green" : "pill-gray"}`}>{ok ? "Connected" : "Not set up"}</span>
+                </li>
+              ))}
+            </ul>
+            {channels.some(([, ok]) => ok) && (
+              <ActionForm action={sendTestMessageAction} className="mt-5 grid gap-2 border-t border-slate-100 pt-4">
+                <p className="text-sm font-semibold">Send yourself a test</p>
+                <select className="input" name="channel" aria-label="Test channel" defaultValue={channels.find(([, ok]) => ok)?.[3]}>{channels.filter(([, ok]) => ok).map(([name, , , key]) => <option key={key} value={key}>{name}</option>)}</select>
+                <input className="input" name="to" required placeholder="Your phone number or email" aria-label="Send test to" />
+                <SubmitButton className="btn btn-secondary" pendingText="Sending…">Send test</SubmitButton>
+              </ActionForm>
+            )}
+          </section>
           <section className="card p-6">
             <h2 className="font-bold">Integrations</h2>
             <ul className="mt-3 space-y-2 text-sm">{integrations.map(([k, v, ok]) => <li key={k} className="flex justify-between gap-3"><span>{k}</span><span className={`pill ${ok ? "pill-green" : "pill-gray"}`}>{v}</span></li>)}</ul>

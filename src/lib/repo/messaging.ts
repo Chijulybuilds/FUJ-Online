@@ -4,30 +4,35 @@ import type { Broadcast, BroadcastRecipient, Channel, Person } from "@/lib/db/ty
 import { nowIso, uid } from "@/lib/utils";
 import { peopleById } from "./people";
 import { createTask } from "./care";
-import { NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp } from "@/lib/messaging/providers";
+import { emailAttempt, NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp, smsAttempt, WHATSAPP_ERROR_HINTS } from "@/lib/messaging/providers";
 import { firstName, normalizePhone } from "@/lib/identity-utils";
 import { absoluteUrl } from "@/lib/storage";
+import { env } from "@/lib/env";
+import { broadcastEmailHtml } from "@/lib/messaging/email-template";
+import { leaderPeople } from "./leaders";
+import { getPublicSettings } from "./settings";
 
 export const AUDIENCES: { value: string; label: string }[] = [
-  { value: "all", label: "Everyone (members + visitors)" },
-  { value: "members", label: "Members only" },
-  { value: "visitors", label: "Visitors only" },
-  { value: "first_timers", label: "First-timers (last 30 days)" },
+  { value: "all", label: "Everyone (all members)" },
+  { value: "leaders", label: "All leaders" },
+  { value: "first_timers", label: "New members (joined in the last 30 days)" },
   { value: "absentees", label: "Absentees (open absence follow-ups)" },
   { value: "care_open", label: "Everyone with an open follow-up task" }
 ];
 
 /** Resolves an audience key to the people who should receive a message. */
 export async function resolveAudience(audience: string): Promise<Person[]> {
-  const people = [...(await peopleById()).values()].filter((p) => p.status === "member" || p.status === "visitor");
+  // Leaders are whoever admins put on the list (even if their member record is marked inactive).
+  if (audience === "leaders") return leaderPeople();
+  if (audience.startsWith("leaders:")) return leaderPeople(audience.slice("leaders:".length));
+  const people = [...(await peopleById()).values()].filter((p) => p.status === "member");
   const [kind, arg, mode] = audience.split(":");
   switch (kind) {
-    case "all": return people;
-    case "members": return people.filter((p) => p.status === "member");
-    case "visitors": return people.filter((p) => p.status === "visitor");
+    case "all":
+    case "members": return people;
     case "first_timers": {
       const since = Date.now() - 30 * 86400000;
-      return people.filter((p) => p.first_visit_at && new Date(p.first_visit_at).getTime() >= since);
+      return people.filter((p) => new Date(p.joined_at ?? p.first_visit_at ?? p.created_at).getTime() >= since);
     }
     case "absentees":
     case "care_open": {
@@ -49,6 +54,8 @@ export async function resolveAudience(audience: string): Promise<Person[]> {
 export async function audienceLabel(audience: string) {
   const preset = AUDIENCES.find((a) => a.value === audience);
   if (preset) return preset.label;
+  if (audience.startsWith("leaders:")) return `Leaders — ${audience.slice("leaders:".length)}`;
+  if (audience === "members") return "Everyone (all members)";
   const [kind, arg, mode] = audience.split(":");
   if (kind === "person") return `Direct: ${(await db().get("people", { id: arg }))?.full_name ?? "Unknown"}`;
   if (kind === "followup") return mode === "unread" ? "Follow-up: hasn't read previous message" : "Follow-up: hasn't responded";
@@ -65,6 +72,7 @@ export async function sendBroadcast(input: {
   const recipients = await resolveAudience(input.audience);
   const now = nowIso();
   const channels: Channel[] = Array.from(new Set<Channel>(["in_app", ...input.channels]));
+  const settings = channels.includes("email") ? await getPublicSettings() : null;
   const broadcast = await db().insert("broadcasts", {
     id: uid(), title: input.title, body: input.body, kind: input.kind, audience: input.audience, channels, status: "sent",
     request_response: input.request_response, image_url: input.image_url ?? null, parent_id: input.parent_id ?? null, recipient_count: recipients.length,
@@ -73,8 +81,20 @@ export async function sendBroadcast(input: {
   for (const person of recipients) {
     const text = personalise(input.body, person);
     const image = input.image_url ? absoluteUrl(input.image_url) : null;
-    const phone = channels.includes("whatsapp") ? await deliverByPhone(person, input.title, text, image) : channels.includes("sms") ? await smsOnly(person, input.title, text, image) : null;
-    const email_status = channels.includes("email") ? (person.email ? await sendEmail(person.email, input.title, text) : "skipped") : null;
+    // WhatsApp = WhatsApp first, SMS for anyone not on WhatsApp. SMS = a text message to everyone (also when WhatsApp is ticked).
+    let phone: PhoneDelivery | null = channels.includes("whatsapp") ? await deliverByPhone(person, input.title, text, image) : null;
+    if (channels.includes("sms") && !phone?.sms_status) {
+      const sms = await smsOnly(person, input.title, text, image);
+      phone = phone ? { ...phone, sms_status: sms.sms_status, channel_used: phone.channel_used ?? sms.channel_used } : sms;
+    }
+    const email_status = channels.includes("email")
+      ? (person.email
+        ? await sendEmail(person.email, input.title, `${text}${image ? `\n\nFlyer: ${image}` : ""}`, {
+          html: broadcastEmailHtml({ title: input.title, body: text, imageUrl: image, churchName: settings?.church_name ?? "FlagUpJesus Global Ministry", siteUrl: env.appUrl, motto: settings?.tagline }),
+          replyTo: settings?.contact_email
+        })
+        : "skipped")
+      : null;
     await db().insert("broadcast_recipients", {
       id: uid(), broadcast_id: broadcast.id, person_id: person.id, read_at: null, response: null, responded_at: null,
       sms_status: phone?.sms_status ?? null, email_status, whatsapp_status: phone?.whatsapp_status ?? null,
@@ -257,4 +277,27 @@ export async function threadForPerson(personId: string) {
   const rows = await db().list("broadcast_recipients", { where: { person_id: personId }, order: { column: "created_at" } });
   const broadcasts = new Map((await db().list("broadcasts")).map((b) => [b.id, b]));
   return rows.flatMap((r) => { const b = broadcasts.get(r.broadcast_id); return b ? [{ ...r, broadcast: b }] : []; });
+}
+
+/** Settings → Messaging channels → "Send test": one message on one channel, with a plain-English result. */
+export async function sendTestMessage(channel: string, to: string): Promise<{ ok: boolean; message: string }> {
+  const settings = await getPublicSettings();
+  const title = `${settings.app_name || "FlagUpJesus"} test message`;
+  const body = `If you can read this, ${channel === "email" ? "email" : channel === "sms" ? "SMS" : "WhatsApp"} broadcasts are working. God bless you!`;
+  if (channel === "email") {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return { ok: false, message: "Enter an email address to send the test to." };
+    const r = await emailAttempt(to, title, body, { html: broadcastEmailHtml({ title, body, churchName: settings.church_name, siteUrl: env.appUrl, motto: settings.tagline }), replyTo: settings.contact_email });
+    return r.status === "sent" ? { ok: true, message: `Test email sent to ${to}. Check the inbox (and spam folder).` } : { ok: false, message: `Email failed: ${r.detail ?? "unknown error"}` };
+  }
+  const phone = normalizePhone(to);
+  if (!phone || phone.length < 8) return { ok: false, message: "Enter a phone number to send the test to." };
+  if (channel === "sms") {
+    const r = await smsAttempt(phone, `${title}: ${body}`);
+    return r.status === "sent" ? { ok: true, message: `Test SMS sent to ${phone}.` } : { ok: false, message: `SMS failed: ${r.detail ?? "unknown error"}` };
+  }
+  if (!providers.whatsapp) return { ok: false, message: "WhatsApp isn't set up yet (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID)." };
+  const r = await sendWhatsApp(phone, title, body);
+  if (r.status === "sent") return { ok: true, message: `WhatsApp accepted the test for ${phone}. It should arrive in a few seconds.` };
+  const hint = r.errorCode ? WHATSAPP_ERROR_HINTS[r.errorCode] : undefined;
+  return { ok: false, message: `WhatsApp failed${r.errorCode ? ` (error ${r.errorCode})` : ""}: ${hint ?? r.detail ?? "unknown error"}` };
 }

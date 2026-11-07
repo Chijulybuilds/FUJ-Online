@@ -1,6 +1,7 @@
 /* Row types mirror the Supabase schema (migrations 0001 + 0005). */
 
-export type PersonStatus = "visitor" | "member" | "inactive" | "transferred" | "left_ministry";
+/** Everyone who registers is a member (FUJ has no "visitor" category). */
+export type PersonStatus = "member" | "inactive" | "transferred" | "left_ministry";
 export type StaffRole = "super_admin" | "admin" | "pastor" | "pastoral_worker" | "finance_admin" | "department_leader";
 
 export interface Person {
@@ -25,8 +26,8 @@ export interface Person {
   /** Whether the phone number is reachable on WhatsApp (learned from delivery receipts). */
   whatsapp: "unknown" | "yes" | "no";
   whatsapp_checked_at: string | null;
-  /** How the person was confirmed to be real: Google, seen in church (check-in), or by an admin. null = self-registered, not yet seen. */
-  verified_via: "google" | "in_person" | "admin" | "otp" | null;
+  /** How the person signed up (everyone is verified automatically at registration). */
+  verified_via: "google" | "in_person" | "admin" | "otp" | "registration" | null;
   verified_at: string | null;
   created_at: string;
   updated_at: string;
@@ -204,6 +205,17 @@ export interface BroadcastRecipient {
   created_at: string;
 }
 
+/** A church leader added by admins; contact details live on the linked person record. */
+export interface Leader {
+  id: string;
+  person_id: string;
+  /** The unit / ministry the person leads, e.g. "Choir" (free text, entered by admins). */
+  unit: string;
+  added_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -258,6 +270,7 @@ export interface Tables {
   broadcasts: Broadcast;
   broadcast_recipients: BroadcastRecipient;
   admin_users: AdminUser;
+  leaders: Leader;
   church_settings: ChurchSettings;
   audit_logs: AuditLog;
 }

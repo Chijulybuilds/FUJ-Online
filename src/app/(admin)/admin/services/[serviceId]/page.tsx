@@ -16,15 +16,14 @@ export default async function ServiceDetails({ params }: { params: Promise<{ ser
   const service = await getService(serviceId).catch(() => null);
   if (!service) notFound();
   const [session, rows] = await Promise.all([activeSessionForService(service.id), attendanceForService(service.id)]);
-  const visitors = rows.filter((r) => r.person?.status === "visitor").length;
+  const newMembers = rows.filter((r) => r.firstTime).length;
   return (
     <>
       <PageHeading title={service.title} description={<>{formatDateTime(service.starts_at)} · {service.category} · <StatusPill value={service.status} /></>}
         action={<a className="btn btn-secondary" href={`/api/admin/export?type=attendance&serviceId=${service.id}`}><Download size={15} /> Export</a>} />
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2">
         <StatCard label="Checked in" value={rows.length} icon={<QrCode size={18} />} />
-        <StatCard label="Members" value={rows.length - visitors} icon={<QrCode size={18} />} tone="green" />
-        <StatCard label="Visitors" value={visitors} icon={<QrCode size={18} />} tone="violet" />
+        <StatCard label="First time in church" value={newMembers} icon={<QrCode size={18} />} tone="violet" />
       </div>
       <div className="grid gap-6 xl:grid-cols-[1fr_1.4fr]">
         <section className="card p-6">

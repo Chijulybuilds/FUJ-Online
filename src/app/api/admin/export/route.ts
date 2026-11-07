@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { listPeople, peopleById } from "@/lib/repo/people";
 import { audit } from "@/lib/repo/audit";
 import { toVcf } from "@/lib/vcard";
+import { leaderPeople } from "@/lib/repo/leaders";
 
 const csv = (rows: (string | number | null | undefined)[][]) =>
   rows.map((r) => r.map((v) => { const s = String(v ?? ""); return /[",\n]/.test(s) || /^[=+\-@]/.test(s) ? `"${s.replace(/^([=+\-@])/, "'$1").replace(/"/g, '""')}"` : s; }).join(",")).join("\n");
@@ -13,11 +14,16 @@ const csv = (rows: (string | number | null | undefined)[][]) =>
 export async function GET(request: NextRequest) {
   const admin = await getAdminSession();
   const type = request.nextUrl.searchParams.get("type");
-  if (!admin || !can(admin.role, type === "attendance" ? "attendance" : "members")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!admin || !can(admin.role, type === "attendance" ? "attendance" : type === "leaders_vcf" ? "leaders" : "members")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (type === "leaders_vcf") {
+    const leaders = await leaderPeople();
+    await audit(admin.email, "export", "leaders_vcf", null, { count: leaders.length });
+    return new NextResponse(toVcf(leaders), { headers: { "Content-Type": "text/vcard; charset=utf-8", "Content-Disposition": `attachment; filename="flagupjesus-leaders.vcf"` } });
+  }
   let body: string;
   if (type === "vcf") {
     const status = request.nextUrl.searchParams.get("status");
-    const people = (await listPeople()).filter((p) => (status ? p.status === status : p.status === "member" || p.status === "visitor"));
+    const people = (await listPeople()).filter((p) => (status ? p.status === status : p.status === "member"));
     await audit(admin.email, "export", "contacts_vcf", null, { count: people.length });
     return new NextResponse(toVcf(people), { headers: { "Content-Type": "text/vcard; charset=utf-8", "Content-Disposition": `attachment; filename="flagupjesus-contacts.vcf"` } });
   }

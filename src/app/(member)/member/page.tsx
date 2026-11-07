@@ -13,7 +13,7 @@ export default async function MemberHome() {
   const person = (await db().get("people", { id: me.personId }))!;
   const [attendance, next, messages, news] = await Promise.all([
     attendanceForPerson(person.id), upcomingService(), memberMessages(person.id),
-    publishedAnnouncements({ audienceFor: person.status === "visitor" ? "visitor" : "member" })
+    publishedAnnouncements()
   ]);
   const unread = messages.filter((m) => !m.read_at);
   const shortcuts = [

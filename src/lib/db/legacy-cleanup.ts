@@ -3,7 +3,8 @@
  * (members, services, attendance, offerings, demo staff, departments, demo bank details…).
  * Those rows all used IDs starting with LEGACY_PREFIX. This removes them — and anything linked to
  * them — from an existing local database, and clears settings that still hold the old sample values,
- * so the real FUJ defaults show. Records created by real users have random IDs and are kept.
+ * so the real FUJ defaults show. Records created by real users have random IDs and are kept
+ * (old "visitor" records simply become members).
  */
 export const LEGACY_PREFIX = "00000000-0000-4000-8000-";
 
@@ -54,6 +55,11 @@ export function cleanLegacyDemoData(store: Store): number {
       if (typeof s[key] === "string" && values.includes(s[key] as string)) { s[key] = null; changed++; }
     }
     if (s.church_name === "Flag of Jesus Global Ministry") { s.church_name = "FlagUpJesus Global Ministry"; changed++; }
+  }
+  // Everyone is a member (no visitors) and verified from sign-up (mirrors migration 0010).
+  for (const p of store.people ?? []) {
+    if (p.status === "visitor") { p.status = "member"; p.joined_at = p.joined_at ?? p.first_visit_at ?? p.created_at; changed++; }
+    if (!p.verified_via) { p.verified_via = "registration"; p.verified_at = p.verified_at ?? p.created_at; changed++; }
   }
   return changed;
 }

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ people: sorted, total: attendance.length });
 }
 
-/** POST { serviceId, personId } → check in; or { serviceId, fullName, phone } → add a first-timer and check in. */
+/** POST { serviceId, personId } → check in; or { serviceId, fullName, phone } → add a new member and check in. */
 export async function POST(request: NextRequest) {
   const admin = await staff();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -50,8 +50,8 @@ export async function POST(request: NextRequest) {
     if (!person && body.data.fullName && body.data.phone) {
       person = (await db().get("people", { normalized_phone: normalizePhone(body.data.phone) })) ?? null;
       if (!person) {
-        person = await createPerson({ full_name: body.data.fullName, phone: body.data.phone, status: "visitor", verified_via: "in_person" });
-        await createTask({ person_id: person.id, category: "first_timer", reason: "First-timer added at the check-in desk — welcome call" });
+        person = await createPerson({ full_name: body.data.fullName, phone: body.data.phone, status: "member", verified_via: "in_person" });
+        await createTask({ person_id: person.id, category: "first_timer", reason: "New member added at the check-in desk — welcome call" });
         await audit(admin.name, "person.create_at_desk", "people", person.id);
         created = true;
       }

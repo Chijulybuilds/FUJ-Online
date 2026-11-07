@@ -38,9 +38,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         </div>
       )}
       <div className="mb-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total people" value={stats.totalPeople.toLocaleString()} change={`${stats.members} members · ${stats.visitors} visitors`} icon={<Users size={20} />} />
+        <StatCard label="Members" value={stats.members.toLocaleString()} change={stats.inactive ? `${stats.inactive} inactive or moved` : "Everyone who has registered"} icon={<Users size={20} />} />
         <StatCard label="Last service" value={last?.total ?? 0} change={last ? `${last.service.title} · ${formatDate(last.service.starts_at)}` : "No services yet"} icon={<CalendarCheck size={20} />} tone="green" />
-        <StatCard label="New this month" value={stats.newThisMonth} change={`${last?.firstTimers ?? 0} first-timers last service`} icon={<UserPlus size={20} />} tone="violet" />
+        <StatCard label="New this month" value={stats.newThisMonth} change={`${last?.newMembers ?? 0} new at the last service`} icon={<UserPlus size={20} />} tone="violet" />
         {can(admin.role, "giving")
           ? <StatCard label="Giving this month" value={formatCurrency(stats.givingThisMonth)} change="Verified records only" icon={<CircleDollarSign size={20} />} tone="amber" />
           : <StatCard label="Open follow-ups" value={stats.openTasks} change="Pastoral care queue" icon={<HeartHandshake size={20} />} tone="amber" />}

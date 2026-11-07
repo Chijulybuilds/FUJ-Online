@@ -52,12 +52,12 @@ export async function createPerson(input: NewPerson): Promise<Person> {
     try {
       return await db().insert("people", {
         id: uid(), person_code: await nextPersonCode(), username, full_name: input.full_name.trim(), phone: input.phone.trim(),
-        normalized_phone: normalized, email: input.email?.trim().toLowerCase() || null, status: input.status ?? "visitor",
-        first_visit_at: now, joined_at: input.status === "member" ? now : null, notes: input.notes ?? null,
+        normalized_phone: normalized, email: input.email?.trim().toLowerCase() || null, status: input.status ?? "member",
+        first_visit_at: now, joined_at: now, notes: input.notes ?? null,
         auth_subject: input.auth_subject ?? null, avatar_url: input.avatar_url ?? null, gender: input.gender || null,
         birthday: input.birthday || null, address: input.address || null, how_heard: input.how_heard || null,
         last_seen_at: null, whatsapp: "unknown", whatsapp_checked_at: null,
-        verified_via: input.verified_via ?? null, verified_at: input.verified_via ? now : null, created_at: now, updated_at: now
+        verified_via: input.verified_via ?? "registration", verified_at: now, created_at: now, updated_at: now
       });
     } catch (error) {
       if (error instanceof DuplicateError && /username|person_code/.test(error.message)) continue;
@@ -95,10 +95,3 @@ export async function peopleById(ids?: string[]) {
   return new Map(rows.map((p) => [p.id, p]));
 }
 
-/** Marks a person as confirmed real (first in-person check-in, Google, or an admin). Never downgrades. */
-export async function markVerified(personId: string, via: NonNullable<Person["verified_via"]>) {
-  const person = await db().get("people", { id: personId });
-  if (!person || person.verified_via) return person;
-  const [row] = await db().update("people", { id: personId }, { verified_via: via, verified_at: nowIso(), updated_at: nowIso() });
-  return row;
-}

@@ -2,7 +2,7 @@ import { test, expect, type Browser, type Page } from "@playwright/test";
 
 /**
  * End-to-end journey against the local JSON store (seeded demo data):
- * staff opens QR check-in → first-timer registers from the QR → returning member checks in by username →
+ * staff opens QR check-in → a new member registers from the QR → returning member checks in by username →
  * broadcast + read/response tracking → follow-up broadcast → testimony moderation → prayer → pastoral care → roles.
  */
 test.describe.configure({ mode: "serial" });
@@ -160,7 +160,7 @@ test("QR token API is staff-only", async ({ request }) => {
   expect(res.status()).toBe(401);
 });
 
-test("a first-timer scans the QR, registers, gets a flag username and is checked in", async ({ browser }) => {
+test("a new member scans the QR, registers, gets a flag username and is checked in", async ({ browser }) => {
   const phone = await newDevice(browser);
   await go(phone, await currentQrUrl());
   await expect(phone.getByTestId("checkin-service")).toHaveText("E2E Sunday Service");
@@ -168,7 +168,7 @@ test("a first-timer scans the QR, registers, gets a flag username and is checked
   await shot(phone, "05-checkin-scanned");
   await phone.getByRole("link", { name: "Register now" }).click();
   await expect(phone.getByText(/checked in to E2E Sunday Service automatically/)).toBeVisible();
-  // Registration is just name + phone (+ optional email). No paid SMS OTP: scanning the live QR verifies them in person.
+  // Registration is just name + phone (+ optional email). No paid SMS OTP and no approval step.
   await expect(phone.getByLabel("Email (optional)")).toBeVisible();
   await expect(phone.getByLabel("Gender")).toHaveCount(0);
   await expect(phone.getByLabel("Verification code")).toHaveCount(0);
@@ -229,7 +229,7 @@ test("usher can check someone in manually and attendance shows on the service", 
   await shot(admin, "08-service-attendance");
 });
 
-test("check-in desk: admin finds members by name and checks them in; adds a first-timer", async () => {
+test("check-in desk: admin finds members by name and checks them in; adds a new member", async () => {
   const sid = serviceUrl.split("/").pop();
   await go(admin, `/admin/attendance/desk?service=${sid}`);
   await expect(admin.getByTestId("desk-total")).toHaveText("3 checked in");
@@ -240,15 +240,15 @@ test("check-in desk: admin finds members by name and checks them in; adds a firs
   await expect(admin.getByTestId("desk-total")).toHaveText("4 checked in");
   await admin.getByLabel("Search member").fill("david");
   await expect(admin.getByTestId("desk-row").filter({ hasText: "David Nwosu" }).getByRole("button", { name: "Check in" })).toHaveCount(0);
-  await admin.getByLabel("First-timer full name").fill("Kelechi Amadi");
-  await admin.getByLabel("First-timer phone").fill("0818 765 4321");
+  await admin.getByLabel("New member full name").fill("Kelechi Amadi");
+  await admin.getByLabel("New member phone").fill("0818 765 4321");
   await admin.getByRole("button", { name: "Add & check in" }).click();
-  await expect(admin.getByText(/Welcome Kelechi! Added as a first-timer \(username flagkelechi\d{3}\)/)).toBeVisible();
+  await expect(admin.getByText(/Welcome Kelechi! Added as a new member \(username flagkelechi\d{3}\)/)).toBeVisible();
   await expect(admin.getByTestId("desk-total")).toHaveText("5 checked in");
   await shot(admin, "08b-checkin-desk");
 });
 
-test("online self-registration is free and stays 'unverified' until seen in church; contacts export for WhatsApp", async ({ browser }) => {
+test("online self-registration makes you a member straight away (no visitors, no verification); contacts export for WhatsApp", async ({ browser }) => {
   const p = await newDevice(browser);
   await go(p, "/register");
   await p.getByLabel("Full name").fill("Obinna Online");
@@ -257,11 +257,15 @@ test("online self-registration is free and stays 'unverified' until seen in chur
   await expect(p.getByTestId("register-success")).toBeVisible();
   await p.context().close();
 
-  await go(admin, "/admin/members?status=unverified");
-  await admin.getByRole("link", { name: "Obinna Online" }).click();
-  await expect(admin.getByTestId("verified-state")).toContainText("Not yet");
-  await admin.getByRole("button", { name: "Mark verified" }).click();
-  await expect(admin.getByTestId("verified-state")).toContainText("confirmed by an admin");
+  await go(admin, "/admin/members");
+  await expect(admin.getByRole("link", { name: /Visitors|Unverified/ })).toHaveCount(0);
+  const row = admin.getByRole("row").filter({ hasText: "Obinna Online" });
+  await expect(row.getByText("member", { exact: true })).toBeVisible();
+  await expect(admin.getByText(/visitor|unverified/i)).toHaveCount(0);
+  await row.getByRole("link", { name: "Obinna Online" }).click();
+  await expect(admin.getByRole("button", { name: "Mark verified" })).toHaveCount(0);
+  await expect(admin.getByLabel("Status")).toHaveValue("member");
+  await expect(admin.getByLabel("Status").locator("option", { hasText: "visitor" })).toHaveCount(0);
 
   const vcf = await admin.request.get("/api/admin/export?type=vcf");
   expect(vcf.headers()["content-type"]).toContain("text/vcard");
@@ -272,7 +276,8 @@ test("online self-registration is free and stays 'unverified' until seen in chur
 
 test("broadcast with response tracking, member replies, follow-up to non-responders", async ({ browser }) => {
   await go(admin, "/admin/messaging");
-  await admin.getByLabel("Audience").selectOption("members");
+  await expect(admin.getByLabel("Audience").locator("option", { hasText: /visitor/i })).toHaveCount(0);
+  await admin.getByLabel("Audience").selectOption("all");
   await expect(admin.getByTestId("audience-count")).toContainText("recipient");
   await admin.getByLabel("Title").fill("Thanksgiving Sunday");
   await admin.getByRole("textbox", { name: /^Message/ }).fill("Hi {first_name}, will you join us for Thanksgiving Sunday? Reply yes!");
@@ -365,6 +370,77 @@ test("prayer requests are moderated and can go on the prayer wall only with cons
   await go(admin, "/admin/prayer-requests");
   await expect(admin.getByTestId("prayer-card").filter({ hasText: "Please pray for my family" }).getByLabel("Show on prayer wall")).toHaveCount(0);
   await shot(admin, "11-prayer-moderation");
+});
+
+test("leaders: admin adds leaders by unit and messages them on WhatsApp/SMS/email from Broadcasts", async () => {
+  await go(admin, "/admin/leaders");
+  await expect(admin.getByText("No leaders yet")).toBeVisible();
+  const add = async (name: string, unit: string, phone: string, email = "") => {
+    const form = admin.locator("form", { has: admin.getByRole("button", { name: "Add leader" }) });
+    await form.getByLabel("Full name").fill(name);
+    await form.getByLabel("Unit").fill(unit);
+    await form.getByLabel("WhatsApp number").fill(phone);
+    if (email) await form.getByLabel(/^Email/).fill(email);
+    await form.getByRole("button", { name: "Add leader" }).click();
+  };
+  await add("Uche Choirmaster", "Choir", "0803 222 1111", "uche@example.com");
+  await expect(admin.getByText("Uche Choirmaster added to the leaders list (Choir).")).toBeVisible();
+  // Someone already registered with that number is linked, not duplicated.
+  await add("Grace O.", "Ushering", "08031234567");
+  await expect(admin.getByText("Grace Okafor was already registered — added to the leaders list (Ushering).")).toBeVisible();
+  await add("Chika Choir", "choir", "0803 222 3333");
+  await expect(admin.getByTestId("leader-row")).toHaveCount(3);
+  await expect(admin.getByRole("link", { name: "Choir (2)" })).toBeVisible();
+  await expect(admin.getByTestId("leader-row").filter({ hasText: "Uche Choirmaster" }).getByRole("link", { name: /WhatsApp/ })).toHaveAttribute("href", "https://wa.me/2348032221111");
+  await shot(admin, "13-leaders");
+
+  // One unit's leaders → Broadcasts with that audience preselected.
+  await admin.getByRole("link", { name: "Choir (2)" }).click();
+  await expect(admin.getByTestId("leader-row")).toHaveCount(2);
+  await admin.getByTestId("message-unit-leaders").click();
+  await admin.waitForURL(/\/admin\/messaging\?audience=leaders/);
+  await expect(admin.getByLabel("Audience")).toHaveValue("leaders:Choir");
+  await expect(admin.getByTestId("audience-count")).toContainText("2 recipients");
+  // WhatsApp, SMS and Email are separate choices (not set up in the test environment).
+  const channels = admin.getByTestId("channels");
+  for (const name of [/^WhatsApp/, /^SMS text message/, /^Email/]) await expect(channels.getByRole("checkbox", { name })).toBeDisabled();
+  await expect(channels.getByText("Not set up yet — see Settings → Messaging channels")).toHaveCount(3);
+
+  // All leaders.
+  await go(admin, "/admin/leaders");
+  await admin.getByTestId("message-all-leaders").click();
+  await admin.waitForURL(/\/admin\/messaging\?audience=leaders$/);
+  await expect(admin.getByLabel("Audience")).toHaveValue("leaders");
+  await expect(admin.getByTestId("audience-count")).toContainText("3 recipients");
+  await admin.getByLabel("Title").fill("Leaders' meeting");
+  await admin.getByRole("textbox", { name: /^Message/ }).fill("Hi {first_name}, leaders meet on Saturday at 4pm.");
+  await admin.getByRole("button", { name: "Send broadcast" }).click();
+  await admin.waitForURL(/\/admin\/messaging\/[0-9a-f-]{36}\?sent=1/);
+  await expect(admin.getByText("All leaders").first()).toBeVisible();
+  await expect(admin.getByTestId("recipient-row")).toHaveCount(3);
+
+  // Edit, then remove (member record stays).
+  await go(admin, "/admin/leaders");
+  const chika = admin.getByTestId("leader-row").filter({ hasText: "Chika Choir" });
+  await chika.getByText("Edit or remove").click();
+  await chika.getByLabel("Unit").fill("Media");
+  await chika.getByRole("button", { name: "Save changes" }).click();
+  await expect(admin.getByText("Leader updated.")).toBeVisible();
+  await admin.reload();
+  await expect(admin.getByRole("link", { name: "Media (1)" })).toBeVisible();
+  const grace = admin.getByTestId("leader-row").filter({ hasText: "Grace Okafor" });
+  await grace.getByText("Edit or remove").click();
+  await grace.getByRole("button", { name: "Remove from leaders" }).click();
+  await expect(admin.getByText("Grace Okafor was removed from the leaders list. They're still in Members.")).toBeVisible();
+  await expect(admin.getByTestId("leader-row")).toHaveCount(2);
+  await go(admin, "/admin/members?status=leaders");
+  await expect(admin.getByRole("link", { name: "Leaders (2)" })).toBeVisible();
+
+  const vcf = await admin.request.get("/api/admin/export?type=leaders_vcf");
+  expect(await vcf.text()).toContain("FN:Uche Choirmaster (FUJ)");
+
+  await go(admin, "/admin/settings");
+  await expect(admin.getByTestId("messaging-channels").getByText("Not set up")).toHaveCount(3);
 });
 
 test("pastoral care: absence analysis flags absentees and contact can be logged", async () => {
