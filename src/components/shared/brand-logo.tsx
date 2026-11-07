@@ -8,7 +8,7 @@ export function BrandLogo({ className = "", priority = false }: { className?: st
       width={292}
       height={202}
       priority={priority}
-      className={className}
+      className={`fuj-logo ${className}`}
     />
   );
 }

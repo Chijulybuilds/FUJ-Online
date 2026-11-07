@@ -612,3 +612,6 @@ html { scroll-behavior: smooth; }
 .book-wrap:hover .book-photo img { transform: rotateY(-4deg) translateY(-6px); }
 .ng-arc.abroad { stroke: rgba(255,199,203,.7); stroke-dasharray: 2 6; stroke-width: 1.4; }
 .place-row .dot.abroad { background: #ffc7cb; box-shadow: 0 0 0 5px rgba(255,199,203,.18); }
+/* The logo has black lettering: keep it on a light chip in dark mode */
+html[data-theme="dark"] .lp-logo { background: rgba(255,255,255,.94); }
+html[data-theme="dark"] img.fuj-logo { background: rgba(255,255,255,.94); border-radius: 10px; }

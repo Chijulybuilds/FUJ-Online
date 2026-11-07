@@ -20,7 +20,7 @@ export function LandingNav() {
     <header className={`lp-nav ${scrolled || open ? "scrolled" : ""}`}>
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3">
         <div className="flex shrink-0 items-center gap-3">
-          <Link href="/" aria-label="FlagUpJesus home" className={`shrink-0 rounded-xl px-1 ${light ? "bg-white/90" : ""}`}><BrandLogo className="h-12 w-[72px] object-contain" priority /></Link>
+          <Link href="/" aria-label="FlagUpJesus home" className={`lp-logo shrink-0 rounded-xl px-1 ${light ? "bg-white/90" : ""}`}><BrandLogo className="h-12 w-[72px] object-contain" priority /></Link>
           <a href="#give" className="donate-btn" data-testid="donate-button"><HandHeart size={17} /> Donate</a>
         </div>
         <nav className="hidden items-center gap-7 lg:flex">{LINKS.map(([h, l]) => <a key={h} href={h} className={`lp-link ${light ? "!text-white/80 hover:!text-white" : ""}`}>{l}</a>)}</nav>

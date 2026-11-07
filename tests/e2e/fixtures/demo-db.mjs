@@ -19,7 +19,7 @@ export function buildFixture() {
   const iso = (d) => d.toISOString();
   const daysAgo = (n) => new Date(now.getTime() - n * 86400000);
   let n = 0;
-  const id = () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
+  const id = () => `aaaaaaaa-aaaa-4aaa-8aaa-${String(++n).padStart(12, "0")}`; // not the legacy-demo prefix (see src/lib/db/legacy-cleanup.ts)
 
   const lastSunday = new Date(now);
   lastSunday.setUTCDate(now.getUTCDate() - ((now.getUTCDay() + 7) % 7 || 7));
@@ -106,9 +106,9 @@ export function buildFixture() {
   return {
     church_settings: [{
       id: true, church_name: "FlagUpJesus Global Ministry", app_name: "FlagUpJesus", timezone: "Africa/Lagos",
-      contact_email: null, contact_phone: null, tagline: "Test tagline",
+      contact_email: null, contact_phone: null, tagline: null,
       address: null,
-      service_times: "Word Experience (Sunday Service)|Sundays · 9:00 AM\nBible Study|Wednesdays · 5:30 PM\nPrayer Meeting|Fridays · 6:00 PM",
+      service_times: null,
       livestream_url: "https://example.org/live", bank_name: "Fidelity Bank", account_name: "FlagUp Jesus Global Ministry",
       account_number: "5600605313", absence_threshold: 2, created_at: stamp, updated_at: stamp
     }],

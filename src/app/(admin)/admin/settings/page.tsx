@@ -33,7 +33,7 @@ export default async function SettingsPage() {
             <label className="label">Contact email<input className="input mt-1" name="contact_email" defaultValue={s.contact_email ?? ""} /></label>
             <label className="label">Contact phone<input className="input mt-1" name="contact_phone" defaultValue={s.contact_phone ?? ""} /></label>
             <label className="label sm:col-span-2">Address<input className="input mt-1" name="address" defaultValue={s.address ?? ""} /></label>
-            <label className="label sm:col-span-2">Service times<span className="hint">One per line: Name|When</span><textarea className="input mt-1" name="service_times" defaultValue={s.service_times ?? ""} /></label>
+            <label className="label sm:col-span-2">Programmes &amp; service times<span className="hint">One per line: Name|When|Description (optional). Shown on the landing page.</span><textarea className="input mt-1 min-h-48 font-mono text-xs" name="service_times" defaultValue={s.service_times ?? ""} /></label>
             <label className="label sm:col-span-2">Livestream URL (YouTube / Facebook)<input className="input mt-1" name="livestream_url" defaultValue={s.livestream_url ?? ""} /></label>
             <label className="label">Bank name<input className="input mt-1" name="bank_name" defaultValue={s.bank_name ?? ""} /></label>
             <label className="label">Account number<input className="input mt-1" name="account_number" defaultValue={s.account_number ?? ""} /></label>

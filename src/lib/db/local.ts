@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { DuplicateError, matches, type Db, type ListOptions, type Where } from "./db";
 import type { TableName, Tables } from "./types";
 import { buildSeed } from "./seed";
+import { cleanLegacyDemoData } from "./legacy-cleanup";
 
 type Store = { [N in TableName]: Tables[N][] };
 
@@ -29,7 +30,13 @@ function load(path: string): Store {
   if (g.__fujLocalStore?.path === path) return g.__fujLocalStore.data;
   let data: Store;
   if (existsSync(path)) {
-    data = { ...emptyStore(), ...JSON.parse(readFileSync(path, "utf8")) };
+    const raw = JSON.parse(readFileSync(path, "utf8"));
+    const removed = cleanLegacyDemoData(raw);
+    data = { ...emptyStore(), ...raw };
+    if (removed) {
+      persist(path, data);
+      console.info(`[FlagUpJesus] Removed ${removed} old sample records/settings from the local database.`);
+    }
   } else {
     data = { ...emptyStore(), ...buildSeed() };
     persist(path, data);
