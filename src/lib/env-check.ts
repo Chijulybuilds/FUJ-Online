@@ -40,6 +40,7 @@ export function configProblems(): string[] {
   if (has("WHATSAPP_PHONE_NUMBER_ID") && !/^\d{10,20}$/.test(runtimeEnv("WHATSAPP_PHONE_NUMBER_ID"))) problems.push("WHATSAPP_PHONE_NUMBER_ID should be the long numeric Phone number ID from Meta (not the phone number)");
   if (has("WHATSAPP_TOKEN") && !has("WHATSAPP_TEMPLATE_NAME")) problems.push("WHATSAPP_TEMPLATE_NAME is missing — without an approved template WhatsApp only reaches people who messaged the church number in the last 24 hours");
   if (production && has("WHATSAPP_TOKEN") && !has("WHATSAPP_APP_SECRET")) problems.push("WHATSAPP_APP_SECRET is missing — needed to accept WhatsApp delivery receipts and replies");
+  if (has("WHATSAPP_TOKEN") && !has("WHATSAPP_VERIFY_TOKEN")) problems.push("WHATSAPP_VERIFY_TOKEN is missing — Meta needs it to connect the webhook (make up any long random text)");
   const fromProblem = emailFromProblem(runtimeEnv("EMAIL_FROM"));
   if (fromProblem) problems.push(fromProblem);
   if (production && !has("CRON_SECRET")) problems.push("CRON_SECRET is missing — the daily automatic follow-up messages can't run (any long random text)");
