@@ -108,6 +108,11 @@ test("landing: red Donate button jumps to the ministry bank account; departments
   await expect(page.locator("#reach")).toContainText("United Kingdom");
   // Motto + FUJ programmes
   await expect(page.getByTestId("footer-motto")).toHaveText("We Love, We Give, We Change The World");
+  // Our reach: what FUJ actually does in each place.
+  await expect(page.locator(".place-row").filter({ hasText: "Port Harcourt" })).toContainText("The Headquarters of Love");
+  await expect(page.locator(".place-row").filter({ hasText: "Lagos" })).toContainText("Medical & village outreaches");
+  await expect(page.locator(".place-row").filter({ hasText: "Abuja" })).toContainText("Village & medical outreaches");
+  await expect(page.getByText(/Miracle Service|youth outreach/i)).toHaveCount(0);
   // The FUJ flag is the browser-tab icon.
   await expect(page.locator('link[rel="icon"][href^="/favicon.ico"]')).toHaveCount(1);
   await expect(page.locator('link[rel="icon"][href^="/icon.png"]')).toHaveCount(1);
