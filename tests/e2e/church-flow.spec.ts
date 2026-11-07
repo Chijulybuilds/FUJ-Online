@@ -109,6 +109,12 @@ test("landing: red Donate button jumps to the ministry bank account; departments
   // Motto + FUJ programmes
   await expect(page.getByTestId("footer-motto")).toHaveText("We Love, We Give, We Change The World");
   await expect(page.locator(".lp-eyebrow").first()).toContainText("WE LOVE · WE GIVE · WE CHANGE THE WORLD");
+  // Pastor Caleb's real book covers
+  const covers = page.getByTestId("books").getByRole("img");
+  await expect(covers).toHaveCount(2);
+  await page.getByTestId("books").scrollIntoViewIfNeeded();
+  await expect(covers.first()).toHaveAttribute("alt", /The 5 Dimensions of Grace/);
+  await expect.poll(() => covers.evaluateAll((imgs) => imgs.every((i) => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth > 0))).toBe(true);
   const programs = page.getByTestId("program-card");
   await expect(programs).toHaveCount(8);
   await expect(programs.filter({ hasText: "Word Experience" })).toContainText("Every Sunday · 4:30 PM");
@@ -134,6 +140,7 @@ test("staff creates a service and opens a rotating QR check-in", async ({ browse
   await admin.getByRole("button", { name: "Create service" }).click();
   await admin.waitForURL(/\/admin\/services\/[0-9a-f-]{36}$/);
   serviceUrl = admin.url();
+  await hydrated(admin);
   await admin.getByRole("button", { name: /Open check-in/ }).click();
   await admin.waitForURL(/attendance\/display/);
   await expect(admin.getByTestId("qr-image")).toBeVisible();

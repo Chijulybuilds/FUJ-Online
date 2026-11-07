@@ -39,11 +39,11 @@ export default async function ServiceDetails({ params }: { params: Promise<{ ser
               <p className="mt-2 text-xs text-slate-500">Closing check-in marks the service completed and runs the absence follow-up analysis.</p>
             </>
           ) : service.status === "cancelled" ? <p className="mt-3 text-sm text-slate-500">This service was cancelled.</p> : (
-            <form action={openCheckInAction} className="mt-4 space-y-3">
+            <ActionForm action={openCheckInAction} className="mt-4 space-y-3">
               <input type="hidden" name="service_id" value={service.id} /><input type="hidden" name="then" value="display" />
               <label className="label">Keep check-in open for<select className="input mt-1" name="minutes" defaultValue="240"><option value="60">1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option><option value="480">8 hours</option></select></label>
-              <button className="btn btn-primary"><QrCode size={16} /> Open check-in &amp; launch display</button>
-            </form>
+              <SubmitButton pendingText="Opening…"><QrCode size={16} /> Open check-in &amp; launch display</SubmitButton>
+            </ActionForm>
           )}
           <hr className="my-6 border-slate-100" />
           <h3 className="font-semibold">Usher check-in</h3>

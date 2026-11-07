@@ -531,16 +531,6 @@ html[data-theme="dark"] .border-l-red-600 { border-left-color: var(--accent); }
 @keyframes ping { 0% { transform: scale(.4); opacity: 1; } 100% { transform: scale(2.2); opacity: 0; } }
 .ng-label { fill: #fff; font-size: 12px; font-weight: 700; }
 .book-wrap { display: flex; gap: 22px; align-items: center; }
-.book { flex: none; perspective: 900px; }
-.book .cover { width: 120px; height: 170px; border-radius: 4px 10px 10px 4px; padding: 14px 12px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; transform: rotateY(-24deg); transform-style: preserve-3d; box-shadow: inset 6px 0 10px rgba(0,0,0,.25), 18px 20px 40px rgba(0,0,0,.35); transition: transform .6s cubic-bezier(.2,.8,.2,1); position: relative; }
-.book .cover::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 10px; background: linear-gradient(90deg, rgba(0,0,0,.35), transparent); border-radius: 4px 0 0 4px; }
-.book-wrap:hover .cover { transform: rotateY(-6deg) translateY(-6px); }
-.book-red .cover { background: linear-gradient(150deg, #d42532, #6d0d16); }
-.book-ink .cover { background: linear-gradient(150deg, #2a1d1f, #0a0607); box-shadow: inset 6px 0 10px rgba(0,0,0,.4), inset 0 -4px 0 #e8303a, 18px 20px 40px rgba(0,0,0,.45); }
-.book-ink .b-num { color: #ff4b55; }
-.b-num { font-family: "Playfair Display", Georgia, serif; font-size: 3.4rem; line-height: 1; font-style: italic; }
-.b-title { font-weight: 800; font-size: 13px; line-height: 1.2; text-transform: uppercase; letter-spacing: .02em; }
-.b-author { font-size: 8px; letter-spacing: .18em; opacity: .85; }
 .place-row { display: flex; gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
 .place-row .dot { width: 10px; height: 10px; border-radius: 50%; background: #ff6b74; box-shadow: 0 0 0 5px rgba(255,107,116,.18); flex: none; }
 .place-row .dot.hq { background: #ffc7cb; box-shadow: 0 0 0 5px rgba(255,199,203,.18); }
@@ -608,8 +598,12 @@ html { scroll-behavior: smooth; }
 @media (min-width: 640px) { .btn.sm\:inline-flex { display: inline-flex; } }
 @media (min-width: 1024px) { .btn.lg\:hidden { display: none; } }
 .book-photo { flex: none; perspective: 900px; }
-.book-photo img { transform: rotateY(-16deg); filter: drop-shadow(18px 22px 30px rgba(0,0,0,.45)); transition: transform .6s cubic-bezier(.2,.8,.2,1); }
-.book-wrap:hover .book-photo img { transform: rotateY(-4deg) translateY(-6px); }
+.book-3d { position: relative; transform: rotateY(-18deg); transition: transform .6s cubic-bezier(.2,.8,.2,1); backface-visibility: hidden; }
+.book-3d img { display: block; border-radius: 2px 6px 6px 2px; box-shadow: 16px 20px 32px rgba(0,0,0,.45), 2px 2px 6px rgba(0,0,0,.3); }
+/* spine shading + page-edge highlight so the flat cover reads as a book */
+.book-3d::before { content: ""; position: absolute; inset: 0; border-radius: 2px 6px 6px 2px; pointer-events: none;
+  background: linear-gradient(90deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,.12) 3%, rgba(255,255,255,.18) 4.5%, rgba(255,255,255,0) 8%, rgba(0,0,0,0) 92%, rgba(255,255,255,.12) 100%); }
+.book-wrap:hover .book-3d { transform: rotateY(-5deg) translateY(-6px); }
 .ng-arc.abroad { stroke: rgba(255,199,203,.7); stroke-dasharray: 2 6; stroke-width: 1.4; }
 .place-row .dot.abroad { background: #ffc7cb; box-shadow: 0 0 0 5px rgba(255,199,203,.18); }
 /* The logo has black lettering: keep it on a light chip in dark mode */
