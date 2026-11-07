@@ -4,7 +4,7 @@ import type { Broadcast, BroadcastRecipient, Channel, Person } from "@/lib/db/ty
 import { nowIso, uid } from "@/lib/utils";
 import { peopleById } from "./people";
 import { createTask } from "./care";
-import { emailAttempt, NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp, smsAttempt, WHATSAPP_ERROR_HINTS } from "@/lib/messaging/providers";
+import { emailAttempt, emailFromProblem, NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp, smsAttempt, WHATSAPP_ERROR_HINTS } from "@/lib/messaging/providers";
 import { firstName, normalizePhone } from "@/lib/identity-utils";
 import { absoluteUrl } from "@/lib/storage";
 import { env } from "@/lib/env";
@@ -292,7 +292,9 @@ export async function sendTestMessage(channel: string, to: string): Promise<{ ok
   if (channel === "email") {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return { ok: false, message: "Enter an email address to send the test to." };
     const r = await emailAttempt(to, title, body, { html: broadcastEmailHtml({ title, body, churchName: settings.church_name, siteUrl: env.appUrl, motto: settings.tagline }), replyTo: settings.contact_email });
-    return r.status === "sent" ? { ok: true, message: `Test email sent to ${to}. Check the inbox (and spam folder).` } : { ok: false, message: `Email failed: ${r.detail ?? "unknown error"}` };
+    if (r.status === "sent") return { ok: true, message: `Test email sent to ${to}. Check the inbox (and spam folder).` };
+    const hint = emailFromProblem() ?? (/not verified|verify/i.test(r.detail ?? "") ? "Check that flagupjesus.org shows “Verified” in Resend → Domains (add its DNS records in Hostinger, then click Verify) and that EMAIL_FROM uses an address @flagupjesus.org." : null);
+    return { ok: false, message: `Email failed: ${r.detail ?? "unknown error"}${hint ? ` — ${hint}` : ""}` };
   }
   const phone = normalizePhone(to);
   if (!phone || phone.length < 8) return { ok: false, message: "Enter a phone number to send the test to." };

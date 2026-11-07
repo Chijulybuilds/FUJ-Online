@@ -7,7 +7,7 @@ import { addStaffAction, saveFollowUpSettingsAction, saveSettingsAction, sendTes
 import { DEFAULT_FIRST_MESSAGE, DEFAULT_REMINDER_MESSAGE } from "@/lib/repo/auto-follow-up";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { providers } from "@/lib/messaging/providers";
+import { emailFromProblem, providers } from "@/lib/messaging/providers";
 import { formatDate } from "@/lib/utils";
 
 export default async function SettingsPage() {
@@ -27,7 +27,7 @@ export default async function SettingsPage() {
   const channels = [
     ["WhatsApp", providers.whatsapp, providers.whatsapp ? (providers.whatsappTemplate ? `Template “${providers.whatsappTemplate}” · reaches everyone` : "No template yet — only reaches people who messaged the church number in the last 24h") : "Meta WhatsApp Cloud API: WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_TEMPLATE_NAME", "whatsapp"],
     ["SMS", providers.sms, providers.sms ? `Termii · sender “${process.env.TERMII_SENDER_ID}”` : "Termii: TERMII_API_KEY, TERMII_SENDER_ID", "sms"],
-    ["Email", providers.email, providers.email ? `Resend · from ${process.env.EMAIL_FROM}` : "Resend: RESEND_API_KEY, EMAIL_FROM", "email"]
+    ["Email", providers.email && !emailFromProblem(), providers.email ? (emailFromProblem() ?? `Resend · from ${process.env.EMAIL_FROM}`) : "Resend: RESEND_API_KEY, EMAIL_FROM", "email"]
   ] as const;
   return (
     <>
@@ -78,7 +78,7 @@ export default async function SettingsPage() {
               {channels.map(([name, ok, how]) => (
                 <li key={name} className="flex items-start justify-between gap-3">
                   <span><b>{name}</b><span className="block text-xs text-slate-500">{how}</span></span>
-                  <span className={`pill shrink-0 ${ok ? "pill-green" : "pill-gray"}`}>{ok ? "Connected" : "Not set up"}</span>
+                  <span className={`pill shrink-0 ${ok ? "pill-green" : name === "Email" && providers.email ? "pill-amber" : "pill-gray"}`}>{ok ? "Connected" : name === "Email" && providers.email ? "Needs fixing" : "Not set up"}</span>
                 </li>
               ))}
             </ul>
