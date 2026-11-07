@@ -306,7 +306,102 @@ html[data-theme="dark"] .bg-blue-100 { background-color: var(--accent-soft); }
 .label { display: block; font-size: 13px; font-weight: 600; color: var(--foreground); }
 .label .hint { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
 textarea.input { min-height: 110px; resize: vertical; }
-select.input { appearance: auto; }
+/* ---------- Dropdowns (every <select class="input"> in the app) ----------
+   Closed: FUJ-red chevron, soft lift + red glow on hover/focus — in every browser.
+   Open (Chrome / Edge / Safari 27+, via customizable select): a rounded card that fades and slides in,
+   options that ripple in, a red-tinted hover and a red-gradient selected option with a check mark.
+   Browsers without it keep their native list, so forms and accessibility are unchanged. */
+select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding-right: 2.6rem;
+  border-radius: 12px;
+  font-weight: 500;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4232d' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"), linear-gradient(180deg, transparent 55%, rgba(212, 35, 45, .045));
+  background-repeat: no-repeat;
+  background-position: right .85rem center, 0 0;
+  background-size: 1.05rem, 100% 100%;
+  transition: border-color .2s ease, box-shadow .25s ease, transform .2s ease, background-color .2s ease;
+}
+select.input:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: 0 8px 20px -12px rgba(163, 18, 28, .55); transform: translateY(-1px); }
+select.input:focus, select.input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(212, 35, 45, .14), 0 10px 24px -14px rgba(163, 18, 28, .6); }
+select.input:disabled { opacity: .55; cursor: not-allowed; }
+
+@supports (appearance: base-select) {
+  select.input, select.input::picker(select) { appearance: base-select; }
+  select.input {
+    display: flex; align-items: center; gap: .5rem;
+    padding-right: .8rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background-image: linear-gradient(180deg, transparent 55%, rgba(212, 35, 45, .045));
+    background-position: 0 0; background-size: 100% 100%;
+  }
+  select.input selectedcontent, select.input > button { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  select.input::picker-icon {
+    content: ""; margin-left: auto; flex: none;
+    width: 1.05rem; height: 1.05rem;
+    background-color: var(--accent);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+    transition: rotate .35s cubic-bezier(.3, 1.5, .5, 1);
+  }
+  select.input:open { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(212, 35, 45, .14); transform: none; }
+  select.input:open::picker-icon { rotate: 180deg; }
+
+  select.input::picker(select) {
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+    border-radius: 16px;
+    background: var(--surface);
+    color: var(--foreground);
+    padding: 6px;
+    margin-block: 8px;
+    max-block-size: min(22rem, 60vh);
+    overflow-y: auto;
+    box-shadow: 0 26px 50px -20px rgba(28, 8, 10, .5), 0 6px 16px -8px rgba(28, 8, 10, .25);
+    opacity: 0;
+    transform: translateY(-8px) scale(.97);
+    transform-origin: top center;
+    transition: opacity .18s ease, transform .26s cubic-bezier(.2, .9, .3, 1.15), overlay .26s allow-discrete, display .26s allow-discrete;
+  }
+  select.input::picker(select):popover-open { opacity: 1; transform: none; }
+  @starting-style {
+    select.input::picker(select):popover-open { opacity: 0; transform: translateY(-8px) scale(.97); }
+  }
+
+  select.input option {
+    display: flex; align-items: center; gap: .6rem;
+    white-space: normal;
+    padding: .62rem .8rem;
+    border-radius: 10px;
+    font-size: 14px; font-weight: 500;
+    color: var(--foreground);
+    background: transparent;
+    cursor: pointer;
+    transition: background-color .16s ease, color .16s ease, padding .18s ease;
+  }
+  select.input option + option { margin-top: 2px; }
+  select.input option:hover, select.input option:focus-visible { background: var(--accent-soft); color: var(--accent-soft-text); padding-left: 1.05rem; outline: none; }
+  select.input option:checked { background: linear-gradient(135deg, var(--accent), var(--crimson)); color: #fff; font-weight: 650; box-shadow: 0 8px 18px -10px rgba(163, 18, 28, .7); }
+  select.input option:checked:hover, select.input option:checked:focus-visible { padding-left: 1.05rem; filter: brightness(1.06); }
+  select.input option::checkmark { order: 1; margin-left: auto; content: "✓"; font-weight: 800; }
+  select.input option:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* Options ripple in one after another as the list opens. */
+  select.input:open option { animation: fuj-option-in .32s cubic-bezier(.2, .8, .2, 1) both; }
+  select.input:open option:nth-child(2) { animation-delay: 22ms; }
+  select.input:open option:nth-child(3) { animation-delay: 44ms; }
+  select.input:open option:nth-child(4) { animation-delay: 66ms; }
+  select.input:open option:nth-child(5) { animation-delay: 88ms; }
+  select.input:open option:nth-child(6) { animation-delay: 110ms; }
+  select.input:open option:nth-child(7) { animation-delay: 132ms; }
+  select.input:open option:nth-child(n + 8) { animation-delay: 150ms; }
+}
+@keyframes fuj-option-in { from { opacity: 0; transform: translateY(-5px); } }
+@media (prefers-reduced-motion: reduce) {
+  select.input, select.input::picker(select), select.input option, select.input::picker-icon { transition: none !important; animation: none !important; }
+  select.input:hover:not(:disabled) { transform: none; }
+}
 .checkbox { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--foreground); }
 .checkbox input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; }
 .btn-sm { padding: 6px 11px; font-size: 12px; border-radius: 8px; }
