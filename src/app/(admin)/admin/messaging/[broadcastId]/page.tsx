@@ -10,6 +10,7 @@ import { getBroadcast } from "@/lib/repo/messaging";
 import { providers } from "@/lib/messaging/providers";
 import { nonResponderTasksAction, smsUndeliveredAction } from "@/lib/actions/admin";
 import { formatDateTime, timeAgo } from "@/lib/utils";
+import { env } from "@/lib/env";
 import { Compose } from "../compose";
 import { ShareToWhatsApp } from "../share-whatsapp";
 import { Eye, MessageSquareReply, Send, Users } from "lucide-react";
@@ -64,7 +65,7 @@ export default async function BroadcastTracking({ params, searchParams }: { para
           </div>
         </section>
         <div className="space-y-6">
-          <ShareToWhatsApp title={b.title} body={b.body} imageUrl={b.image_url} siteUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""} />
+          <ShareToWhatsApp title={b.title} body={b.body} imageUrl={b.image_url} siteUrl={env.appUrl} />
           <section className="card p-6">
             <h2 className="font-bold">Follow-up broadcast</h2>
             <p className="mt-1 text-xs text-slate-500">Re-send to people who haven&apos;t read or responded — tracked separately.</p>
