@@ -20,7 +20,7 @@ import { CopyButton } from "@/components/shared/copy-button";
 import { PrayerForm } from "@/components/shared/prayer-form";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { Placeholder } from "@/components/ui/placeholder";
-import { getSettings } from "@/lib/repo/settings";
+import { DEFAULT_SETTINGS, getPublicSettings } from "@/lib/repo/settings";
 import { DEFAULT_PROGRAMS, MOTTO, parsePrograms } from "@/lib/programs";
 import { Programs } from "@/components/landing/programs";
 import { upcomingService } from "@/lib/repo/services";
@@ -52,24 +52,31 @@ function LayerTag({ n, children }: { n: number; children: React.ReactNode }) {
   return <p className="layer-tag"><b>{String(n).padStart(2, "0")}</b><span className="h-px w-8 bg-current opacity-50" />{children}</p>;
 }
 
+/** Each part loads on its own, so one failing query (or an unreachable database) never blanks the rest of the page. */
 async function loadLanding() {
-  try {
-    const [settings, next, news, testimonies, wall] = await Promise.all([
-      getSettings(), upcomingService(), publishedAnnouncements({ publicOnly: true }), publishedTestimonies(true), prayerWall()
-    ]);
-    return { settings, next, news, testimonies, wall };
-  } catch (error) {
-    console.error("landing data unavailable", error);
+  const settled = <T,>(r: PromiseSettledResult<T>, label: string): T | null => {
+    if (r.status === "fulfilled") return r.value;
+    console.error(`landing ${label} unavailable`, r.reason);
     return null;
-  }
+  };
+  const [settings, next, news, testimonies, wall] = await Promise.allSettled([
+    getPublicSettings(), upcomingService(), publishedAnnouncements({ publicOnly: true }), publishedTestimonies(true), prayerWall()
+  ]);
+  return {
+    settings: settled(settings, "settings") ?? DEFAULT_SETTINGS,
+    next: settled(next, "next service"),
+    news: settled(news, "announcements") ?? [],
+    testimonies: settled(testimonies, "testimonies") ?? [],
+    wall: settled(wall, "prayer wall") ?? []
+  };
 }
 
 export default async function HomePage() {
   const data = await loadLanding();
-  const settings = data?.settings;
+  const settings = data.settings;
   // FUJ programmes (editable in Admin → Settings → Programmes & service times).
   const times = parsePrograms(settings?.service_times || DEFAULT_PROGRAMS);
-  const live = data?.next?.status === "active";
+  const live = data.next?.status === "active";
   const watchUrl = settings?.livestream_url || "#gatherings";
   const external = settings?.livestream_url ? { target: "_blank", rel: "noreferrer" } : {};
   const motto = settings?.tagline || MOTTO;
@@ -103,10 +110,10 @@ export default async function HomePage() {
               <a className="btn lp-btn-light px-6 py-3 text-base" href={watchUrl} {...external}><PlayCircle size={18} /> {live ? "Join the live service" : "Worship with us"}</a>
               <a className="btn lp-btn-glass px-6 py-3 text-base" href="#outreach">See the Love Missions <ArrowRight size={17} /></a>
             </div>
-            {!data?.next && (
+            {!data.next && (
               <p className="lp-fade mt-12 text-sm text-white/70" style={{ animationDelay: "1s" }}>Next service: <Placeholder where="Admin → Services">date &amp; time</Placeholder></p>
             )}
-            {data?.next && (
+            {data.next && (
               <div className="lp-fade mt-12" style={{ animationDelay: "1s" }}>
                 <p className="mb-3 text-xs font-bold tracking-[.18em] text-white/60">{live ? data.next.title.toUpperCase() : `NEXT: ${data.next.title.toUpperCase()} · ${formatDateTime(data.next.starts_at).toUpperCase()}`}</p>
                 <Countdown target={data.next.starts_at} live={live} />
@@ -273,7 +280,7 @@ export default async function HomePage() {
       </section>
 
       {/* ---------------- NEWS ---------------- */}
-      {data && data.news.length > 0 && (
+      {data.news.length > 0 && (
         <section id="news" className="lp-section pt-0">
           <div className="mx-auto max-w-7xl px-5">
             <Reveal><p className="lp-kicker">What&apos;s happening</p><h2 className="lp-h2 mt-4">Ministry <em>news</em></h2></Reveal>
@@ -291,7 +298,7 @@ export default async function HomePage() {
         <div className="mx-auto max-w-7xl px-5">
           <Reveal className="flex flex-wrap items-end justify-between gap-6"><div><p className="lp-kicker">God is faithful</p><h2 className="lp-h2 mt-4">Real stories. <em>Real testimonies.</em></h2></div><Link href="/member/testimonies" className="btn btn-secondary">Share yours <ArrowRight size={15} /></Link></Reveal>
           <div className="lp-testimony-track mt-10">
-            {(data?.testimonies.length ? data.testimonies : [{ id: "x", title: "Your story could be here", body: "Has God done something amazing in your life? Sign in to the member portal and share your testimony to encourage others.", person: null }]).map((t, i) => (
+            {(data.testimonies.length ? data.testimonies : [{ id: "x", title: "Your story could be here", body: "Has God done something amazing in your life? Sign in to the member portal and share your testimony to encourage others.", person: null }]).map((t, i) => (
               <Reveal key={t.id} delay={i * 0.08}><figure className="lp-card h-full p-8"><span className="lp-quote" aria-hidden>“</span><h3 className="mt-2 text-xl font-bold">{t.title}</h3><blockquote className="mt-3 line-clamp-6 leading-7 muted">{t.body}</blockquote><figcaption className="mt-6 text-sm font-semibold">— {t.person?.full_name.split(" ")[0] ?? "FlagUpJesus family"}</figcaption></figure></Reveal>
             ))}
           </div>
@@ -305,7 +312,7 @@ export default async function HomePage() {
             <p className="lp-kicker !text-red-300">We&apos;ll pray with you</p>
             <h2 className="lp-h2 mt-4">You don&apos;t have to <em className="!text-[#ffc7cb]">carry it alone.</em></h2>
             <p className="mt-6 max-w-lg text-lg leading-8 muted">Our pastoral team reads and prays over every request. Requests stay confidential unless you choose to share them on the prayer wall.</p>
-            {data && data.wall.length > 0 && (
+            {data.wall.length > 0 && (
               <ul className="mt-8 space-y-3">{data.wall.slice(0, 3).map((p) => <li key={p.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm"><p className="line-clamp-2 text-white/85">{p.request_text}</p><p className="mt-2 text-xs text-white/50">— {p.displayName} · 🙏 {p.prayed_count} praying</p></li>)}</ul>
             )}
           </Reveal>
