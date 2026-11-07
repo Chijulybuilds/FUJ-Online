@@ -19,6 +19,7 @@ import { Reveal } from "@/components/shared/reveal";
 import { CopyButton } from "@/components/shared/copy-button";
 import { PrayerForm } from "@/components/shared/prayer-form";
 import { BrandLogo } from "@/components/shared/brand-logo";
+import { Placeholder } from "@/components/ui/placeholder";
 import { getSettings, parseServiceTimes } from "@/lib/repo/settings";
 import { upcomingService } from "@/lib/repo/services";
 import { publishedAnnouncements, publishedTestimonies, prayerWall } from "@/lib/repo/content";
@@ -64,7 +65,8 @@ async function loadLanding() {
 export default async function HomePage() {
   const data = await loadLanding();
   const settings = data?.settings;
-  const times = parseServiceTimes(settings?.service_times ?? "Sunday Service|Sundays · 9:00 AM\nBible Study|Wednesdays · 5:30 PM");
+  // Gathering names come from FUJ; days/times are placeholders until set in Admin → Settings.
+  const times = parseServiceTimes(settings?.service_times ?? null);
   const live = data?.next?.status === "active";
   const watchUrl = settings?.livestream_url || "#gatherings";
   const external = settings?.livestream_url ? { target: "_blank", rel: "noreferrer" } : {};
@@ -97,6 +99,9 @@ export default async function HomePage() {
               <a className="btn lp-btn-light px-6 py-3 text-base" href={watchUrl} {...external}><PlayCircle size={18} /> {live ? "Join the live service" : "Worship with us"}</a>
               <a className="btn lp-btn-glass px-6 py-3 text-base" href="#outreach">See the Love Missions <ArrowRight size={17} /></a>
             </div>
+            {!data?.next && (
+              <p className="lp-fade mt-12 text-sm text-white/70" style={{ animationDelay: "1s" }}>Next service: <Placeholder where="Admin → Services">date &amp; time</Placeholder></p>
+            )}
             {data?.next && (
               <div className="lp-fade mt-12" style={{ animationDelay: "1s" }}>
                 <p className="mb-3 text-xs font-bold tracking-[.18em] text-white/60">{live ? data.next.title.toUpperCase() : `NEXT: ${data.next.title.toUpperCase()} · ${formatDateTime(data.next.starts_at).toUpperCase()}`}</p>
@@ -192,13 +197,15 @@ export default async function HomePage() {
               <Reveal delay={0.05}><h2 className="lp-h2 mt-5 max-w-2xl">Raising <em>gospel giants.</em></h2></Reveal>
               <Reveal delay={0.1}><p className="mt-5 max-w-xl text-lg muted">Fellowship, discipleship and revival designed around spiritual growth, a renewed mind and discovering your divine purpose.</p></Reveal>
             </div>
-            <Reveal delay={0.1}><a href={watchUrl} {...external} className="btn btn-primary px-5 py-3"><PlayCircle size={17} /> {live ? "Watch live now" : "Watch online"}</a></Reveal>
+            <Reveal delay={0.1}>{settings?.livestream_url
+              ? <a href={watchUrl} {...external} className="btn btn-primary px-5 py-3"><PlayCircle size={17} /> {live ? "Watch live now" : "Watch online"}</a>
+              : <span className="btn btn-secondary px-5 py-3"><PlayCircle size={17} /> Watch online <Placeholder>livestream link</Placeholder></span>}</Reveal>
           </div>
           <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
             {[
-              { I: BookOpen, t: "Word Experience", d: "Our weekly gathering — the Word taught with depth, clarity and power.", tag: "Weekly" },
-              { I: Sparkles, t: "Bible Study", d: "Deep-dive sessions for spiritual growth, mental refinement and purpose.", tag: "Midweek" },
-              { I: Globe2, t: "International Prayer & Mission Conference", d: "Equipping believers with supernatural empowerment for kingdom advancement.", tag: "Conference" },
+              { I: BookOpen, t: "Word Experience", d: "Our weekly gathering — the Word taught with depth, clarity and power.", tag: "Weekly service" },
+              { I: Sparkles, t: "Bible Study", d: "Deep-dive sessions for spiritual growth, mental refinement and purpose.", tag: "Deep dive" },
+              { I: Globe2, t: "International Prayer & Mission Conference", d: "Equipping believers with supernatural empowerment for kingdom advancement.", tag: "Global gathering" },
               { I: Music, t: "Unveiled Worship Encounter", d: "Non-judgmental, spirit-led praise and deep worship.", tag: "Encounter" }
             ].map(({ I, t, d, tag }, k) => (
               <Reveal key={t} delay={k * 0.08}>
@@ -213,7 +220,9 @@ export default async function HomePage() {
             <div className="lp-card grid gap-6 p-7 md:grid-cols-[auto_1fr] md:items-center">
               <div className="flex items-center gap-3"><span className="lp-icon"><Mic2 size={22} /></span><p className="text-lg font-bold">Service times</p></div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {times.map((t) => <div key={t.name + t.when}><p className="font-semibold">{t.name}</p><p className="text-sm muted">{t.when}</p></div>)}
+                {times.length
+                  ? times.map((t) => <div key={t.name + t.when}><p className="font-semibold">{t.name}</p><p className="text-sm muted">{t.when || <Placeholder>day &amp; time</Placeholder>}</p></div>)
+                  : ["Word Experience", "Bible Study"].map((name) => <div key={name}><p className="font-semibold">{name}</p><p className="mt-1 text-sm muted"><Placeholder>day &amp; time</Placeholder></p></div>)}
               </div>
             </div>
           </Reveal>
@@ -227,10 +236,10 @@ export default async function HomePage() {
             <div>
               <Reveal><LayerTag n={5}>From Port Harcourt to the nations</LayerTag></Reveal>
               <Reveal delay={0.05}><h2 className="lp-h2 mt-5">Rooted in Rivers State. <em className="!text-[#ffc7cb]">Growing everywhere.</em></h2></Reveal>
-              <Reveal delay={0.1}><p className="mt-6 max-w-lg text-lg leading-8 muted">Firmly rooted in Port Harcourt, FlagUpJesus is scaling fast — with Lagos Miracle Services and Love Campaigns, youth teams in Abuja winning souls on the streets, and medical missions reaching communities across the Niger Delta.</p></Reveal>
+              <Reveal delay={0.1}><p className="mt-6 max-w-lg text-lg leading-8 muted">Firmly rooted in Port Harcourt, FlagUpJesus is scaling fast — with Lagos Miracle Services and Love Campaigns, youth teams in Abuja winning souls on the streets, medical missions reaching communities across the Niger Delta, and a presence beyond Nigeria in the United Kingdom.</p></Reveal>
               <div className="mt-8">
                 {PLACES.map((p, k) => (
-                  <Reveal key={p.name} delay={0.1 + k * 0.07}><div className="place-row"><span className={`dot ${p.hq ? "hq" : ""}`} /><p className="font-bold">{p.name}</p><p className="ml-auto text-sm muted">{p.note}</p></div></Reveal>
+                  <Reveal key={p.name} delay={0.1 + k * 0.07}><div className="place-row"><span className={`dot ${p.hq ? "hq" : p.abroad ? "abroad" : ""}`} /><p className="font-bold">{p.name}</p><p className="ml-auto text-sm muted">{p.note}</p></div></Reveal>
                 ))}
               </div>
             </div>
@@ -260,7 +269,7 @@ export default async function HomePage() {
           <div>
             <Reveal><p className="lp-kicker">Sunday check-in</p><h2 className="lp-h2 mt-4">Scan. Type your username. <em>You&apos;re in.</em></h2><p className="mt-5 max-w-xl text-lg muted">Register once, receive your personal <b>flag</b> username, and use it at every service — no SMS codes every Sunday.</p></Reveal>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              {[{ I: ScanLine, t: "Scan the live QR", d: "It refreshes every 20 seconds on the screen." }, { I: Sparkles, t: "Type your username", d: "e.g. flaggrace101 — you get it at registration." }, { I: Heart, t: "Counted & cared for", d: "Miss a few Sundays? Our pastors will check on you." }].map(({ I, t, d }, i) => (
+              {[{ I: ScanLine, t: "Scan the live QR", d: "It refreshes every 20 seconds on the screen." }, { I: Sparkles, t: "Type your username", d: "e.g. flagyourname123 — you get it at registration." }, { I: Heart, t: "Counted & cared for", d: "Miss a few Sundays? Our pastors will check on you." }].map(({ I, t, d }, i) => (
                 <Reveal key={t} delay={i * 0.1}><div className="lp-card relative h-full overflow-hidden p-6"><span className="lp-step-num absolute right-4 top-2 !text-[3.2rem]">{i + 1}</span><span className="lp-icon"><I size={20} /></span><h3 className="mt-5 font-bold">{t}</h3><p className="mt-1 text-sm muted">{d}</p></div></Reveal>
               ))}
             </div>
@@ -272,9 +281,9 @@ export default async function HomePage() {
                 <div className="bg-[#120d0e] px-5 pb-6 pt-8 text-white"><p className="text-[10px] tracking-[.2em] text-red-200">SUNDAY CHECK-IN</p><p className="mt-2 text-lg font-bold">Welcome back! 👋</p></div>
                 <div className="space-y-3 p-5">
                   <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>Your username</p>
-                  <div className="input username-badge text-sm">flaggrace101<span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-current align-middle" /></div>
+                  <div className="input username-badge text-sm">flagyourname123<span className="ml-0.5 inline-block h-4 w-px animate-pulse bg-current align-middle" /></div>
                   <div className="btn btn-primary w-full">Check in</div>
-                  <div className="alert alert-ok text-center text-xs">✓ You&apos;re checked in, Grace!</div>
+                  <div className="alert alert-ok text-center text-xs">✓ You&apos;re checked in!</div>
                 </div>
               </div>
             </div>
@@ -337,13 +346,12 @@ export default async function HomePage() {
           <Reveal delay={0.15}>
             <div className="lp-cta p-8">
               <p className="text-sm text-red-100">Bank transfer</p>
-              {settings?.account_number ? (
-                <>
-                  <p className="mt-6 text-xs uppercase tracking-widest text-white/60">{settings.bank_name}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-3"><p className="text-4xl font-extrabold tracking-wider">{settings.account_number}</p><CopyButton value={settings.account_number} className="btn lp-btn-glass btn-sm" /></div>
-                  <p className="mt-2 text-white/80">{settings.account_name}</p>
-                </>
-              ) : <p className="mt-6 text-white/80">Bank details are available from the church office.</p>}
+              <p className="mt-6 text-xs uppercase tracking-widest text-white/60">{settings?.bank_name || <Placeholder>Bank name</Placeholder>}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <p className="text-4xl font-extrabold tracking-wider">{settings?.account_number || <Placeholder className="text-2xl">Account number</Placeholder>}</p>
+                {settings?.account_number && <CopyButton value={settings.account_number} className="btn lp-btn-glass btn-sm" />}
+              </div>
+              <p className="mt-2 text-white/80">{settings?.account_name || <Placeholder>Account name</Placeholder>}</p>
               <p className="relative mt-8 text-xs text-white/60">Members: add your flag username as the narration so we can record it in your giving history. Add “OUTREACH” to sow into the Love Missions.</p>
             </div>
           </Reveal>
@@ -364,7 +372,7 @@ export default async function HomePage() {
       <footer className="border-t py-12" style={{ borderColor: "var(--border)" }}>
         <div className="mx-auto grid max-w-7xl gap-8 px-5 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div><BrandLogo className="h-14 w-20 object-contain" /><p className="mt-3 max-w-sm text-sm muted">FlagUpJesus Global Ministry — the Word and the Works, from Port Harcourt to the nations.</p></div>
-          <div className="space-y-2 text-sm"><p className="font-bold">Visit</p><p className="flex items-center gap-2 muted"><MapPin size={14} /> {settings?.address ?? "Port Harcourt, Rivers State, Nigeria"}</p>{settings?.contact_phone && <p className="flex items-center gap-2 muted"><Phone size={14} /> {settings.contact_phone}</p>}{settings?.contact_email && <p className="flex items-center gap-2 muted"><Mail size={14} /> {settings.contact_email}</p>}</div>
+          <div className="space-y-2 text-sm"><p className="font-bold">Visit</p><p className="flex items-start gap-2 muted"><MapPin size={14} className="mt-1 shrink-0" /> {settings?.address || <Placeholder>Church address</Placeholder>}</p><p className="flex items-center gap-2 muted"><Phone size={14} /> {settings?.contact_phone ? <a className="hover:text-[var(--accent)]" href={`tel:${settings.contact_phone.replace(/[^\d+]/g, "")}`}>{settings.contact_phone}</a> : <Placeholder>Phone number</Placeholder>}</p><p className="flex items-center gap-2 muted"><Mail size={14} /> {settings?.contact_email ? <a className="hover:text-[var(--accent)]" href={`mailto:${settings.contact_email}`}>{settings.contact_email}</a> : <Placeholder>Email address</Placeholder>}</p></div>
           <div className="space-y-2 text-sm"><p className="font-bold">Follow</p><a href={LINKS.instagram} target="_blank" rel="noreferrer" className="block muted hover:text-[var(--accent)]">Instagram</a><a href={LINKS.facebook} target="_blank" rel="noreferrer" className="block muted hover:text-[var(--accent)]">Facebook</a><a href={LINKS.site} target="_blank" rel="noreferrer" className="block muted hover:text-[var(--accent)]">umanuwacaleb.com</a></div>
           <div className="space-y-2 text-sm"><p className="font-bold">Quick links</p><Link href="/register" className="block muted hover:text-[var(--accent)]">Register</Link><Link href="/login" className="block muted hover:text-[var(--accent)]">Member portal</Link><Link href="/check-in" className="block muted hover:text-[var(--accent)]">Check-in</Link></div>
         </div>

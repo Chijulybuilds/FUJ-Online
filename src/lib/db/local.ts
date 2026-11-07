@@ -11,8 +11,6 @@ const UNIQUE: Partial<Record<TableName, string[][]>> = {
   people: [["id"], ["username"], ["normalized_phone"], ["auth_subject"]],
   attendance: [["id"], ["person_id", "service_id"]],
   admin_users: [["id"], ["email"]],
-  departments: [["id"], ["name"]],
-  member_departments: [["person_id", "department_id"]],
   broadcast_recipients: [["id"], ["broadcast_id", "person_id"]],
   church_settings: [["id"]]
 };
@@ -23,7 +21,7 @@ function emptyStore(): Store {
   return {
     people: [], otp_codes: [], services: [], qr_sessions: [], attendance: [], follow_up_tasks: [], follow_up_logs: [],
     announcements: [], prayer_requests: [], testimonies: [], donations: [], broadcasts: [], broadcast_recipients: [],
-    admin_users: [], departments: [], member_departments: [], church_settings: [], audit_logs: []
+    admin_users: [], church_settings: [], audit_logs: []
   };
 }
 
@@ -33,7 +31,7 @@ function load(path: string): Store {
   if (existsSync(path)) {
     data = { ...emptyStore(), ...JSON.parse(readFileSync(path, "utf8")) };
   } else {
-    data = process.env.SEED_DEMO_DATA === "false" ? emptyStore() : { ...emptyStore(), ...buildSeed() };
+    data = { ...emptyStore(), ...buildSeed() };
     persist(path, data);
   }
   g.__fujLocalStore = { path, data };

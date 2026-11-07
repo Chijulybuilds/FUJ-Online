@@ -82,20 +82,6 @@ export async function markVerifiedAction(fd: FormData) {
   revalidatePath("/admin/members");
 }
 
-export async function setDepartmentAction(fd: FormData) {
-  await guarded("members", async (actor) => {
-    const personId = str(fd, "person_id"); const departmentId = str(fd, "department_id");
-    if (str(fd, "op") === "remove") await db().remove("member_departments", { person_id: personId, department_id: departmentId });
-    else if (departmentId && !(await db().get("member_departments", { person_id: personId, department_id: departmentId }))) {
-      await db().insert("member_departments", { person_id: personId, department_id: departmentId, joined_at: nowIso(), is_active: true });
-    }
-    await audit(actor, "person.department", "people", personId, { departmentId });
-    return null;
-  });
-  revalidatePath(`/admin/members/${str(fd, "person_id")}`);
-  revalidatePath("/admin/departments");
-}
-
 /* ---------------- Services & attendance ---------------- */
 export async function createServiceAction(_: State, fd: FormData): Promise<State> {
   let id = "";
@@ -308,28 +294,6 @@ export async function moderateTestimonyAction(_: State, fd: FormData): Promise<S
   });
 }
 
-/* ---------------- Departments ---------------- */
-export async function createDepartmentAction(_: State, fd: FormData): Promise<State> {
-  return guarded("departments", async () => {
-    const name = str(fd, "name");
-    if (!name) return { ok: false, message: "Enter a department name." };
-    try {
-      await db().insert("departments", { id: uid(), name, description: opt(fd, "description"), leader_person_id: opt(fd, "leader_person_id"), is_active: true, created_at: nowIso() });
-    } catch { return { ok: false, message: "A department with that name already exists." }; }
-    revalidatePath("/admin/departments");
-    return { ok: true, message: "Department created." };
-  });
-}
-
-export async function toggleDepartmentAction(fd: FormData) {
-  await guarded("departments", async () => {
-    const d = await db().get("departments", { id: str(fd, "id") });
-    if (d) await db().update("departments", { id: d.id }, { is_active: !d.is_active });
-    return null;
-  });
-  revalidatePath("/admin/departments");
-}
-
 /* ---------------- Giving ---------------- */
 export async function recordDonationAction(_: State, fd: FormData): Promise<State> {
   return guarded("giving", async (actor) => {
@@ -349,7 +313,7 @@ export async function recordDonationAction(_: State, fd: FormData): Promise<Stat
 export async function saveSettingsAction(_: State, fd: FormData): Promise<State> {
   return guarded("settings", async (actor) => {
     await saveSettings({
-      church_name: str(fd, "church_name") || "Flag of Jesus Global Ministry", tagline: opt(fd, "tagline"), contact_email: opt(fd, "contact_email"),
+      church_name: str(fd, "church_name") || "FlagUpJesus Global Ministry", tagline: opt(fd, "tagline"), contact_email: opt(fd, "contact_email"),
       contact_phone: opt(fd, "contact_phone"), address: opt(fd, "address"), service_times: opt(fd, "service_times"), livestream_url: opt(fd, "livestream_url"),
       bank_name: opt(fd, "bank_name"), account_name: opt(fd, "account_name"), account_number: opt(fd, "account_number"),
       absence_threshold: Math.min(8, Math.max(1, Number(str(fd, "absence_threshold")) || 2))

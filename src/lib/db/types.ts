@@ -214,22 +214,6 @@ export interface AdminUser {
   created_at: string;
 }
 
-export interface Department {
-  id: string;
-  name: string;
-  description: string | null;
-  leader_person_id: string | null;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface MemberDepartment {
-  person_id: string;
-  department_id: string;
-  joined_at: string;
-  is_active: boolean;
-}
-
 export interface ChurchSettings {
   id: boolean;
   church_name: string;
@@ -274,8 +258,6 @@ export interface Tables {
   broadcasts: Broadcast;
   broadcast_recipients: BroadcastRecipient;
   admin_users: AdminUser;
-  departments: Department;
-  member_departments: MemberDepartment;
   church_settings: ChurchSettings;
   audit_logs: AuditLog;
 }

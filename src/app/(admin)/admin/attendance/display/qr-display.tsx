@@ -50,7 +50,7 @@ export function QrDisplay({ serviceId }: { serviceId: string }) {
         </div>
         <div className="grid flex-1 items-center gap-10 py-6 lg:grid-cols-[1fr_auto]">
           <div>
-            <p className="text-sm uppercase tracking-[.2em] text-red-200">Flag of Jesus Global Ministry</p>
+            <p className="text-sm uppercase tracking-[.2em] text-red-200">FlagUpJesus Global Ministry</p>
             <h1 className="mt-3 text-4xl font-extrabold leading-tight sm:text-6xl">Welcome to<br /><span className="font-display italic text-[#ffc7cb]">{data?.service ?? "church"}</span></h1>
             <ol className="mt-8 space-y-3 text-lg text-slate-200">
               <li><b className="text-white">1.</b> Open your phone camera &amp; scan the code</li>

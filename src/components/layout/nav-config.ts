@@ -14,8 +14,7 @@ export const NAV_GROUPS: { label: string; links: NavLink[] }[] = [
     { label: "Inbox", href: "/admin/inbox", icon: "inbox", area: "inbox" },
     { label: "Announcements", href: "/admin/announcements", icon: "megaphone", area: "announcements" },
     { label: "Prayer requests", href: "/admin/prayer-requests", icon: "message", area: "prayer" },
-    { label: "Testimonies", href: "/admin/testimonies", icon: "book", area: "testimonies" },
-    { label: "Departments", href: "/admin/departments", icon: "shield", area: "departments" }
+    { label: "Testimonies", href: "/admin/testimonies", icon: "book", area: "testimonies" }
   ] },
   { label: "MANAGEMENT", links: [
     { label: "Giving", href: "/admin/giving", icon: "money", area: "giving" },

@@ -26,10 +26,10 @@ export default async function GivingPage() {
         <section className="card p-6">
           <h2 className="mb-4 font-bold">Record giving</h2>
           <ActionForm action={recordDonationAction} className="grid gap-3" resetOnSuccess>
-            <label className="label">Amount (₦)<input className="input mt-1" name="amount" inputMode="decimal" required placeholder="10,000" /></label>
+            <label className="label">Amount (₦)<input className="input mt-1" name="amount" inputMode="decimal" required placeholder="Amount" /></label>
             <label className="label">Fund<select className="input mt-1" name="fund_name"><option>Offering</option><option>Tithe</option><option>Building fund</option><option>Missions</option><option>Welfare</option><option>Thanksgiving</option></select></label>
             <label className="label">Method<select className="input mt-1" name="method"><option value="cash">Cash</option><option value="transfer">Bank transfer</option><option value="pos">POS</option></select></label>
-            <label className="label">Member username<span className="hint">Optional — links it to their giving history</span><input className="input mt-1" name="person" placeholder="flaggrace101" /></label>
+            <label className="label">Member username<span className="hint">Optional — links it to their giving history</span><input className="input mt-1" name="person" placeholder="flagyourname123" /></label>
             <label className="label">Donor name (if not a member)<input className="input mt-1" name="donor_name" /></label>
             <label className="label">Date<input className="input mt-1" name="paid_at" type="date" /></label>
             <label className="label">Note<input className="input mt-1" name="note" /></label>

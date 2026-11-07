@@ -19,7 +19,7 @@ export default async function FollowUpTask({ params }: { params: Promise<{ taskI
   const staff = await db().list("admin_users", { where: { active: true } });
   const p = task.person;
   const wa = p?.normalized_phone.replace(/^\+/, "");
-  const greeting = encodeURIComponent(`Hello ${p ? firstName(p.full_name) : ""}, this is Flag of Jesus Global Ministry. We missed you and wanted to check in on you. How are you doing?`);
+  const greeting = encodeURIComponent(`Hello ${p ? firstName(p.full_name) : ""}, this is FlagUpJesus Global Ministry. We missed you and wanted to check in on you. How are you doing?`);
   return (
     <>
       <PageHeading title={p?.full_name ?? "Follow-up"} description={<>{task.reason} · <StatusPill value={task.status} /> <StatusPill value={task.priority} /></>}

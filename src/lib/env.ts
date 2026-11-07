@@ -34,8 +34,6 @@ export const env = {
     const role = process.env.ADMIN_LOGIN_ROLE ?? "super_admin";
     // Production refuses weak shared passwords (the account usually has full admin rights).
     if (email && password && (password.length >= 12 || process.env.NODE_ENV !== "production")) return { email, password, role };
-    // Local development with the demo JSON store only.
-    if (process.env.NODE_ENV !== "production" && !this.useSupabaseData) return { email: "admin@flagupjesus.local", password: "FlagUpJesus@2026", role };
     return null;
   },
   /** SMS OTP at registration is off by default (it costs money per SMS). Set REGISTRATION_OTP=true to turn it on. */

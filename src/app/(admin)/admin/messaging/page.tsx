@@ -11,13 +11,12 @@ import { Compose } from "./compose";
 export default async function MessagingPage({ searchParams }: { searchParams: Promise<{ to?: string }> }) {
   await requireAdmin("messaging");
   const { to } = await searchParams;
-  const [broadcasts, departments, person] = await Promise.all([
-    listBroadcasts(), db().list("departments", { where: { is_active: true } }), to ? db().get("people", { id: to }).catch(() => null) : null
+  const [broadcasts, person] = await Promise.all([
+    listBroadcasts(), to ? db().get("people", { id: to }).catch(() => null) : null
   ]);
   const audiences = [
     ...(person ? [{ value: `person:${person.id}`, label: `Direct: ${person.full_name}` }] : []),
-    ...AUDIENCES,
-    ...departments.map((d) => ({ value: `department:${d.id}`, label: `Department: ${d.name}` }))
+    ...AUDIENCES
   ];
   return (
     <>
