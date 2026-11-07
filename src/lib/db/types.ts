@@ -94,6 +94,9 @@ export interface FollowUpTask {
   notes: string | null;
   last_contacted_at: string | null;
   source_broadcast_id: string | null;
+  /** Automatic absence follow-up messages sent for this task, and when the last one went out. */
+  auto_messages_sent: number;
+  last_auto_message_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -240,7 +243,16 @@ export interface ChurchSettings {
   bank_name: string | null;
   account_name: string | null;
   account_number: string | null;
+  /** Consecutive missed Sundays before a member is flagged for follow-up. */
   absence_threshold: number;
+  /** Automatic absence follow-up messages (see repo/auto-follow-up.ts). */
+  auto_follow_up: boolean;
+  follow_up_every_days: number;
+  /** 0 = keep reminding until they come back. */
+  follow_up_max_messages: number;
+  follow_up_channels: ("whatsapp" | "sms" | "email")[];
+  follow_up_first_message: string | null;
+  follow_up_reminder_message: string | null;
   created_at: string;
   updated_at: string;
 }

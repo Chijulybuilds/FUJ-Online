@@ -15,8 +15,9 @@ A responsive church-management web app for **FlagUpJesus Global Ministry** (prod
 | **Admin** (`/admin` → `/admin/login`) | Not linked from the public site: go to `yoursite/admin`. Sign in with the **shared FUJ admin email + password** (each person adds their name so actions stay attributable), or individual staff can use Google. |
 | **Leaders** (`/admin/leaders`) | Admins add the church's leaders — **name, unit (e.g. Choir), WhatsApp number, optional email**. Leaders don't sign up themselves; if someone already registered with that number, their member record is linked. Filter by unit, one-tap WhatsApp/email, download leaders' contacts (.vcf), and **Message all leaders** / **Message one unit's leaders** straight from Broadcasts. |
 | **Admin pages** | Dashboard, members directory (search, CSV export), leaders, member records, services, attendance, QR display, check-in desk, pastoral care, broadcasts + tracking, inbox, announcements, prayer moderation, testimony moderation, giving, reports, settings & staff roles. |
-| **Pastoral care** | Absence analysis (runs automatically when check-in closes, or on demand) flags regular attenders who missed the last *N* services and people in church for the first time; every new registration gets a welcome-call task. Tasks have priority, assignee, due date, confidential notes, call/WhatsApp shortcuts and a contact log. It never changes membership status automatically. |
+| **Pastoral care** | Absence analysis (runs every morning, when Sunday check-in closes, or on demand) flags members who attended before and then missed the last *N* Sundays in a row (default 2), and people in church for the first time; every new registration gets a welcome-call task. Tasks have priority, assignee, due date, confidential notes, call/WhatsApp shortcuts and a contact log. It never changes membership status automatically. |
 | **Free WhatsApp sharing** | Broadcasts can carry a **flyer image**. After sending, **Share on WhatsApp** opens WhatsApp's share sheet with the flyer + message so you post it to the church's WhatsApp **broadcast lists, groups, Status or Channel** — free. Every recipient row also has a one-tap personal WhatsApp link, and **Members → Contacts for WhatsApp (.vcf)** loads everyone into the church phone. |
+| **Automatic absence follow-up** | When a member misses 2 Sundays in a row they automatically get a caring "We missed you" message — WhatsApp, SMS, email and the app inbox — then a reminder every 3 days (or 5, 7…) until they come back. It stops when they check in again (any service), when staff complete or dismiss their follow-up task, or after an optional message limit. Only Sundays where attendance was taken count, so a Sunday without check-in never makes everyone look absent. Configure in **Settings → Automatic follow-up**; status per person in **Pastoral care**. |
 | **WhatsApp, SMS & email delivery** | Every broadcast lands in the member's **app inbox**, and — once each channel is connected — also as a **personal WhatsApp message** (SMS automatically for numbers not on WhatsApp), an **SMS**, and/or an **email** (with the flyer). Tick the channels per message. The app learns who is on WhatsApp from delivery receipts, records per-recipient WhatsApp/SMS/email status, counts WhatsApp "read" receipts as reads, and turns WhatsApp replies into Inbox responses. **Settings → Messaging channels** shows what's connected and sends a test. |
 | **Broadcasts & follow-up tracking** | Send to everyone / **all leaders** / **one unit's leaders** / new members / absentees / one person, with `{first_name}` personalisation. Track **read** and **responded** per recipient, send a **follow-up broadcast** to non-readers or non-responders, or hand non-responders to pastoral care as tasks. Replies land in the admin **Inbox**. In-app delivery always works; WhatsApp, SMS and email when connected (see §4). |
 | **Roles** | `super_admin`, `admin`, `pastor`, `pastoral_worker`, `finance_admin`, `department_leader` (shown as **Usher**). Each sees only their areas (e.g. finance can't read prayer requests; "private" prayer requests are pastor/admin only). |
@@ -35,7 +36,7 @@ Open http://localhost:3000.
 
 ## 2. Connect Supabase (database)
 
-1. **Easiest:** open `supabase/setup.sql`, copy **all** of it into Supabase → **SQL Editor → New query**, and click **Run**. It contains every migration plus FUJ's starting values, and is safe on a brand-new project *and* on one that already ran some or all migrations (it only adds what's missing). Alternatively run the files in `supabase/migrations/` (`0001` → `0010`) in order — each one can also be re-run safely.
+1. **Easiest:** open `supabase/setup.sql`, copy **all** of it into Supabase → **SQL Editor → New query**, and click **Run**. It contains every migration plus FUJ's starting values, and is safe on a brand-new project *and* on one that already ran some or all migrations (it only adds what's missing). Alternatively run the files in `supabase/migrations/` (`0001` → `0011`) in order — each one can also be re-run safely.
 2. After changing a migration, regenerate the combined file with `npm run db:setup-sql` (a test fails if it's out of date).
 3. Put the Project URL, anon key and **service-role key** in `.env.local`. The service-role key is used only on the server (route handlers / server actions); permissions are enforced in the app layer and RLS stays on so the anon key cannot read church data.
 4. Check `GET /api/health` → `{"mode":"supabase","database":"ready"}`. If you see `PGRST205`, run `notify pgrst, 'reload schema';`.
@@ -96,6 +97,13 @@ Emails include the title, message and flyer, styled in FUJ red.
 
 How phone delivery works: people marked *not on WhatsApp* get SMS directly; everyone else gets WhatsApp. If WhatsApp rejects a message or later reports the number isn't on WhatsApp (error 131026), the SMS version (with a flyer link) is sent automatically and the person is remembered as *not on WhatsApp*. Tick **SMS** as well to text everyone in addition to WhatsApp.
 
+### Automatic follow-up for absent members
+
+1. **Settings → Automatic follow-up for absent members**: on/off, after how many missed Sundays (default **2**), remind every **3** days (2–14), keep going **until they come back** or stop after *N* messages, which channels (WhatsApp / SMS / email — plus the app inbox always), and the wording of the first message and the reminders (`{first_name}` is personalised).
+2. It runs **straight after Sunday check-in is closed** (first messages go out that evening) and **every morning at about 10:00 Lagos time** for reminders, via Vercel Cron (`vercel.json` → `/api/cron/follow-ups`). Add **`CRON_SECRET`** (any long random text, e.g. `openssl rand -hex 24`) in Vercel → Environment Variables and redeploy — without it the daily run is refused. Vercel's free plan allows one run per day, which is all this needs.
+3. **Pastoral care** shows who was flagged, how many automatic messages each person has had and when the next one is due; **Check absences now** runs the whole thing on demand. Each message is a normal tracked broadcast (read / replied), and replies land in the **Inbox**.
+4. It stops for a person when they check in at any service, when you mark their task **Completed** or **Dismissed**, when their status is no longer *member*, or at the message limit. If they come back and later miss again, a new follow-up starts.
+
 ## 5. Secrets & production
 
 - `QR_SIGNING_SECRET` (or `SESSION_SECRET`): 32+ random characters, e.g. `openssl rand -base64 48`. Production refuses to start signing with the placeholder value.
@@ -145,6 +153,7 @@ npm run test:all   # everything above
 | `/admin/announcements`, `/admin/prayer-requests`, `/admin/testimonies` | Content + moderation |
 | `/admin/giving`, `/admin/reports`, `/admin/settings` | Management |
 | `/api/webhooks/whatsapp` | WhatsApp delivery receipts + inbound replies |
+| `/api/cron/follow-ups` | Daily automatic absence follow-up (Vercel Cron, needs `CRON_SECRET`) |
 | `/api/health` | Health / configuration check |
 
 ## 9. Deploying

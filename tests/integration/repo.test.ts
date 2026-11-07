@@ -56,6 +56,9 @@ describe("absence analysis + broadcasts", () => {
     for (let w = 3; w >= 1; w--) ids.push((await services.createService({ title: `Sunday -${w}`, category: "Sunday worship", starts_at: new Date(Date.now() - w * 7 * day).toISOString() })).id);
     // attended only the oldest of the three
     await db().insert("attendance", { id: crypto.randomUUID(), person_id: regular.id, service_id: ids[0], checked_in_at: new Date(Date.now() - 21 * day).toISOString(), check_in_method: "qr", recorded_by: null, device_id: null, created_at: new Date().toISOString() });
+    // attendance was taken on the other Sundays (someone else checked in), so they count
+    const faithful = await people.createPerson({ full_name: "Faithful Attender", phone: "08024567899" });
+    for (const [i, w] of [[1, 2], [2, 1]] as const) await db().insert("attendance", { id: crypto.randomUUID(), person_id: faithful.id, service_id: ids[i], checked_in_at: new Date(Date.now() - w * 7 * day).toISOString(), check_in_method: "qr", recorded_by: null, device_id: null, created_at: new Date().toISOString() });
     const first = await care.runFollowUpAnalysis();
     expect(first.absentees).toBeGreaterThanOrEqual(1);
     const tasks = (await db().list("follow_up_tasks", { where: { person_id: regular.id, category: "absentee" } }));

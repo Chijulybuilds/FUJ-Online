@@ -6,17 +6,22 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { ActionForm, SubmitButton } from "@/components/ui/action-form";
 import { requireAdmin } from "@/lib/auth/session";
 import { getTask } from "@/lib/repo/care";
+import { getSettings } from "@/lib/repo/settings";
+import { nextAutoMessageAt } from "@/lib/repo/auto-follow-up";
 import { db } from "@/lib/db";
 import { logContactAction, updateTaskAction } from "@/lib/actions/admin";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { firstName } from "@/lib/identity-utils";
+
+const OUTCOME_LABEL: Record<string, string> = { auto_message: "Automatic message", auto_reminder: "Automatic reminder", returned: "Back in church" };
 
 export default async function FollowUpTask({ params }: { params: Promise<{ taskId: string }> }) {
   await requireAdmin("care");
   const { taskId } = await params;
   const task = await getTask(taskId).catch(() => null);
   if (!task) notFound();
-  const staff = await db().list("admin_users", { where: { active: true } });
+  const [staff, settings] = await Promise.all([db().list("admin_users", { where: { active: true } }), getSettings()]);
+  const next = nextAutoMessageAt(task, settings);
   const p = task.person;
   const wa = p?.normalized_phone.replace(/^\+/, "");
   const greeting = encodeURIComponent(`Hello ${p ? firstName(p.full_name) : ""}, this is FlagUpJesus Global Ministry. We missed you and wanted to check in on you. How are you doing?`);
@@ -28,6 +33,18 @@ export default async function FollowUpTask({ params }: { params: Promise<{ taskI
         <section className="card p-6">
           <h2 className="font-bold">Task</h2>
           {p && <dl className="kv mt-3"><dt>Phone</dt><dd>{p.phone}</dd><dt>Username</dt><dd className="username-badge">{p.username}</dd><dt>Status</dt><dd><StatusPill value={p.status} /></dd><dt>Last seen</dt><dd>{formatDate(p.last_seen_at)}</dd><dt>Profile</dt><dd><Link className="text-blue-600" href={`/admin/members/${p.id}`}>Open record →</Link></dd></dl>}
+          {task.category === "absentee" && (
+            <div className="mt-5 rounded-xl border border-slate-100 p-4 text-sm" data-testid="auto-messages">
+              <p className="font-semibold">Automatic messages</p>
+              <p className="mt-1 text-slate-600">
+                {task.auto_messages_sent ?? 0} sent{task.last_auto_message_at ? ` · last ${formatDateTime(task.last_auto_message_at)}` : ""}.{" "}
+                {next ? (next.getTime() <= Date.now() ? "The next one goes out with today's run." : `Next on ${formatDate(next.toISOString())}.`)
+                  : task.status === "completed" || task.status === "dismissed" ? "Stopped — this task is closed."
+                  : !settings.auto_follow_up ? "Automatic follow-up is turned off in Settings." : "Stopped — message limit reached."}
+              </p>
+              {next && <p className="mt-1 text-xs text-slate-500">They stop by themselves when {p ? firstName(p.full_name) : "this person"} checks in again. To stop them now, set the status to Completed or Dismissed.</p>}
+            </div>
+          )}
           <ActionForm action={updateTaskAction} className="mt-5 grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="id" value={task.id} />
             <label className="label">Status<select className="input mt-1" name="status" defaultValue={task.status}><option value="open">Open</option><option value="in_progress">In progress</option><option value="completed">Completed</option><option value="dismissed">Dismissed</option></select></label>
@@ -48,7 +65,7 @@ export default async function FollowUpTask({ params }: { params: Promise<{ taskI
           </ActionForm>
           <h3 className="mt-6 text-sm font-semibold">Contact history</h3>
           <ol className="mt-3 space-y-3 border-l-2 border-slate-100 pl-4">
-            {task.logs.map((l) => <li key={l.id} className="text-sm"><p><b>{l.outcome}</b> <span className="text-slate-500">via {l.channel}</span></p>{l.note && <p className="mt-1 text-slate-600">{l.note}</p>}<p className="mt-1 text-xs text-slate-400">{l.author} · {formatDateTime(l.created_at)}</p></li>)}
+            {task.logs.map((l) => <li key={l.id} className="text-sm"><p><b>{OUTCOME_LABEL[l.outcome] ?? l.outcome}</b> <span className="text-slate-500">via {l.channel}</span></p>{l.note && <p className="mt-1 text-slate-600">{l.note}</p>}<p className="mt-1 text-xs text-slate-400">{l.author} · {formatDateTime(l.created_at)}</p></li>)}
             {!task.logs.length && <li className="text-sm text-slate-500">No contact logged yet.</li>}
           </ol>
         </section>

@@ -35,6 +35,7 @@ export async function resolveAudience(audience: string): Promise<Person[]> {
       return people.filter((p) => new Date(p.joined_at ?? p.first_visit_at ?? p.created_at).getTime() >= since);
     }
     case "absentees":
+    case "auto_follow_up":
     case "care_open": {
       const tasks = await db().list("follow_up_tasks", { where: { status: ["open", "in_progress"] } });
       const ids = new Set(tasks.filter((t) => kind === "care_open" || t.category === "absentee").map((t) => t.person_id));
@@ -55,6 +56,8 @@ export async function audienceLabel(audience: string) {
   const preset = AUDIENCES.find((a) => a.value === audience);
   if (preset) return preset.label;
   if (audience.startsWith("leaders:")) return `Leaders — ${audience.slice("leaders:".length)}`;
+  if (audience === "auto_follow_up") return "Automatic follow-up: members who missed Sundays";
+  if (audience === "auto_follow_up:reminder") return "Automatic reminder: members still away";
   if (audience === "members") return "Everyone (all members)";
   const [kind, arg, mode] = audience.split(":");
   if (kind === "person") return `Direct: ${(await db().get("people", { id: arg }))?.full_name ?? "Unknown"}`;
@@ -68,8 +71,10 @@ const personalise = (text: string, person: Person) =>
 export async function sendBroadcast(input: {
   title: string; body: string; kind: Broadcast["kind"]; audience: string; channels: Channel[]; request_response: boolean;
   parent_id?: string | null; created_by: string; image_url?: string | null;
+  /** Send to exactly these people instead of resolving the audience (used by automatic follow-ups). */
+  recipients?: Person[];
 }) {
-  const recipients = await resolveAudience(input.audience);
+  const recipients = input.recipients ?? await resolveAudience(input.audience);
   const now = nowIso();
   const channels: Channel[] = Array.from(new Set<Channel>(["in_app", ...input.channels]));
   const settings = channels.includes("email") ? await getPublicSettings() : null;

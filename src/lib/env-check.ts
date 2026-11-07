@@ -40,6 +40,7 @@ export function configProblems(): string[] {
   if (has("WHATSAPP_TOKEN") && !has("WHATSAPP_TEMPLATE_NAME")) problems.push("WHATSAPP_TEMPLATE_NAME is missing — without an approved template WhatsApp only reaches people who messaged the church number in the last 24 hours");
   if (production && has("WHATSAPP_TOKEN") && !has("WHATSAPP_APP_SECRET")) problems.push("WHATSAPP_APP_SECRET is missing — needed to accept WhatsApp delivery receipts and replies");
   if (has("EMAIL_FROM") && !/@/.test(runtimeEnv("EMAIL_FROM"))) problems.push("EMAIL_FROM should look like: FlagUpJesus <news@flagupjesus.org>");
+  if (production && !has("CRON_SECRET")) problems.push("CRON_SECRET is missing — the daily automatic follow-up messages can't run (any long random text)");
   return problems;
 }
 
