@@ -4,9 +4,15 @@ const TONE: Record<string, string> = {
   open: "pill-amber", in_progress: "pill-blue", dismissed: "pill-gray",
   draft: "pill-gray", published: "pill-green", archived: "pill-gray",
   pending: "pill-amber", praying: "pill-blue", answered: "pill-green", closed: "pill-gray", approved: "pill-green", declined: "pill-red",
-  high: "pill-red", normal: "pill-gray", low: "pill-gray", paid: "pill-green", failed: "pill-red", sent: "pill-green", skipped: "pill-gray"
+  high: "pill-red", normal: "pill-gray", low: "pill-gray", paid: "pill-green", failed: "pill-red", sent: "pill-green", skipped: "pill-gray",
+  // First timers
+  new: "pill-amber", welcomed: "pill-blue", returned: "pill-green", settled: "pill-green",
+  // Partners
+  interested: "pill-amber", contacted: "pill-blue", committed: "pill-blue", paused: "pill-gray"
 };
+/** Friendlier words for some stored values. */
+const LABEL: Record<string, string> = { returned: "came back", settled: "settled in" };
 export function StatusPill({ value }: { value: string | null | undefined }) {
   if (!value) return <span className="pill pill-gray">—</span>;
-  return <span className={`pill ${TONE[value] ?? "pill-gray"}`}>{value.replace(/_/g, " ")}</span>;
+  return <span className={`pill ${TONE[value] ?? "pill-gray"}`}>{LABEL[value] ?? value.replace(/_/g, " ")}</span>;
 }

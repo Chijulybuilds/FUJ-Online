@@ -3,8 +3,10 @@ import { ActionForm, SubmitButton } from "@/components/ui/action-form";
 import { requireAdmin } from "@/lib/auth/session";
 import { can, ROLE_LABELS } from "@/lib/auth/roles";
 import { getSettings } from "@/lib/repo/settings";
-import { addStaffAction, saveFollowUpSettingsAction, saveSettingsAction, sendTestMessageAction, toggleStaffAction } from "@/lib/actions/admin";
+import { addStaffAction, saveFirstTimerPartnerSettingsAction, saveFollowUpSettingsAction, saveSettingsAction, sendTestMessageAction, toggleStaffAction } from "@/lib/actions/admin";
 import { DEFAULT_FIRST_MESSAGE, DEFAULT_REMINDER_MESSAGE } from "@/lib/repo/auto-follow-up";
+import { DEFAULT_INVITE_MESSAGE, DEFAULT_WELCOME_MESSAGE } from "@/lib/repo/first-timers";
+import { DEFAULT_REMINDER_MESSAGE as DEFAULT_PARTNER_REMINDER, DEFAULT_THANKS_MESSAGE } from "@/lib/repo/partners";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { emailFromProblem, providers } from "@/lib/messaging/providers";
@@ -70,7 +72,27 @@ export default async function SettingsPage() {
             <div className="sm:col-span-2"><SubmitButton>Save follow-up settings</SubmitButton></div>
           </ActionForm>
         </section>
-        <div className="space-y-6 xl:col-start-2 xl:row-span-2 xl:row-start-1">
+        <section className="card p-6 xl:col-start-1" id="first-timers-partners" data-testid="first-timer-partner-settings">
+          <h2 className="font-bold">First timers &amp; partners — automatic messages</h2>
+          <p className="mt-1 text-sm text-slate-500">Sent on the same channels as the absence follow-up above, plus the person&apos;s app inbox. Use {"{first_name}"} to personalise; leave a message empty to use the default.</p>
+          <ActionForm action={saveFirstTimerPartnerSettingsAction} className="mt-4 grid gap-4 sm:grid-cols-2">
+            <p className="text-xs font-bold tracking-[.12em] text-slate-500 sm:col-span-2">FIRST TIMERS</p>
+            <label className="checkbox sm:col-span-2"><input type="checkbox" name="first_timer_auto" defaultChecked={s.first_timer_auto} /> <span><b>Welcome first timers and invite them back automatically</b><span className="block text-xs font-normal text-slate-500">A welcome message straight away, then an invitation every Saturday until they come back to church.</span></span></label>
+            <label className="label">Saturday invitations<select className="input mt-1" name="first_timer_max_invites" defaultValue={String(s.first_timer_max_invites)}><option value="0">None — welcome message only</option>{[1, 2, 3, 4, 6, 8].map((n) => <option key={n} value={n}>Up to {n}</option>)}</select></label>
+            <span />
+            <label className="label sm:col-span-2">Welcome message<span className="hint">Title: “Welcome to FlagUpJesus”.</span><textarea className="input mt-1 min-h-24" name="first_timer_welcome_message" maxLength={900} defaultValue={s.first_timer_welcome_message ?? ""} placeholder={DEFAULT_WELCOME_MESSAGE} /></label>
+            <label className="label sm:col-span-2">Saturday invitation<span className="hint">Title: “See you this Sunday?”. {"{address}"} becomes the church address.</span><textarea className="input mt-1 min-h-24" name="first_timer_invite_message" maxLength={900} defaultValue={s.first_timer_invite_message ?? ""} placeholder={DEFAULT_INVITE_MESSAGE} /></label>
+            <p className="mt-2 text-xs font-bold tracking-[.12em] text-slate-500 sm:col-span-2">FUJ PARTNERS</p>
+            <label className="checkbox sm:col-span-2"><input type="checkbox" name="partner_auto" defaultChecked={s.partner_auto} /> <span><b>Thank new partners automatically</b><span className="block text-xs font-normal text-slate-500">When someone signs up to partner at registration or in their portal.</span></span></label>
+            <label className="checkbox sm:col-span-2"><input type="checkbox" name="partner_reminders" defaultChecked={s.partner_reminders} /> <span><b>Send monthly partnership reminders</b><span className="block text-xs font-normal text-slate-500">To committed and active partners who haven&apos;t given yet this month (quarterly / yearly partners once per period), with the ministry&apos;s bank details.</span></span></label>
+            <label className="label">Reminder day<select className="input mt-1" name="partner_reminder_day" defaultValue={String(s.partner_reminder_day)}>{Array.from({ length: 28 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>Day {d} of the month</option>)}</select></label>
+            <span />
+            <label className="label sm:col-span-2">Thank-you message<span className="hint">Title: “Thank you for partnering with us”.</span><textarea className="input mt-1 min-h-24" name="partner_thanks_message" maxLength={900} defaultValue={s.partner_thanks_message ?? ""} placeholder={DEFAULT_THANKS_MESSAGE} /></label>
+            <label className="label sm:col-span-2">Monthly reminder<span className="hint">Title: “Your FlagUpJesus partnership”. {"{amount}"} = their pledge, {"{frequency}"} = monthly / quarterly / yearly. The bank details are added at the end.</span><textarea className="input mt-1 min-h-24" name="partner_reminder_message" maxLength={900} defaultValue={s.partner_reminder_message ?? ""} placeholder={DEFAULT_PARTNER_REMINDER} /></label>
+            <div className="sm:col-span-2"><SubmitButton>Save first-timer &amp; partner settings</SubmitButton></div>
+          </ActionForm>
+        </section>
+        <div className="space-y-6 xl:col-start-2 xl:row-span-3 xl:row-start-1">
           <section className="card p-6" id="messaging" data-testid="messaging-channels">
             <h2 className="font-bold">Messaging channels</h2>
             <p className="mt-1 text-xs text-slate-500">Where broadcasts can go besides the app inbox. Connect a channel by adding its keys in Vercel → Settings → Environment Variables, then redeploy (step-by-step guide in the README).</p>

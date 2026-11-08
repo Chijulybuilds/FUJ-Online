@@ -4,6 +4,7 @@ import type { Attendance, Person, QrSession, Service } from "@/lib/db/types";
 import { nowIso, uid } from "@/lib/utils";
 import { peopleById, FriendlyError } from "./people";
 import { closeAbsenteeTasksOnReturn } from "./auto-follow-up";
+import { noteFirstTimerCheckIn } from "./first-timers";
 
 export async function listServices() {
   return db().list("services", { order: { column: "starts_at", ascending: false } });
@@ -93,6 +94,8 @@ export async function recordAttendance(input: {
     // Back in church: close their absence follow-up so the automatic messages stop.
     const service = await db().get("services", { id: input.serviceId });
     await closeAbsenteeTasksOnReturn(input.person.id, service?.title);
+    // A first timer checking in to a later service has come back: their Saturday invitations stop.
+    await noteFirstTimerCheckIn(input.person.id, now, service?.title).catch((error) => console.error("first-timer check-in note failed", error));
     return { status: "checked_in", attendance, person: input.person };
   } catch (error) {
     if (error instanceof DuplicateError) {
@@ -110,10 +113,14 @@ export async function attendanceForService(serviceId: string) {
     peopleById(ids),
     ids.length && ids.length <= 100 ? db().list("attendance", { where: { person_id: ids } }) : ids.length ? db().list("attendance") : Promise.resolve([])
   ]);
-  // Each person's earliest check-in: if it's this service, it was their first time in church.
+  // Each person's earliest check-in: if it's this service, it was their first time in church — unless they told
+  // us at registration they've been coming for a while (an existing member who only just registered online).
   const firstId = new Map<string, { id: string; at: string }>();
   for (const a of history) { const cur = firstId.get(a.person_id); if (!cur || a.checked_in_at < cur.at) firstId.set(a.person_id, { id: a.id, at: a.checked_in_at }); }
-  return rows.map((r) => ({ ...r, person: people.get(r.person_id) ?? null, firstTime: firstId.get(r.person_id)?.id === r.id }));
+  return rows.map((r) => {
+    const person = people.get(r.person_id) ?? null;
+    return { ...r, person, firstTime: firstId.get(r.person_id)?.id === r.id && person?.first_timer !== false };
+  });
 }
 
 export async function attendanceForPerson(personId: string) {
@@ -125,11 +132,16 @@ export async function attendanceForPerson(personId: string) {
 /** Attendance counts for completed/active services, newest first. */
 export async function serviceSummaries(limit = 12) {
   const services = (await listServices()).filter((s) => s.status !== "cancelled" && new Date(s.starts_at).getTime() <= Date.now() + 86400000);
-  const attendance = await db().list("attendance");
+  const [attendance, existingMembers] = await Promise.all([
+    db().list("attendance"),
+    // People who said at registration it was NOT their first time aren't counted as new.
+    db().list("people", { where: { first_timer: false } }).then((rows) => new Set(rows.map((p) => p.id)), () => new Set<string>())
+  ]);
   return services.slice(0, limit).map((service) => {
     const rows = attendance.filter((a) => a.service_id === service.id);
-    // New members = people whose first-ever check-in was this service.
+    // New members = first timers whose first-ever check-in was this service.
     const newMembers = rows.filter((a) => {
+      if (existingMembers.has(a.person_id)) return false;
       const first = attendance.filter((x) => x.person_id === a.person_id).sort((x, y) => x.checked_in_at.localeCompare(y.checked_in_at))[0];
       return first?.id === a.id;
     }).length;

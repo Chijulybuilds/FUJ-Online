@@ -22,7 +22,7 @@ export function Desk({ serviceId, serviceTitle }: { serviceId: string; serviceTi
 
   useEffect(() => { const t = setTimeout(() => void load(q), 180); return () => clearTimeout(t); }, [q, load]);
 
-  async function checkIn(body: Record<string, string>) {
+  async function checkIn(body: { personId?: string; fullName?: string; phone?: string; firstTimer?: boolean }) {
     setBusy(body.personId ?? "new"); setFlash(null);
     const res = await fetch("/api/admin/desk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceId, ...body }) });
     const json = await res.json().catch(() => ({}));
@@ -58,15 +58,16 @@ export function Desk({ serviceId, serviceTitle }: { serviceId: string; serviceTi
       </section>
       <section className="card h-fit p-6">
         <h2 className="flex items-center gap-2 font-bold"><UserPlus size={18} className="text-blue-600" /> New member?</h2>
-        <p className="mt-1 text-xs text-slate-500">Add them in seconds — they get a flag username and a welcome follow-up task.</p>
+        <p className="mt-1 text-xs text-slate-500">Add them in seconds — they get a flag username. Tick “first time” for first timers so the team can follow them up.</p>
         <form className="mt-4 space-y-3" onSubmit={async (e) => {
           e.preventDefault(); setAdding(true);
           const fd = new FormData(e.currentTarget); const form = e.currentTarget;
-          const ok = await checkIn({ fullName: String(fd.get("fullName")), phone: String(fd.get("phone")) });
+          const ok = await checkIn({ fullName: String(fd.get("fullName")), phone: String(fd.get("phone")), firstTimer: fd.get("firstTimer") === "on" });
           setAdding(false); if (ok) form.reset();
         }}>
           <input className="input" name="fullName" required placeholder="Full name" aria-label="New member full name" defaultValue={q && !rows.length ? q : undefined} key={rows.length ? "x" : q} />
           <input className="input" name="phone" required inputMode="tel" placeholder="Phone number" aria-label="New member phone" />
+          <label className="checkbox"><input type="checkbox" name="firstTimer" /> <span>First time at FlagUpJesus <span className="block text-xs text-slate-500">Starts their first-timer follow-up (welcome message + call)</span></span></label>
           <button className="btn btn-secondary w-full" disabled={adding}>{adding ? "Adding…" : "Add & check in"}</button>
         </form>
       </section>

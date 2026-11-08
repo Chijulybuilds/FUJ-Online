@@ -19,6 +19,9 @@ export async function dashboardStats() {
     pendingTestimonies: testimonies.filter((t) => t.status === "pending").length,
     givingThisMonth: paid.filter((d) => d.paid_at && new Date(d.paid_at) >= monthStart).reduce((s, d) => s + Number(d.amount), 0),
     totalCheckIns: attendance.length,
+    // Older databases (setup.sql not re-run yet) simply show 0.
+    firstTimersToWelcome: await db().list("first_timers", { where: { stage: "new" } }).then((r) => r.length, () => 0),
+    partnerFollowUpsDue: await db().list("partners").then((r) => r.filter((p) => p.status !== "declined" && p.next_follow_up_at && new Date(p.next_follow_up_at).getTime() <= Date.now()).length, () => 0),
     summaries
   };
 }

@@ -22,6 +22,10 @@ export const registrationSchema = z.object({
     if (problem) ctx.addIssue({ code: "custom", message: problem });
   }),
   address: z.string({ error: "Enter your home address" }).trim().min(5, "Enter your home address").max(300, "That address is too long"),
+  /** "Is this your first time worshipping with FlagUpJesus?" — first timers get their own follow-up. */
+  firstTimer: z.enum(["yes", "no"], { error: "Tell us if this is your first time with us" }),
+  /** Ticked "I'd like to become a FUJ Partner". */
+  partner: z.boolean().optional(),
   /** 6-digit SMS code; not needed when the person signed in with Google. */
   code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code").optional()
 });

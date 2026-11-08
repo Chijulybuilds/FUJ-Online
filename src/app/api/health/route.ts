@@ -21,6 +21,9 @@ export async function GET() {
     // Newest table + column: missing means supabase/setup.sql hasn't been re-run since the last update.
     const schemaCurrent = await Promise.all([
       db().list("leaders", { limit: 1 }),
+      db().list("first_timers", { limit: 1 }),
+      db().list("partners", { limit: 1 }),
+      db().list("contact_logs", { limit: 1 }),
       db().list("follow_up_tasks", { where: { last_auto_message_at: null }, limit: 1 })
     ]).then(() => true, () => false);
     if (!schemaCurrent) problems.push("Database needs updating: in Supabase → SQL Editor, paste all of supabase/setup.sql and click Run");

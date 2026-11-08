@@ -18,6 +18,7 @@ export default async function NewMemberPage() {
           <label className="label">How did they hear about us?<input className="input mt-2" name="how_heard" placeholder="Friend, social media…" /></label>
           <label className="label sm:col-span-2">Address<input className="input mt-2" name="address" /></label>
           <label className="label sm:col-span-2">Notes<textarea className="input mt-2" name="notes" /></label>
+          <label className="checkbox sm:col-span-2"><input type="checkbox" name="first_timer" /> <span><b>First time at FlagUpJesus</b><span className="block text-xs font-normal text-slate-500">Starts their first-timer follow-up: a welcome message now, Saturday invitations until they come back, and a place on the First timers page for the team.</span></span></label>
           <div className="sm:col-span-2"><SubmitButton>Create record</SubmitButton></div>
         </ActionForm>
       </div>

@@ -15,7 +15,9 @@ import { getPublicSettings } from "./settings";
 export const AUDIENCES: { value: string; label: string }[] = [
   { value: "all", label: "Everyone (all members)" },
   { value: "leaders", label: "All leaders" },
-  { value: "first_timers", label: "New members (joined in the last 30 days)" },
+  { value: "first_timers", label: "First timers (still being followed up)" },
+  { value: "partners", label: "FUJ Partners (everyone who signed up, except declined)" },
+  { value: "partners_active", label: "FUJ Partners — committed & active" },
   { value: "absentees", label: "Absentees (open absence follow-ups)" },
   { value: "care_open", label: "Everyone with an open follow-up task" }
 ];
@@ -31,8 +33,16 @@ export async function resolveAudience(audience: string): Promise<Person[]> {
     case "all":
     case "members": return people;
     case "first_timers": {
-      const since = Date.now() - 30 * 86400000;
-      return people.filter((p) => new Date(p.joined_at ?? p.first_visit_at ?? p.created_at).getTime() >= since);
+      // People who told us it was their first time and are still on the first-timer journey.
+      const rows = await db().list("first_timers", { where: { stage: ["new", "welcomed", "returned"] } });
+      const ids = new Set(rows.map((r) => r.person_id));
+      return people.filter((p) => ids.has(p.id));
+    }
+    case "partners":
+    case "partners_active": {
+      const rows = await db().list("partners", { where: { status: kind === "partners" ? ["interested", "contacted", "committed", "active", "paused"] : ["committed", "active"] } });
+      const ids = new Set(rows.map((r) => r.person_id));
+      return people.filter((p) => ids.has(p.id));
     }
     case "absentees":
     case "auto_follow_up":
@@ -58,6 +68,10 @@ export async function audienceLabel(audience: string) {
   if (audience.startsWith("leaders:")) return `Leaders — ${audience.slice("leaders:".length)}`;
   if (audience === "auto_follow_up") return "Automatic follow-up: members who missed Sundays";
   if (audience === "auto_follow_up:reminder") return "Automatic reminder: members still away";
+  if (audience === "auto_first_timer:welcome") return "Automatic welcome: first timers";
+  if (audience === "auto_first_timer:invite") return "Automatic invitation: first timers not back yet";
+  if (audience === "auto_partner:thanks") return "Automatic thank-you: new partners";
+  if (audience === "auto_partner:reminder") return "Automatic partnership reminder";
   if (audience === "members") return "Everyone (all members)";
   const [kind, arg, mode] = audience.split(":");
   if (kind === "person") return `Direct: ${(await db().get("people", { id: arg }))?.full_name ?? "Unknown"}`;
@@ -73,6 +87,8 @@ export async function sendBroadcast(input: {
   parent_id?: string | null; created_by: string; image_url?: string | null;
   /** Send to exactly these people instead of resolving the audience (used by automatic follow-ups). */
   recipients?: Person[];
+  /** Extra per-person wording (e.g. a partner's pledge) applied before {first_name} / {username}. */
+  personalize?: (text: string, person: Person) => string;
 }) {
   const recipients = input.recipients ?? await resolveAudience(input.audience);
   const now = nowIso();
@@ -84,7 +100,7 @@ export async function sendBroadcast(input: {
     created_by: input.created_by, sent_at: now, created_at: now
   });
   for (const person of recipients) {
-    const text = personalise(input.body, person);
+    const text = personalise(input.personalize ? input.personalize(input.body, person) : input.body, person);
     const image = input.image_url ? absoluteUrl(input.image_url) : null;
     // WhatsApp = WhatsApp first, SMS for anyone not on WhatsApp. SMS = a text message to everyone (also when WhatsApp is ticked).
     let phone: PhoneDelivery | null = channels.includes("whatsapp") ? await deliverByPhone(person, input.title, text, image) : null;
