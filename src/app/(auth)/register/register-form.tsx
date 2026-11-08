@@ -45,7 +45,11 @@ export function RegisterForm({ defaults, checkInNote, verified = false, otp = fa
       const phone = String(fd.get("phone") ?? "");
       if (needsOtp && !codeSent) { await sendCode(phone); return; }
       setBusy(true);
-      const body = { fullName: String(fd.get("fullName") ?? ""), phone, email: String(fd.get("email") ?? ""), ...(needsOtp ? { code: String(fd.get("code") ?? "") } : {}) };
+      const body = {
+        fullName: String(fd.get("fullName") ?? ""), phone, email: String(fd.get("email") ?? ""),
+        birthday: String(fd.get("birthday") ?? ""), address: String(fd.get("address") ?? ""),
+        ...(needsOtp ? { code: String(fd.get("code") ?? "") } : {})
+      };
       const res = await fetch("/api/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) { setError(json.error ?? "Registration failed."); setBusy(false); return; }
@@ -56,6 +60,8 @@ export function RegisterForm({ defaults, checkInNote, verified = false, otp = fa
       <label className="label">Full name<input className="input mt-2" name="fullName" required defaultValue={defaults.name} autoComplete="name" placeholder="Your full name" /></label>
       <label className="label">Phone number<input className="input mt-2" name="phone" required inputMode="tel" autoComplete="tel" placeholder="080X XXX XXXX" readOnly={codeSent} onChange={() => codeSent && setCodeSent(false)} /></label>
       <label className="label">Email <span className="font-normal text-slate-400">(optional)</span><input className="input mt-2" name="email" type="email" defaultValue={defaults.email} autoComplete="email" /></label>
+      <label className="label">Birthday<input className="input mt-2" name="birthday" type="date" required min="1900-01-01" autoComplete="bday" /></label>
+      <label className="label">Home address<textarea className="input mt-2 min-h-[4.5rem]" name="address" required minLength={5} maxLength={300} rows={2} autoComplete="street-address" placeholder="House number, street, area, city" /></label>
       {needsOtp && codeSent && (
         <label className="label">Verification code
           <input className="input mt-2 text-center text-2xl tracking-[.5em]" name="code" required inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} placeholder="••••••" autoFocus />

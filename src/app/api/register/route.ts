@@ -11,7 +11,8 @@ import { verifyOtp } from "@/lib/repo/otp";
 import { env } from "@/lib/env";
 
 /**
- * First-time registration: full name + phone + optional email, or Google sign-in followed by name + phone.
+ * First-time registration: full name + phone + birthday + home address (+ optional email), or Google sign-in
+ * followed by the same details.
  * The person receives a unique "flag…" username and is checked in automatically if they arrived by
  * scanning the service QR. No paid SMS OTP by default: self-registered people are confirmed for free —
  * by Google, by their first in-person check-in (live QR or usher desk), or by an admin.
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
   try {
     const person = await createPerson({
       full_name: d.fullName, phone: d.phone, email: d.email || identity?.email || null, status: "member",
+      birthday: d.birthday, address: d.address,
       auth_subject: identity ? `${identity.provider}:${identity.sub}` : null, avatar_url: identity?.avatar ?? null,
       verified_via: identity?.provider === "google" ? "google" : otpUsed ? "otp" : "registration"
     });
