@@ -191,8 +191,14 @@ test("a new member scans the QR, registers, gets a flag username and is checked 
   await phone.getByLabel("Phone number").fill("0812 345 6789");
   await phone.getByLabel("Birthday").fill("1998-03-14");
   await phone.getByLabel("Home address").fill("7 Ikwerre Road, Mile 1, Port Harcourt");
+  // Is it their first time? (required) — and would they like to become a FUJ Partner? (optional)
+  await phone.getByRole("button", { name: "Register & get my username" }).click();
+  await expect(phone.getByTestId("register-success")).toHaveCount(0); // the first-time question must be answered
+  await phone.getByRole("radio", { name: /Yes, it's my first time/ }).check();
+  await phone.getByLabel(/I'd like to become a FUJ Partner/).check();
   await phone.getByRole("button", { name: "Register & get my username" }).click();
   await expect(phone.getByTestId("register-success")).toBeVisible();
+  await expect(phone.getByTestId("partner-thanks")).toBeVisible();
   newUsername = (await phone.getByTestId("new-username").textContent())!.trim();
   expect(newUsername).toMatch(/^flagchiamaka\d{3}$/);
   await expect(phone.getByText(/checked in for today/)).toBeVisible();
@@ -259,6 +265,7 @@ test("check-in desk: admin finds members by name and checks them in; adds a new 
   await expect(admin.getByTestId("desk-row").filter({ hasText: "David Nwosu" }).getByRole("button", { name: "Check in" })).toHaveCount(0);
   await admin.getByLabel("New member full name").fill("Kelechi Amadi");
   await admin.getByLabel("New member phone").fill("0818 765 4321");
+  await admin.getByLabel(/First time at FlagUpJesus/).check();
   await admin.getByRole("button", { name: "Add & check in" }).click();
   await expect(admin.getByText(/Welcome Kelechi! Added as a new member \(username flagkelechi\d{3}\)/)).toBeVisible();
   await expect(admin.getByTestId("desk-total")).toHaveText("5 checked in");
@@ -278,6 +285,7 @@ test("online self-registration makes you a member straight away (no visitors, no
   await p.getByLabel("Phone number").fill("0705 111 2222");
   await p.getByLabel("Birthday").fill("1990-11-30");
   await p.getByLabel("Home address").fill("15 Olu Obasanjo Road, D-Line, Port Harcourt");
+  await p.getByRole("radio", { name: /No, I've been here before/ }).check(); // an existing member registering online
   await p.getByRole("button", { name: "Register & get my username" }).click();
   await expect(p.getByTestId("register-success")).toBeVisible();
   await p.context().close();
@@ -304,6 +312,99 @@ test("online self-registration makes you a member straight away (no visitors, no
   const text = await vcf.text();
   expect(text).toContain("FN:Obinna Online (FUJ)");
   expect(text).toContain("TEL;TYPE=CELL:+2347051112222");
+});
+
+test("first timers get their own follow-up — existing members registering online don't", async () => {
+  await go(admin, "/admin/first-timers");
+  await expect(admin.getByTestId("first-timer-automation")).toContainText("Automatic first-timer follow-up is on");
+  const table = admin.getByTestId("first-timers-table");
+  await expect(table.getByRole("row").filter({ hasText: "Chiamaka Nwankwo" })).toContainText("E2E Sunday Service"); // registered from the service QR
+  await expect(table.getByRole("row").filter({ hasText: "Kelechi Amadi" })).toContainText("E2E Sunday Service"); // added at the desk, "first time" ticked
+  await expect(table.getByText("Obinna Online")).toHaveCount(0); // said "No, I've been here before"
+  await expect(table.getByRole("row").filter({ hasText: "Chiamaka Nwankwo" })).toContainText(/Call to welcome them/);
+  await shot(admin, "13-first-timers");
+  await table.getByRole("link", { name: "Chiamaka Nwankwo" }).click();
+  await expect(admin.getByTestId("journey")).toContainText("First visit");
+  // The welcome message went out automatically right after she registered.
+  await expect(async () => {
+    await admin.reload();
+    await expect(admin.getByTestId("first-timer-history")).toContainText("Automatic welcome message", { timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+  await hydrated(admin);
+  await admin.getByLabel("Outcome").selectOption("Reached — welcomed them");
+  await admin.getByLabel("Note", { exact: true }).fill("Lovely chat — she enjoyed the worship and will bring her sister.");
+  await admin.getByRole("button", { name: "Log contact" }).click();
+  await expect(admin.getByText("Contact logged.")).toBeVisible();
+  await admin.reload();
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Chiamaka Nwankwo");
+  await expect(admin.getByText("Lovely chat")).toBeVisible();
+  await expect(admin.locator("main").getByText("welcomed", { exact: true }).first()).toBeVisible();
+  await shot(admin, "14-first-timer-journey");
+  // Her member record links to the follow-up, and staff can message all first timers at once.
+  await admin.getByRole("link", { name: "Member record" }).click();
+  await expect(admin.getByTestId("member-journeys")).toContainText("First timer");
+  await expect(admin.getByTestId("member-journeys")).toContainText("FUJ Partner");
+  await go(admin, "/admin/messaging?audience=first_timers");
+  await expect(admin.getByLabel("Audience").locator("option:checked")).toHaveText(/First timers/);
+});
+
+test("FUJ Partners: sign-ups are followed up, pledges and gifts recorded, and members can partner from their portal", async ({ browser }) => {
+  await go(admin, "/admin/partners");
+  const table = admin.getByTestId("partners-table");
+  const chiamaka = table.getByRole("row").filter({ hasText: "Chiamaka Nwankwo" });
+  await expect(chiamaka).toContainText("interested");
+  await expect(chiamaka).toContainText("At registration");
+  await chiamaka.getByRole("link", { name: "Chiamaka Nwankwo" }).click();
+  await admin.waitForURL(/\/admin\/partners\/[0-9a-f-]+$/);
+  await expect(async () => {
+    await admin.reload();
+    await expect(admin.getByTestId("partner-history")).toContainText("Automatic thank-you message", { timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+  await hydrated(admin);
+  await admin.getByLabel("Status").selectOption("committed");
+  await admin.getByLabel("Pledge (₦)").fill("20000");
+  await admin.getByLabel("How often").selectOption("monthly");
+  await admin.getByRole("button", { name: "Save partner" }).click();
+  await expect(admin.getByText("Partner saved.")).toBeVisible();
+  // A gift recorded in Giving with her username makes her an active partner.
+  await go(admin, "/admin/giving");
+  await admin.getByLabel("Amount (₦)").fill("20000");
+  await admin.getByLabel("Member username").fill(newUsername);
+  await admin.getByRole("button", { name: "Record" }).click();
+  await expect(admin.getByText("Donation recorded.")).toBeVisible();
+  await go(admin, "/admin/partners");
+  const row = admin.getByTestId("partners-table").getByRole("row").filter({ hasText: "Chiamaka Nwankwo" });
+  await expect(row).toContainText("active");
+  await expect(row).toContainText("₦20,000");
+  // Staff add someone who told them in person.
+  await admin.getByLabel("Full name").fill("Emeka Generous");
+  await admin.getByLabel("Phone number").fill("0809 444 5555");
+  await admin.getByLabel("Pledge (₦)").fill("50,000");
+  await admin.getByRole("button", { name: "Add partner" }).click();
+  await expect(admin.getByText("Emeka Generous was added to the partners list.")).toBeVisible();
+  await expect(admin.locator("main").getByText("committed", { exact: true }).first()).toBeVisible();
+  await shot(admin, "15-partner");
+  const csv = await (await admin.request.get("/api/admin/export?type=partners")).text();
+  expect(csv.split("\n")[0]).toContain("name,username,phone,email,status,pledge");
+  expect(csv).toContain("Emeka Generous");
+
+  // An existing member becomes a partner from their portal.
+  const m = await newDevice(browser);
+  await memberLogin(m, "flaggrace101", "08031234567");
+  await go(m, "/member/giving");
+  await expect(m.getByTestId("partner-card")).toContainText("Become a FUJ Partner");
+  await m.getByLabel(/Amount you'd like to give/).fill("10000");
+  await m.getByRole("button", { name: "I want to partner" }).click();
+  // The card turns into "You're a FUJ Partner" with their pledge.
+  await expect(m.getByTestId("partner-card")).toContainText("You're a FUJ Partner");
+  await expect(m.getByTestId("partner-card")).toContainText("₦10,000");
+  await m.reload();
+  await expect(m.getByTestId("partner-card")).toContainText("You're a FUJ Partner");
+  await m.context().close();
+  await go(admin, "/admin/partners");
+  await expect(admin.getByTestId("partners-table").getByRole("row").filter({ hasText: "Grace Okafor" })).toContainText("From their portal");
+  await go(admin, "/admin/messaging?audience=partners");
+  await expect(admin.getByLabel("Audience").locator("option:checked")).toHaveText(/FUJ Partners/);
 });
 
 test("broadcast with response tracking, member replies, follow-up to non-responders", async ({ browser }) => {

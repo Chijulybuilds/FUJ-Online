@@ -9,8 +9,9 @@ import { requireAdmin } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { attendanceForPerson } from "@/lib/repo/services";
-import { createTaskAction, updatePersonAction } from "@/lib/actions/admin";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { addPartnerAction, createTaskAction, startFirstTimerAction, updatePersonAction } from "@/lib/actions/admin";
+import { FREQUENCIES, frequencyLabel } from "@/lib/repo/partners";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 export default async function MemberDetails({ params, searchParams }: { params: Promise<{ memberId: string }>; searchParams: Promise<{ created?: string }> }) {
   const admin = await requireAdmin("members");
@@ -18,10 +19,12 @@ export default async function MemberDetails({ params, searchParams }: { params: 
   const { created } = await searchParams;
   const person = await db().get("people", { id: memberId }).catch(() => null);
   if (!person) notFound();
-  const [attendance, tasks, prayers] = await Promise.all([
+  const [attendance, tasks, prayers, journey, partner] = await Promise.all([
     attendanceForPerson(person.id),
     db().list("follow_up_tasks", { where: { person_id: person.id }, order: { column: "created_at", ascending: false } }),
-    can(admin.role, "prayer") ? db().list("prayer_requests", { where: { person_id: person.id } }) : Promise.resolve([])
+    can(admin.role, "prayer") ? db().list("prayer_requests", { where: { person_id: person.id } }) : Promise.resolve([]),
+    can(admin.role, "care") ? db().get("first_timers", { person_id: person.id }).catch(() => null) : Promise.resolve(null),
+    can(admin.role, "partners") ? db().get("partners", { person_id: person.id }).catch(() => null) : Promise.resolve(null)
   ]);
   const wa = person.normalized_phone.replace(/^\+/, "");
   return (
@@ -58,6 +61,34 @@ export default async function MemberDetails({ params, searchParams }: { params: 
               {!attendance.length && <li className="text-slate-500">No attendance recorded yet.</li>}
             </ul>
           </section>
+          {(can(admin.role, "care") || can(admin.role, "partners")) && (
+            <section className="card p-6" data-testid="member-journeys">
+              <h2 className="font-bold">First timer &amp; partnership</h2>
+              {can(admin.role, "care") && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 p-4 text-sm">
+                  {journey
+                    ? <><span>✨ <b>First timer</b> since {formatDate(journey.first_visit_at)} · <StatusPill value={journey.stage} /></span><Link className="btn btn-secondary btn-sm" href={`/admin/first-timers/${journey.id}`}>Open follow-up</Link></>
+                    : <>
+                        <span>{person.first_timer === false ? "Told us at registration they've been coming to FlagUpJesus before." : "Not on the first-timer follow-up."}</span>
+                        <ActionForm action={startFirstTimerAction}><input type="hidden" name="person_id" value={person.id} /><SubmitButton className="btn btn-secondary btn-sm" pendingText="Starting…">Start first-timer follow-up</SubmitButton></ActionForm>
+                      </>}
+                </div>
+              )}
+              {can(admin.role, "partners") && (
+                <div className="mt-3 rounded-xl border border-slate-100 p-4 text-sm">
+                  {partner
+                    ? <div className="flex flex-wrap items-center justify-between gap-3"><span>💛 <b>FUJ Partner</b> · <StatusPill value={partner.status} />{partner.pledge_amount ? ` · ${formatCurrency(Number(partner.pledge_amount))} ${frequencyLabel(partner.frequency).toLowerCase()}` : ""}</span><Link className="btn btn-secondary btn-sm" href={`/admin/partners/${partner.id}`}>Open partner</Link></div>
+                    : <ActionForm action={addPartnerAction} className="flex flex-wrap items-end gap-2">
+                        <input type="hidden" name="person_id" value={person.id} />
+                        <span className="w-full text-slate-600">Not a partner yet.</span>
+                        <label className="label flex-1">Pledge (₦) <span className="font-normal text-slate-400">(optional)</span><input className="input mt-1" name="pledge_amount" inputMode="decimal" /></label>
+                        <label className="label">How often<select className="input mt-1" name="frequency" defaultValue="monthly"><option value="">Not decided</option>{FREQUENCIES.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}</select></label>
+                        <SubmitButton className="btn btn-secondary" pendingText="Adding…">Add as partner</SubmitButton>
+                      </ActionForm>}
+                </div>
+              )}
+            </section>
+          )}
           {can(admin.role, "care") && (
             <section className="card p-6">
               <h2 className="font-bold">Pastoral follow-ups</h2>

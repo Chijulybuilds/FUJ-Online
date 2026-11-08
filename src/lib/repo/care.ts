@@ -21,7 +21,8 @@ export async function createTask(input: {
 
 /**
  * Absence analysis: flags members who attended before but missed the last N Sunday services in a row
- * (N = settings.absence_threshold, default 2), and people in church for the first time in the last 14 days.
+ * (N = settings.absence_threshold, default 2). First timers have their own follow-up (repo/first-timers.ts):
+ * only people who say it's their first time get one — not existing members who register online.
  * A service only counts if attendance was actually taken (at least one check-in), so a Sunday where nobody
  * opened check-in never makes the whole church look absent. One absentee task per absence streak: if staff
  * closed it while the person is still away, it isn't recreated until they come back and miss again.
@@ -41,7 +42,6 @@ export async function runFollowUpAnalysis() {
   const tasks = await db().list("follow_up_tasks");
   const people = await peopleById();
   let absentees = 0;
-  let newMembers = 0;
 
   if (recent.length === threshold) {
     const recentIds = new Set(recent.map((s) => s.id));
@@ -64,17 +64,7 @@ export async function runFollowUpAnalysis() {
     }
   }
 
-  const fortnight = now - 14 * 86400000;
-  for (const person of people.values()) {
-    const mine = attendance.filter((a) => a.person_id === person.id).sort((a, b) => a.checked_in_at.localeCompare(b.checked_in_at));
-    // First time in church within the last fortnight (online registrations already get a welcome task).
-    const firstSeen = mine[0]?.checked_in_at ?? null;
-    if (!firstSeen || new Date(firstSeen).getTime() < fortnight) continue;
-    if (tasks.some((t) => t.person_id === person.id && t.category === "first_timer")) continue;
-    await createTask({ person_id: person.id, category: "first_timer", priority: "normal", reason: "New member — welcome call within 48 hours", due_at: new Date(now + 2 * 86400000).toISOString() });
-    newMembers++;
-  }
-  return { absentees, newMembers };
+  return { absentees };
 }
 
 export async function listTasks() {

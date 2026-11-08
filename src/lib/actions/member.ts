@@ -1,10 +1,12 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireMember } from "@/lib/auth/session";
 import { markRead, respond } from "@/lib/repo/messaging";
 import { submitTestimony } from "@/lib/repo/content";
 import { FriendlyError, updatePerson } from "@/lib/repo/people";
 import { db } from "@/lib/db";
+import { addPartner, sendPartnerThanks } from "@/lib/repo/partners";
 
 type State = { ok?: boolean; message?: string } | null;
 const str = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
@@ -53,4 +55,24 @@ export async function myPrayerCloseAction(fd: FormData) {
   const row = await db().get("prayer_requests", { id: str(fd, "id"), person_id: me.personId });
   if (row) await db().update("prayer_requests", { id: row.id }, { status: str(fd, "status") === "answered" ? "answered" : "closed", updated_at: new Date().toISOString() });
   revalidatePath("/member/prayer-requests");
+}
+
+/** "Become a FUJ Partner" from the member portal (Giving page). */
+export async function becomePartnerAction(_: State, fd: FormData): Promise<State> {
+  const me = await requireMember();
+  const raw = str(fd, "pledge_amount").replace(/[,₦\s]/g, "");
+  const amount = raw ? Number(raw) : null;
+  if (amount !== null && (!Number.isFinite(amount) || amount < 0)) return { ok: false, message: "Enter the amount in naira, or leave it empty." };
+  const frequency = ["monthly", "quarterly", "yearly", "one_off"].includes(str(fd, "frequency")) ? str(fd, "frequency") as "monthly" | "quarterly" | "yearly" | "one_off" : null;
+  try {
+    const { partner, person, created } = await addPartner({ personId: me.personId, source: "portal", pledge_amount: amount, frequency: amount ? frequency ?? "monthly" : frequency });
+    if (!created && amount && !partner.pledge_amount) await db().update("partners", { id: partner.id }, { pledge_amount: amount, frequency: frequency ?? "monthly", status: partner.status === "interested" || partner.status === "contacted" ? "committed" : partner.status, updated_at: new Date().toISOString() });
+    if (created) after(() => sendPartnerThanks([{ partner, person }]).then(() => undefined, (error) => console.error("partner thank-you failed", error)));
+  } catch (error) {
+    if (error instanceof FriendlyError) return { ok: false, message: error.message };
+    console.error(error);
+    return { ok: false, message: "Something went wrong. Please try again." };
+  }
+  revalidatePath("/member/giving");
+  return { ok: true, message: "Thank you for partnering with us! 💛 Our partnership team will reach out to you." };
 }

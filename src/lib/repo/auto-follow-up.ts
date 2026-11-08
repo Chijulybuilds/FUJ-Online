@@ -54,7 +54,7 @@ export async function closeAbsenteeTasksOnReturn(personId: string, serviceTitle?
 }
 
 export type AutoFollowUpResult = {
-  enabled: boolean; detected: number; newMembers: number; returned: number; firstSent: number; remindersSent: number; channels: Channel[];
+  enabled: boolean; detected: number; returned: number; firstSent: number; remindersSent: number; channels: Channel[];
 };
 
 /**
@@ -70,7 +70,7 @@ export async function runAbsenteeFollowUps(now = new Date()): Promise<AutoFollow
   const analysis = await runFollowUpAnalysis();
   const settings = await getSettings();
   const channels = followUpChannels(settings);
-  const result: AutoFollowUpResult = { enabled: settings.auto_follow_up, detected: analysis.absentees, newMembers: analysis.newMembers, returned: 0, firstSent: 0, remindersSent: 0, channels };
+  const result: AutoFollowUpResult = { enabled: settings.auto_follow_up, detected: analysis.absentees, returned: 0, firstSent: 0, remindersSent: 0, channels };
   if (!settings.auto_follow_up) return result;
 
   const tasks = (await db().list("follow_up_tasks", { where: { category: "absentee" } })).filter(isOpen);
@@ -123,6 +123,5 @@ export function describeRun(r: AutoFollowUpResult) {
   if (r.enabled) parts.push(`${r.firstSent} first message${r.firstSent === 1 ? "" : "s"} and ${r.remindersSent} reminder${r.remindersSent === 1 ? "" : "s"} sent`);
   else parts.push("automatic messages are off (Settings → Automatic follow-up)");
   if (r.returned) parts.push(`${r.returned} back in church`);
-  if (r.newMembers) parts.push(`${r.newMembers} new-member welcome task${r.newMembers === 1 ? "" : "s"}`);
   return parts.join(" · ") + ".";
 }

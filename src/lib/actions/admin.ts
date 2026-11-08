@@ -3,13 +3,15 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import type { Channel, StaffRole } from "@/lib/db/types";
+import type { Channel, FirstTimer, Partner, Person, StaffRole } from "@/lib/db/types";
 import { requireAdmin } from "@/lib/auth/session";
 import type { Area } from "@/lib/auth/roles";
 import { createPerson, findByUsername, FriendlyError, updatePerson } from "@/lib/repo/people";
 import { closeCheckIn, createService, openCheckIn, recordAttendance, updateService } from "@/lib/repo/services";
 import { createTask, logContact, updateTask } from "@/lib/repo/care";
 import { describeRun, runAbsenteeFollowUps } from "@/lib/repo/auto-follow-up";
+import { describeFirstTimerRun, logFirstTimerContact, runFirstTimerFollowUps, sendFirstTimerWelcome, startFirstTimer, updateFirstTimer } from "@/lib/repo/first-timers";
+import { addPartner, describePartnerRun, logPartnerContact, runPartnerFollowUps, sendPartnerThanks, updatePartner } from "@/lib/repo/partners";
 import { sendBroadcast, sendTestMessage, smsUndelivered, tasksForNonResponders } from "@/lib/repo/messaging";
 import { saveAnnouncement, setAnnouncementStatus, updatePrayer, moderateTestimony } from "@/lib/repo/content";
 import { recordDonation } from "@/lib/repo/giving";
@@ -49,12 +51,17 @@ export async function createPersonAction(_: State, fd: FormData): Promise<State>
   const result = await guarded("members", async (actor) => {
     const fullName = str(fd, "full_name");
     if (fullName.length < 2) return { ok: false, message: "Enter the person's full name." };
+    const firstTimer = bool(fd, "first_timer");
     const person = await createPerson({
       full_name: fullName, phone: str(fd, "phone"), email: opt(fd, "email"), status: "member",
       gender: opt(fd, "gender"), birthday: opt(fd, "birthday"), address: opt(fd, "address"), how_heard: opt(fd, "how_heard"), notes: opt(fd, "notes"),
-      verified_via: "admin"
+      verified_via: "admin", first_timer: firstTimer ? true : null
     });
-    await audit(actor, "person.create", "people", person.id);
+    await audit(actor, "person.create", "people", person.id, { first_timer: firstTimer });
+    if (firstTimer) {
+      const { journey } = await startFirstTimer(person, { source: "admin" });
+      welcomeLater(journey, person);
+    }
     newId = person.id;
     return { ok: true };
   });
@@ -120,6 +127,8 @@ export async function closeCheckInAction(fd: FormData) {
       } catch (error) {
         console.error("automatic follow-up after closing check-in failed", error);
       }
+      // First timers added at the desk during the service get their welcome message now.
+      await runFirstTimerFollowUps().catch((error) => console.error("first-timer follow-up after closing check-in failed", error));
     });
     return null;
   });
@@ -357,6 +366,117 @@ export async function recordDonationAction(_: State, fd: FormData): Promise<Stat
   });
 }
 
+/* ---------------- First timers ---------------- */
+function welcomeLater(journey: FirstTimer, person: Person) {
+  after(() => sendFirstTimerWelcome([{ journey, person }]).then(() => undefined, (error) => console.error("first-timer welcome failed", error)));
+}
+function thankLater(partner: Partner, person: Person) {
+  after(() => sendPartnerThanks([{ partner, person }]).then(() => undefined, (error) => console.error("partner thank-you failed", error)));
+}
+const CONTACT_CHANNEL = z.enum(["call", "sms", "whatsapp", "visit", "email", "in_app", "note"]);
+/** A date input (YYYY-MM-DD) as 9:00 in Lagos. */
+const lagosDate = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T09:00:00+01:00`).toISOString() : null);
+
+export async function startFirstTimerAction(_: State, fd: FormData): Promise<State> {
+  let id = "";
+  const result = await guarded("care", async (actor) => {
+    const person = await db().get("people", { id: str(fd, "person_id") });
+    if (!person) return { ok: false, message: "Person not found." };
+    const { journey, created } = await startFirstTimer(person, { source: "admin", assignee: opt(fd, "assignee") });
+    if (created) { welcomeLater(journey, person); await audit(actor, "first_timer.start", "first_timers", journey.id); }
+    id = journey.id;
+    return { ok: true };
+  });
+  return id ? { ok: true, redirectTo: `/admin/first-timers/${id}` } : result;
+}
+
+export async function updateFirstTimerAction(_: State, fd: FormData): Promise<State> {
+  return guarded("care", async (actor) => {
+    const id = str(fd, "id");
+    const stage = z.enum(["new", "welcomed", "returned", "settled", "closed"]).parse(str(fd, "stage"));
+    await updateFirstTimer(id, { stage, assignee: opt(fd, "assignee"), notes: opt(fd, "notes"), close_reason: stage === "closed" ? opt(fd, "close_reason") : null }, actor);
+    await audit(actor, "first_timer.update", "first_timers", id, { stage });
+    revalidatePath(`/admin/first-timers/${id}`);
+    revalidatePath("/admin/first-timers");
+    return { ok: true, message: "Saved." };
+  });
+}
+
+export async function logFirstTimerContactAction(_: State, fd: FormData): Promise<State> {
+  return guarded("care", async (actor) => {
+    const id = str(fd, "id");
+    await logFirstTimerContact(id, { channel: CONTACT_CHANNEL.parse(str(fd, "channel")), outcome: str(fd, "outcome") || "Contacted", note: opt(fd, "note"), author: actor });
+    revalidatePath(`/admin/first-timers/${id}`);
+    revalidatePath("/admin/first-timers");
+    return { ok: true, message: "Contact logged." };
+  });
+}
+
+export async function runFirstTimerAction(): Promise<State> {
+  return guarded("care", async (actor) => {
+    const r = await runFirstTimerFollowUps();
+    await audit(actor, "first_timers.manual_run", "first_timers", null, r as unknown as Record<string, unknown>);
+    revalidatePath("/admin/first-timers");
+    return { ok: true, message: describeFirstTimerRun(r) };
+  });
+}
+
+/* ---------------- Partners ---------------- */
+const amountFrom = (v: string) => { const n = Number(v.replace(/[,₦\s]/g, "")); return v.trim() && Number.isFinite(n) && n >= 0 ? n : null; };
+const FREQUENCY = z.enum(["monthly", "quarterly", "yearly", "one_off"]);
+
+export async function addPartnerAction(_: State, fd: FormData): Promise<State> {
+  let id = "";
+  const result = await guarded("partners", async (actor) => {
+    const frequency = str(fd, "frequency");
+    const { partner, person, created } = await addPartner({
+      personId: opt(fd, "person_id") ?? undefined, full_name: str(fd, "full_name"), phone: str(fd, "phone"), email: opt(fd, "email"), source: "admin",
+      pledge_amount: amountFrom(str(fd, "pledge_amount")), frequency: frequency ? FREQUENCY.parse(frequency) : null, notes: opt(fd, "notes"), assignee: opt(fd, "assignee")
+    });
+    if (created && bool(fd, "send_thanks")) thankLater(partner, person);
+    await audit(actor, "partner.add", "partners", partner.id);
+    id = partner.id;
+    return { ok: true };
+  });
+  return id ? { ok: true, redirectTo: `/admin/partners/${id}?added=1` } : result;
+}
+
+export async function updatePartnerAction(_: State, fd: FormData): Promise<State> {
+  return guarded("partners", async (actor) => {
+    const id = str(fd, "id");
+    const frequency = str(fd, "frequency");
+    await updatePartner(id, {
+      status: z.enum(["interested", "contacted", "committed", "active", "paused", "declined"]).parse(str(fd, "status")),
+      pledge_amount: amountFrom(str(fd, "pledge_amount")), frequency: frequency ? FREQUENCY.parse(frequency) : null,
+      next_follow_up_at: lagosDate(str(fd, "next_follow_up_at")), assignee: opt(fd, "assignee"), notes: opt(fd, "notes")
+    }, actor);
+    await audit(actor, "partner.update", "partners", id);
+    revalidatePath(`/admin/partners/${id}`);
+    revalidatePath("/admin/partners");
+    return { ok: true, message: "Partner saved." };
+  });
+}
+
+export async function logPartnerContactAction(_: State, fd: FormData): Promise<State> {
+  return guarded("partners", async (actor) => {
+    const id = str(fd, "id");
+    const next = str(fd, "next_follow_up_at");
+    await logPartnerContact(id, { channel: CONTACT_CHANNEL.parse(str(fd, "channel")), outcome: str(fd, "outcome") || "Contacted", note: opt(fd, "note"), author: actor, ...(next ? { next_follow_up_at: lagosDate(next) } : {}) });
+    revalidatePath(`/admin/partners/${id}`);
+    revalidatePath("/admin/partners");
+    return { ok: true, message: "Contact logged." };
+  });
+}
+
+export async function runPartnerAction(_: State, fd: FormData): Promise<State> {
+  return guarded("partners", async (actor) => {
+    const r = await runPartnerFollowUps(new Date(), { forceReminders: str(fd, "mode") === "reminders" });
+    await audit(actor, "partners.manual_run", "partners", null, r as unknown as Record<string, unknown>);
+    revalidatePath("/admin/partners");
+    return { ok: true, message: describePartnerRun(r) };
+  });
+}
+
 /* ---------------- Settings & staff ---------------- */
 export async function saveSettingsAction(_: State, fd: FormData): Promise<State> {
   return guarded("settings", async (actor) => {
@@ -391,6 +511,25 @@ export async function saveFollowUpSettingsAction(_: State, fd: FormData): Promis
     revalidatePath("/admin/settings");
     revalidatePath("/admin/pastoral-care");
     return { ok: true, message: "Automatic follow-up settings saved." };
+  });
+}
+
+export async function saveFirstTimerPartnerSettingsAction(_: State, fd: FormData): Promise<State> {
+  return guarded("settings", async (actor) => {
+    const texts = ["first_timer_welcome_message", "first_timer_invite_message", "partner_thanks_message", "partner_reminder_message"].map((k) => str(fd, k));
+    if (texts.some((t) => t.length > 900)) return { ok: false, message: "Keep each message under 900 characters (WhatsApp and SMS limits)." };
+    const [welcome, invite, thanks, reminder] = texts;
+    await saveSettings({
+      first_timer_auto: bool(fd, "first_timer_auto"), first_timer_max_invites: clampInt(str(fd, "first_timer_max_invites"), 0, 8, 3),
+      first_timer_welcome_message: welcome || null, first_timer_invite_message: invite || null,
+      partner_auto: bool(fd, "partner_auto"), partner_reminders: bool(fd, "partner_reminders"), partner_reminder_day: clampInt(str(fd, "partner_reminder_day"), 1, 28, 1),
+      partner_thanks_message: thanks || null, partner_reminder_message: reminder || null
+    });
+    await audit(actor, "settings.first_timers_partners", "church_settings", null);
+    revalidatePath("/admin/settings");
+    revalidatePath("/admin/first-timers");
+    revalidatePath("/admin/partners");
+    return { ok: true, message: "First-timer and partner settings saved." };
   });
 }
 

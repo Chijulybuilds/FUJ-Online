@@ -11,6 +11,8 @@ export const NAV_GROUPS: { label: string; links: NavLink[] }[] = [
   ] },
   { label: "MINISTRY", links: [
     { label: "Pastoral care", href: "/admin/pastoral-care", icon: "heart", area: "care" },
+    { label: "First timers", href: "/admin/first-timers", icon: "sparkles", area: "care" },
+    { label: "Partners", href: "/admin/partners", icon: "partner", area: "partners" },
     { label: "Broadcasts", href: "/admin/messaging", icon: "send", area: "messaging" },
     { label: "Inbox", href: "/admin/inbox", icon: "inbox", area: "inbox" },
     { label: "Announcements", href: "/admin/announcements", icon: "megaphone", area: "announcements" },

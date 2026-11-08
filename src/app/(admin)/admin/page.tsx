@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, CalendarCheck, CircleDollarSign, HeartHandshake, MessageSquare, QrCode, UserPlus, Users } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, CircleDollarSign, HandCoins, HeartHandshake, MessageSquare, QrCode, Sparkles, UserPlus, Users } from "lucide-react";
 import { PageHeading } from "@/components/ui/page-heading";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -58,6 +58,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           <h2 className="mb-4 font-bold">Needs attention</h2>
           <ul className="space-y-3 text-sm">
             {can(admin.role, "care") && <li className="flex items-center justify-between"><Link href="/admin/pastoral-care" className="flex items-center gap-2"><HeartHandshake size={16} className="text-blue-600" /> Open follow-ups</Link><b>{stats.openTasks}</b></li>}
+            {can(admin.role, "care") && <li className="flex items-center justify-between"><Link href="/admin/first-timers?stage=new" className="flex items-center gap-2"><Sparkles size={16} className="text-blue-600" /> First timers to welcome</Link><b data-testid="dash-first-timers">{stats.firstTimersToWelcome}</b></li>}
+            {can(admin.role, "partners") && <li className="flex items-center justify-between"><Link href="/admin/partners" className="flex items-center gap-2"><HandCoins size={16} className="text-blue-600" /> Partner follow-ups due</Link><b>{stats.partnerFollowUpsDue}</b></li>}
             {can(admin.role, "prayer") && <li className="flex items-center justify-between"><Link href="/admin/prayer-requests" className="flex items-center gap-2"><MessageSquare size={16} className="text-blue-600" /> New prayer requests</Link><b>{stats.pendingPrayers}</b></li>}
             {can(admin.role, "testimonies") && <li className="flex items-center justify-between"><Link href="/admin/testimonies" className="flex items-center gap-2"><ArrowUpRight size={16} className="text-blue-600" /> Testimonies to review</Link><b>{stats.pendingTestimonies}</b></li>}
           </ul>

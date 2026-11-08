@@ -1,4 +1,4 @@
-/* Row types mirror the Supabase schema (migrations 0001 + 0005). */
+/* Row types mirror the Supabase schema (supabase/migrations). */
 
 /** Everyone who registers is a member (FUJ has no "visitor" category). */
 export type PersonStatus = "member" | "inactive" | "transferred" | "left_ministry";
@@ -29,6 +29,8 @@ export interface Person {
   /** How the person signed up (everyone is verified automatically at registration). */
   verified_via: "google" | "in_person" | "admin" | "otp" | "registration" | null;
   verified_at: string | null;
+  /** Answer to "Is this your first time at FlagUpJesus?" at registration (null = not asked). */
+  first_timer: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -208,6 +210,66 @@ export interface BroadcastRecipient {
   created_at: string;
 }
 
+export type FirstTimerStage = "new" | "welcomed" | "returned" | "settled" | "closed";
+/** Follow-up journey for someone who told us it was their first time at FlagUpJesus. */
+export interface FirstTimer {
+  id: string;
+  person_id: string;
+  first_visit_at: string;
+  /** The service they first came to (when they registered from its QR code or at the desk). */
+  service_id: string | null;
+  stage: FirstTimerStage;
+  source: "registration" | "desk" | "admin";
+  assignee: string | null;
+  /** Services attended since their first visit (including it). */
+  visits: number;
+  welcome_sent_at: string | null;
+  invites_sent: number;
+  last_invite_at: string | null;
+  welcomed_at: string | null;
+  returned_at: string | null;
+  settled_at: string | null;
+  closed_at: string | null;
+  close_reason: string | null;
+  last_contacted_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PartnerStatus = "interested" | "contacted" | "committed" | "active" | "paused" | "declined";
+export type PartnerFrequency = "monthly" | "quarterly" | "yearly" | "one_off";
+/** A FUJ Partner: someone supporting the ministry with (regular) giving. */
+export interface Partner {
+  id: string;
+  person_id: string;
+  status: PartnerStatus;
+  source: "registration" | "portal" | "admin";
+  pledge_amount: number | null;
+  frequency: PartnerFrequency | null;
+  assignee: string | null;
+  next_follow_up_at: string | null;
+  last_contacted_at: string | null;
+  last_gift_at: string | null;
+  thanks_sent_at: string | null;
+  last_reminder_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A call / message / visit / automatic message logged against a first timer or a partner. */
+export interface ContactLog {
+  id: string;
+  subject: "first_timer" | "partner";
+  subject_id: string;
+  channel: FollowUpLog["channel"];
+  outcome: string;
+  note: string | null;
+  author: string | null;
+  created_at: string;
+}
+
 /** A church leader added by admins; contact details live on the linked person record. */
 export interface Leader {
   id: string;
@@ -253,6 +315,18 @@ export interface ChurchSettings {
   follow_up_channels: ("whatsapp" | "sms" | "email")[];
   follow_up_first_message: string | null;
   follow_up_reminder_message: string | null;
+  /** First timers: welcome message straight away + an invitation every Saturday until they come back. */
+  first_timer_auto: boolean;
+  first_timer_max_invites: number;
+  first_timer_welcome_message: string | null;
+  first_timer_invite_message: string | null;
+  /** Partners: thank-you message when someone signs up; optional monthly partnership reminders. */
+  partner_auto: boolean;
+  partner_reminders: boolean;
+  /** Day of the month (1–28) the partnership reminder goes out. */
+  partner_reminder_day: number;
+  partner_thanks_message: string | null;
+  partner_reminder_message: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -283,6 +357,9 @@ export interface Tables {
   broadcast_recipients: BroadcastRecipient;
   admin_users: AdminUser;
   leaders: Leader;
+  first_timers: FirstTimer;
+  partners: Partner;
+  contact_logs: ContactLog;
   church_settings: ChurchSettings;
   audit_logs: AuditLog;
 }

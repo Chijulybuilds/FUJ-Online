@@ -31,12 +31,29 @@ export type NewPerson = {
   full_name: string; phone: string; email?: string | null; status?: PersonStatus; gender?: string | null; birthday?: string | null;
   address?: string | null; how_heard?: string | null; auth_subject?: string | null; avatar_url?: string | null; notes?: string | null;
   verified_via?: Person["verified_via"];
+  /** "Is this your first time at FlagUpJesus?" — false = an existing member registering online. */
+  first_timer?: boolean | null;
 };
 
 async function nextPersonCode() {
   const people = await db().list("people");
   const max = people.reduce((m, p) => Math.max(m, Number(p.person_code?.replace(/\D/g, "") ?? 0) || 0), 0);
   return `FOJ-${String(max + 1).padStart(4, "0")}`;
+}
+
+/** Saves a new person; if the database hasn't been updated with the newest column yet, saves without it. */
+async function insertPerson(row: Person) {
+  try {
+    return await db().insert("people", row);
+  } catch (error) {
+    if (!(error instanceof DuplicateError) && error instanceof Error && /first_timer/.test(error.message)) {
+      console.error("people.first_timer is missing — re-run supabase/setup.sql. Saving without it.");
+      const { first_timer: _skip, ...rest } = row;
+      void _skip;
+      return await db().insert("people", rest as Person);
+    }
+    throw error;
+  }
 }
 
 /** Creates the church person record and assigns a unique "flag…" username. */
@@ -50,10 +67,12 @@ export async function createPerson(input: NewPerson): Promise<Person> {
     const username = generateUsername(input.full_name);
     if (await db().get("people", { username })) continue;
     try {
-      return await db().insert("people", {
+      return await insertPerson({
         id: uid(), person_code: await nextPersonCode(), username, full_name: input.full_name.trim(), phone: input.phone.trim(),
         normalized_phone: normalized, email: input.email?.trim().toLowerCase() || null, status: input.status ?? "member",
-        first_visit_at: now, joined_at: now, notes: input.notes ?? null,
+        // An existing member registering online wasn't here for the first time today.
+        first_visit_at: input.first_timer === false ? null : now, joined_at: now, notes: input.notes ?? null,
+        first_timer: input.first_timer ?? null,
         auth_subject: input.auth_subject ?? null, avatar_url: input.avatar_url ?? null, gender: input.gender || null,
         birthday: input.birthday || null, address: input.address || null, how_heard: input.how_heard || null,
         last_seen_at: null, whatsapp: "unknown", whatsapp_checked_at: null,

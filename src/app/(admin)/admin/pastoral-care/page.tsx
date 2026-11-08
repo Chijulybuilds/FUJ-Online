@@ -10,7 +10,7 @@ import { providers } from "@/lib/messaging/providers";
 import { quickTaskStatusAction, runAnalysisAction } from "@/lib/actions/admin";
 import { formatDate, timeAgo } from "@/lib/utils";
 
-const CATS = [["", "All open"], ["absentee", "Absentees"], ["first_timer", "New members"], ["prayer", "Prayer"], ["broadcast", "Broadcast"], ["general", "General"], ["done", "Completed"]];
+const CATS = [["", "All open"], ["absentee", "Absentees"], ["prayer", "Prayer"], ["broadcast", "Broadcast"], ["general", "General"], ["done", "Completed"]];
 
 export default async function PastoralCarePage({ searchParams }: { searchParams: Promise<{ cat?: string }> }) {
   await requireAdmin("care");
@@ -23,10 +23,12 @@ export default async function PastoralCarePage({ searchParams }: { searchParams:
   const pending = chosen.filter((c) => !connected(c)).map(label);
   const isOpen = (s: string) => s === "open" || s === "in_progress";
   const shown = tasks.filter((t) => (cat === "done" ? !isOpen(t.status) : isOpen(t.status) && (!cat || t.category === cat)));
+  // Welcome-call tasks from before first timers had their own page.
+  const olderWelcomeCalls = tasks.filter((t) => t.category === "first_timer" && isOpen(t.status)).length;
   const counts = { open: tasks.filter((t) => isOpen(t.status)).length, high: tasks.filter((t) => isOpen(t.status) && t.priority === "high").length, done: tasks.filter((t) => t.status === "completed").length };
   return (
     <>
-      <PageHeading title="Pastoral care & follow-up" description="Absentees, new members and anyone who needs a personal check-in. Nothing here ever changes membership status automatically."
+      <PageHeading title="Pastoral care & follow-up" description={<>Absentees and anyone who needs a personal check-in. First timers have their own page: <Link href="/admin/first-timers" className="font-semibold text-blue-600">First timers →</Link> Nothing here ever changes membership status automatically.</>}
         action={<ActionForm action={runAnalysisAction}><SubmitButton pendingText="Checking…">Check absences now</SubmitButton></ActionForm>} />
       <div className={`alert mb-5 flex flex-wrap items-center justify-between gap-3 ${settings.auto_follow_up ? "alert-ok" : "alert-warn"}`} data-testid="auto-follow-up-status">
         {settings.auto_follow_up
@@ -39,7 +41,7 @@ export default async function PastoralCarePage({ searchParams }: { searchParams:
         <div className="card p-4"><p className="text-xs text-slate-500">High priority</p><p className="text-2xl font-bold text-blue-600">{counts.high}</p></div>
         <div className="card p-4"><p className="text-xs text-slate-500">Completed</p><p className="text-2xl font-bold">{counts.done}</p></div>
       </div>
-      <div className="tabs mb-4">{CATS.map(([v, l]) => <Link key={v} href={`/admin/pastoral-care?cat=${v}`} className={`tab ${cat === v ? "active" : ""}`}>{l}</Link>)}</div>
+      <div className="tabs mb-4">{CATS.map(([v, l]) => <Link key={v} href={`/admin/pastoral-care?cat=${v}`} className={`tab ${cat === v ? "active" : ""}`}>{l}</Link>)}{(olderWelcomeCalls > 0 || cat === "first_timer") && <Link href="/admin/pastoral-care?cat=first_timer" className={`tab ${cat === "first_timer" ? "active" : ""}`}>Older welcome calls ({olderWelcomeCalls})</Link>}</div>
       <div className="card">
         <div className="table-wrap">
           <table className="data-table">

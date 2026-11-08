@@ -13,13 +13,15 @@ export function RegisterForm({ defaults, checkInNote, verified = false, otp = fa
   const [info, setInfo] = useState(""); const [sending, setSending] = useState(false);
   const [codeSent, setCodeSent] = useState(false); const [cooldown, setCooldown] = useState(0);
   useEffect(() => { if (cooldown <= 0) return; const t = setTimeout(() => setCooldown((c) => c - 1), 1000); return () => clearTimeout(t); }, [cooldown]);
-  const [done, setDone] = useState<{ username: string; name: string; checkedIn: boolean } | null>(null);
+  const [done, setDone] = useState<{ username: string; name: string; checkedIn: boolean; firstTimer?: boolean; partner?: boolean } | null>(null);
   if (done) {
     return (
       <div className="text-center" data-testid="register-success">
         <div className="success-ring mx-auto"><CheckCircle2 size={40} /></div>
         <h1 className="mt-5 text-2xl font-bold">Welcome to the family, {done.name.split(" ")[0]}!</h1>
         {done.checkedIn && <p className="alert alert-ok mt-4">You&apos;re checked in for today&apos;s service. 🎉</p>}
+        {done.firstTimer && <p className="mt-3 text-sm text-slate-600">We&apos;re so glad you came! Someone from our team will reach out to you this week. 🤗</p>}
+        {done.partner && <p className="mt-3 text-sm text-slate-600" data-testid="partner-thanks">💛 Thank you for choosing to partner with us — our partnership team will be in touch.</p>}
         <p className="mt-5 text-sm text-slate-500">Your check-in username is</p>
         <p className="username-badge mt-2 text-3xl font-extrabold text-blue-600" data-testid="new-username">{done.username}</p>
         <div className="mt-3 flex justify-center"><CopyButton value={done.username} label="Copy username" /></div>
@@ -48,6 +50,7 @@ export function RegisterForm({ defaults, checkInNote, verified = false, otp = fa
       const body = {
         fullName: String(fd.get("fullName") ?? ""), phone, email: String(fd.get("email") ?? ""),
         birthday: String(fd.get("birthday") ?? ""), address: String(fd.get("address") ?? ""),
+        firstTimer: String(fd.get("firstTimer") ?? ""), partner: fd.get("partner") === "on",
         ...(needsOtp ? { code: String(fd.get("code") ?? "") } : {})
       };
       const res = await fetch("/api/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -62,6 +65,17 @@ export function RegisterForm({ defaults, checkInNote, verified = false, otp = fa
       <label className="label">Email <span className="font-normal text-slate-400">(optional)</span><input className="input mt-2" name="email" type="email" defaultValue={defaults.email} autoComplete="email" /></label>
       <label className="label">Birthday<input className="input mt-2" name="birthday" type="date" required min="1900-01-01" autoComplete="bday" /></label>
       <label className="label">Home address<textarea className="input mt-2 min-h-[4.5rem]" name="address" required minLength={5} maxLength={300} rows={2} autoComplete="street-address" placeholder="House number, street, area, city" /></label>
+      <fieldset className="label" data-testid="first-timer-question">
+        <legend>Is this your first time worshipping with FlagUpJesus?</legend>
+        <div className="choice-grid">
+          <label className="choice"><input type="radio" name="firstTimer" value="yes" required /><span>🎉 Yes, it&apos;s my first time</span><small>Welcome! We&apos;d love to get to know you.</small></label>
+          <label className="choice"><input type="radio" name="firstTimer" value="no" required /><span>🙌 No, I&apos;ve been here before</span><small>I&apos;m already part of the family.</small></label>
+        </div>
+      </fieldset>
+      <label className="partner-opt">
+        <input type="checkbox" name="partner" />
+        <span><b>💛 I&apos;d like to become a FUJ Partner</b><small>Partners support the work of the ministry — outreaches, missions and the gospel — with regular giving. Tick this and our partnership team will reach out to you.</small></span>
+      </label>
       {needsOtp && codeSent && (
         <label className="label">Verification code
           <input className="input mt-2 text-center text-2xl tracking-[.5em]" name="code" required inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} placeholder="••••••" autoFocus />

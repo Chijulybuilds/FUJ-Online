@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { birthdayProblem, registrationSchema } from "@/lib/validation/auth";
 
-const base = { fullName: "Ada Obi", phone: "0803 123 4567", email: "", birthday: "1994-08-21", address: "12 Aba Road, Rumuomasi, Port Harcourt" };
+const base = { fullName: "Ada Obi", phone: "0803 123 4567", email: "", birthday: "1994-08-21", address: "12 Aba Road, Rumuomasi, Port Harcourt", firstTimer: "yes" };
 const firstError = (input: unknown) => {
   const r = registrationSchema.safeParse(input);
   return r.success ? null : r.error.issues[0]?.message;
 };
 
-describe("registration: birthday and home address", () => {
+describe("registration: birthday, home address, first time?, partner", () => {
   it("accepts full name, phone, birthday and address (email optional)", () => {
     const r = registrationSchema.safeParse(base);
     expect(r.success).toBe(true);
@@ -27,6 +27,16 @@ describe("registration: birthday and home address", () => {
     expect(firstError(rest)).toBe("Enter your home address");
     expect(firstError({ ...base, address: "   " })).toBe("Enter your home address");
     expect(firstError({ ...base, address: "x".repeat(301) })).toBe("That address is too long");
+  });
+
+  it("asks whether it's their first time (yes / no), and partner is optional", () => {
+    const { firstTimer: _omit, ...rest } = base;
+    void _omit;
+    expect(firstError(rest)).toBe("Tell us if this is your first time with us");
+    expect(firstError({ ...base, firstTimer: "maybe" })).toBe("Tell us if this is your first time with us");
+    expect(registrationSchema.safeParse({ ...base, firstTimer: "no" }).success).toBe(true);
+    const r = registrationSchema.safeParse({ ...base, partner: true });
+    expect(r.success && r.data.partner).toBe(true);
   });
 
   it("rejects impossible, ancient and future birthdays", () => {

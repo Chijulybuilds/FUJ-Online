@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { runtimeEnv } from "@/lib/env";
 import { runAbsenteeFollowUps } from "@/lib/repo/auto-follow-up";
+import { runFirstTimerFollowUps } from "@/lib/repo/first-timers";
+import { runPartnerFollowUps } from "@/lib/repo/partners";
 import { audit } from "@/lib/repo/audit";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +12,9 @@ export const maxDuration = 60;
 const digest = (v: string) => createHash("sha256").update(v).digest();
 
 /**
- * Daily automatic absence follow-up, called by Vercel Cron (see vercel.json).
+ * Daily automatic follow-up, called by Vercel Cron (see vercel.json): absent members, first timers (welcome +
+ * Saturday invitations) and FUJ Partners (thank-you + monthly reminders on the chosen day). Each part runs on its
+ * own, so one failing doesn't stop the others.
  * Vercel sends `Authorization: Bearer <CRON_SECRET>` when the CRON_SECRET environment variable is set;
  * without it this endpoint refuses to run in production, so strangers can't trigger messages.
  */
@@ -22,14 +26,17 @@ export async function GET(request: NextRequest) {
   if (secret && !timingSafeEqual(digest(request.headers.get("authorization") ?? ""), digest(`Bearer ${secret}`))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  try {
-    const result = await runAbsenteeFollowUps();
-    if (result.detected || result.firstSent || result.remindersSent || result.returned) {
-      await audit("Automatic follow-up", "follow_up.auto_run", "follow_up_tasks", null, result as unknown as Record<string, unknown>);
-    }
-    return NextResponse.json({ ok: true, ...result });
-  } catch (error) {
-    console.error("automatic follow-up failed", error);
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message.slice(0, 200) : "unknown" }, { status: 500 });
+  const failed: string[] = [];
+  const attempt = async <T,>(name: string, fn: () => Promise<T>) => {
+    try { return await fn(); } catch (error) { console.error(`automatic ${name} follow-up failed`, error); failed.push(`${name}: ${error instanceof Error ? error.message.slice(0, 160) : "unknown"}`); return null; }
+  };
+  const result = await attempt("absence", runAbsenteeFollowUps);
+  if (result && (result.detected || result.firstSent || result.remindersSent || result.returned)) {
+    await audit("Automatic follow-up", "follow_up.auto_run", "follow_up_tasks", null, result as unknown as Record<string, unknown>);
   }
+  const firstTimers = await attempt("first-timer", () => runFirstTimerFollowUps());
+  if (firstTimers && (firstTimers.welcomed || firstTimers.invited)) await audit("Automatic follow-up", "first_timers.auto_run", "first_timers", null, firstTimers as unknown as Record<string, unknown>);
+  const partners = await attempt("partner", () => runPartnerFollowUps());
+  if (partners && (partners.thanked || partners.reminded)) await audit("Automatic follow-up", "partners.auto_run", "partners", null, partners as unknown as Record<string, unknown>);
+  return NextResponse.json({ ok: failed.length === 0, ...(result ?? {}), firstTimers, partners, ...(failed.length ? { errors: failed } : {}) }, { status: failed.length === 3 ? 500 : 200 });
 }
