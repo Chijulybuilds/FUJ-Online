@@ -4,6 +4,7 @@ import { runtimeEnv } from "@/lib/env";
 import { runAbsenteeFollowUps } from "@/lib/repo/auto-follow-up";
 import { runFirstTimerFollowUps } from "@/lib/repo/first-timers";
 import { runPartnerFollowUps } from "@/lib/repo/partners";
+import { sendWelcomeBacklog } from "@/lib/repo/accounts";
 import { audit } from "@/lib/repo/audit";
 
 export const dynamic = "force-dynamic";
@@ -38,5 +39,8 @@ export async function GET(request: NextRequest) {
   if (firstTimers && (firstTimers.welcomed || firstTimers.invited)) await audit("Automatic follow-up", "first_timers.auto_run", "first_timers", null, firstTimers as unknown as Record<string, unknown>);
   const partners = await attempt("partner", () => runPartnerFollowUps());
   if (partners && (partners.thanked || partners.reminded)) await audit("Automatic follow-up", "partners.auto_run", "partners", null, partners as unknown as Record<string, unknown>);
-  return NextResponse.json({ ok: failed.length === 0, ...(result ?? {}), firstTimers, partners, ...(failed.length ? { errors: failed } : {}) }, { status: failed.length === 3 ? 500 : 200 });
+  // Welcome emails (flag username + set-a-password link) for anyone who registered before they existed.
+  const welcome = await attempt("welcome-email", () => sendWelcomeBacklog(60));
+  if (welcome?.sent) await audit("Automatic follow-up", "welcome_email.auto_run", "people", null, welcome as unknown as Record<string, unknown>);
+  return NextResponse.json({ ok: failed.length === 0, ...(result ?? {}), firstTimers, partners, welcome, ...(failed.length ? { errors: failed } : {}) }, { status: failed.length === 4 ? 500 : 200 });
 }

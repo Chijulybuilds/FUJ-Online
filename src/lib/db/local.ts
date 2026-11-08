@@ -16,6 +16,7 @@ const UNIQUE: Partial<Record<TableName, string[][]>> = {
   leaders: [["id"], ["person_id"]],
   first_timers: [["id"], ["person_id"]],
   partners: [["id"], ["person_id"]],
+  member_credentials: [["person_id"]],
   church_settings: [["id"]]
 };
 
@@ -25,7 +26,7 @@ function emptyStore(): Store {
   return {
     people: [], otp_codes: [], services: [], qr_sessions: [], attendance: [], follow_up_tasks: [], follow_up_logs: [],
     announcements: [], prayer_requests: [], testimonies: [], donations: [], broadcasts: [], broadcast_recipients: [],
-    admin_users: [], leaders: [], first_timers: [], partners: [], contact_logs: [], church_settings: [], audit_logs: []
+    admin_users: [], leaders: [], first_timers: [], partners: [], contact_logs: [], member_credentials: [], church_settings: [], audit_logs: []
   };
 }
 

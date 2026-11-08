@@ -7,6 +7,7 @@ import { createPerson, findByPhone, FriendlyError } from "@/lib/repo/people";
 import { ADULT_AGE, ageOf } from "@/lib/children";
 import { sendFirstTimerWelcome, startFirstTimer } from "@/lib/repo/first-timers";
 import { addPartner, sendPartnerThanks } from "@/lib/repo/partners";
+import { sendWelcomeEmail } from "@/lib/repo/accounts";
 import { audit } from "@/lib/repo/audit";
 import { clientIp, rateLimit } from "@/lib/security/rate-limit";
 import { verifyOtp } from "@/lib/repo/otp";
@@ -71,20 +72,20 @@ export async function POST(request: NextRequest) {
       ? await addPartner({ personId: person.id, source: "registration" }).then((r) => r.partner, (error) => { console.error("could not add partner", error); return null; })
       : null;
     await audit(null, "person.self_register", "people", person.id, { via: identity?.provider ?? (otpUsed ? "phone_otp" : "phone"), first_timer: d.firstTimer === "yes", partner: Boolean(partner), under_18: minor, parents_phone: parentsPhone });
-    // Welcome / thank-you messages go out after the response, so registering stays instant.
-    if (journey || partner) {
-      after(async () => {
-        try {
-          const fresh = (await db().get("people", { id: person.id })) ?? person;
-          if (journey) await sendFirstTimerWelcome([{ journey, person: fresh }]);
-          if (partner) await sendPartnerThanks([{ partner, person: fresh }]);
-        } catch (error) {
-          console.error("welcome / partner thank-you message failed", error);
-        }
-      });
-    }
+    // The welcome email (flag username + set-a-password link) and any first-timer / partner messages go out
+    // straight after the response, so registering stays instant.
+    after(async () => {
+      try {
+        const fresh = (await db().get("people", { id: person.id })) ?? person;
+        await sendWelcomeEmail(fresh);
+        if (journey) await sendFirstTimerWelcome([{ journey, person: fresh }]);
+        if (partner) await sendPartnerThanks([{ partner, person: fresh }]);
+      } catch (error) {
+        console.error("welcome / partner thank-you message failed", error);
+      }
+    });
     return NextResponse.json({
-      username: person.username, name: person.full_name, checkedIn: Boolean(checkIn), firstTimer: Boolean(journey), partner: Boolean(partner),
+      username: person.username, name: person.full_name, checkedIn: Boolean(checkIn), firstTimer: Boolean(journey), partner: Boolean(partner), emailed: Boolean(person.email),
       // Echo back the name they typed — never reveal who a phone number belongs to.
       parentsPhone, guardianName: parentsPhone ? d.guardianName ?? null : null
     });

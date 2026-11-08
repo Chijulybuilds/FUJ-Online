@@ -7,6 +7,8 @@ import { submitTestimony } from "@/lib/repo/content";
 import { FriendlyError, updatePerson } from "@/lib/repo/people";
 import { db } from "@/lib/db";
 import { addPartner, sendPartnerThanks } from "@/lib/repo/partners";
+import { credentialFor, sendWelcomeEmail, setPassword } from "@/lib/repo/accounts";
+import { verifyPassword } from "@/lib/auth/password";
 
 type State = { ok?: boolean; message?: string } | null;
 const str = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
@@ -77,3 +79,29 @@ export async function becomePartnerAction(_: State, fd: FormData): Promise<State
   return { ok: true, message: "Thank you for partnering with us! 💛 Our partnership team will reach out to you." };
 }
 
+
+/** Profile → Password: set one (or change it — the current password is needed then). */
+export async function setOwnPasswordAction(_: State, fd: FormData): Promise<State> {
+  const me = await requireMember();
+  const password = String(fd.get("password") ?? ""); const confirm = String(fd.get("confirm") ?? "");
+  if (password !== confirm) return { ok: false, message: "The two passwords don't match." };
+  const existing = await credentialFor(me.personId);
+  if (existing && !(await verifyPassword(String(fd.get("current") ?? ""), existing.password_hash))) return { ok: false, message: "Your current password isn't right." };
+  try {
+    await setPassword(me.personId, password);
+  } catch (error) {
+    if (error instanceof FriendlyError) return { ok: false, message: error.message };
+    throw error;
+  }
+  revalidatePath("/member/profile");
+  return { ok: true, message: existing ? "Password changed. 🔐" : "Password set! You can now sign in with your username (or email) and password. 🔐" };
+}
+
+/** Profile → "Email me my username": the welcome email again (with the set-a-password link if they have none). */
+export async function emailMyUsernameAction(): Promise<State> {
+  const me = await requireMember();
+  const person = await db().get("people", { id: me.personId });
+  if (!person?.email) return { ok: false, message: "Add your email address above first." };
+  const r = await sendWelcomeEmail(person, { force: true });
+  return r.status === "sent" ? { ok: true, message: `Sent to ${person.email} — check your inbox (and spam folder).` } : { ok: false, message: r.status === "skipped" ? "Email isn't available right now. Please try again later." : "We couldn't send the email. Please try again later." };
+}

@@ -3,7 +3,8 @@ import { ActionForm, SubmitButton } from "@/components/ui/action-form";
 import { requireAdmin } from "@/lib/auth/session";
 import { can, ROLE_LABELS } from "@/lib/auth/roles";
 import { getSettings } from "@/lib/repo/settings";
-import { addStaffAction, saveFirstTimerPartnerSettingsAction, saveFollowUpSettingsAction, saveSettingsAction, sendTestMessageAction, toggleStaffAction } from "@/lib/actions/admin";
+import { addStaffAction, saveFirstTimerPartnerSettingsAction, saveFollowUpSettingsAction, saveSettingsAction, sendTestMessageAction, sendWelcomeBacklogAction, toggleStaffAction } from "@/lib/actions/admin";
+import { WELCOME_BATCH, welcomeStats } from "@/lib/repo/accounts";
 import { DEFAULT_FIRST_MESSAGE, DEFAULT_REMINDER_MESSAGE } from "@/lib/repo/auto-follow-up";
 import { DEFAULT_INVITE_MESSAGE, DEFAULT_WELCOME_MESSAGE } from "@/lib/repo/first-timers";
 import { DEFAULT_REMINDER_MESSAGE as DEFAULT_PARTNER_REMINDER, DEFAULT_THANKS_MESSAGE } from "@/lib/repo/partners";
@@ -12,9 +13,12 @@ import { env } from "@/lib/env";
 import { emailFromProblem, providers } from "@/lib/messaging/providers";
 import { formatDate } from "@/lib/utils";
 
+// "Send welcome emails now" sends a paced batch, which can take up to ~40 seconds.
+export const maxDuration = 60;
+
 export default async function SettingsPage() {
   const admin = await requireAdmin("settings");
-  const [s, staff] = await Promise.all([getSettings(), can(admin.role, "staff") ? db().list("admin_users", { order: { column: "created_at" } }) : Promise.resolve([])]);
+  const [s, staff, welcome] = await Promise.all([getSettings(), can(admin.role, "staff") ? db().list("admin_users", { order: { column: "created_at" } }) : Promise.resolve([]), welcomeStats().catch(() => null)]);
   const integrations = [
     ["Database", env.useSupabaseData ? "Supabase (service role)" : "Local JSON file (development)", env.useSupabaseData],
     ["Google sign-in", env.googleEnabled ? "Configured" : "Add CLIENT_ID / CLIENT_SECRET", env.googleEnabled],
@@ -72,6 +76,26 @@ export default async function SettingsPage() {
             <div className="sm:col-span-2"><SubmitButton>Save follow-up settings</SubmitButton></div>
           </ActionForm>
         </section>
+        <section className="card p-6 xl:col-start-1" id="welcome-emails" data-testid="welcome-emails">
+          <h2 className="font-bold">✉️ Welcome emails</h2>
+          <p className="mt-1 text-sm text-slate-500">Everyone with an email address gets a warm “Welcome to FUJ Online Church” email with their <b>flag username</b> and a link to <b>set a password</b> for their membership dashboard (optional — the link works for 30 days). New registrations get it straight away; people who registered earlier get it when you click below, when they next sign in, or with the daily job.</p>
+          {welcome && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-100 p-3"><p className="text-xs text-slate-500">Sent</p><p className="text-xl font-bold" data-testid="welcome-sent">{welcome.sent}</p></div>
+              <div className="rounded-xl border border-slate-100 p-3"><p className="text-xs text-slate-500">Still to send</p><p className={`text-xl font-bold ${welcome.pending ? "text-[var(--accent)]" : ""}`} data-testid="welcome-pending">{welcome.pending}</p></div>
+              <div className="rounded-xl border border-slate-100 p-3"><p className="text-xs text-slate-500">No email address</p><p className="text-xl font-bold">{welcome.noEmail}</p><p className="text-[11px] text-slate-400">They see their username in their portal</p></div>
+            </div>
+          )}
+          {!providers.email && <p className="alert alert-warn mt-3 text-sm">Email isn&apos;t set up yet — add <b>RESEND_API_KEY</b> and <b>EMAIL_FROM</b> in Vercel (see Messaging channels). Nothing is lost: they&apos;ll go out once it is.</p>}
+          {welcome && providers.email && (
+            <ActionForm action={sendWelcomeBacklogAction} className="mt-4">
+              {welcome.pending > 0
+                ? <SubmitButton pendingText="Sending… (this can take a minute)">Send welcome emails now ({Math.min(welcome.pending, WELCOME_BATCH)} of {welcome.pending})</SubmitButton>
+                : <p className="alert alert-ok text-sm">Everyone with an email address has their welcome email. ✓</p>}
+              <p className="mt-2 text-xs text-slate-500">Sent {WELCOME_BATCH} at a time, a little apart, to respect the email provider&apos;s limits (Resend&apos;s free plan sends up to 100 emails a day). The daily job keeps going until everyone has theirs.</p>
+            </ActionForm>
+          )}
+        </section>
         <section className="card p-6 xl:col-start-1" id="first-timers-partners" data-testid="first-timer-partner-settings">
           <h2 className="font-bold">First timers &amp; partners — automatic messages</h2>
           <p className="mt-1 text-sm text-slate-500">Sent on the same channels as the absence follow-up above, plus the person&apos;s app inbox. Use {"{first_name}"} to personalise; leave a message empty to use the default.</p>
@@ -92,7 +116,7 @@ export default async function SettingsPage() {
             <div className="sm:col-span-2"><SubmitButton>Save first-timer &amp; partner settings</SubmitButton></div>
           </ActionForm>
         </section>
-        <div className="space-y-6 xl:col-start-2 xl:row-span-3 xl:row-start-1">
+        <div className="space-y-6 xl:col-start-2 xl:row-span-4 xl:row-start-1">
           <section className="card p-6" id="messaging" data-testid="messaging-channels">
             <h2 className="font-bold">Messaging channels</h2>
             <p className="mt-1 text-xs text-slate-500">Where broadcasts can go besides the app inbox. Connect a channel by adding its keys in Vercel → Settings → Environment Variables, then redeploy (step-by-step guide in the README).</p>
