@@ -181,12 +181,16 @@ test("a new member scans the QR, registers, gets a flag username and is checked 
   await shot(phone, "05-checkin-scanned");
   await phone.getByRole("link", { name: "Register now" }).click();
   await expect(phone.getByText(/checked in to E2E Sunday Service automatically/)).toBeVisible();
-  // Registration is just name + phone (+ optional email). No paid SMS OTP and no approval step.
+  // Registration is name + phone + birthday + home address (+ optional email). No paid SMS OTP and no approval step.
   await expect(phone.getByLabel("Email (optional)")).toBeVisible();
+  await expect(phone.getByLabel("Birthday")).toHaveAttribute("required", "");
+  await expect(phone.getByLabel("Home address")).toHaveAttribute("required", "");
   await expect(phone.getByLabel("Gender")).toHaveCount(0);
   await expect(phone.getByLabel("Verification code")).toHaveCount(0);
   await phone.getByLabel("Full name").fill("Chiamaka Nwankwo");
   await phone.getByLabel("Phone number").fill("0812 345 6789");
+  await phone.getByLabel("Birthday").fill("1998-03-14");
+  await phone.getByLabel("Home address").fill("7 Ikwerre Road, Mile 1, Port Harcourt");
   await phone.getByRole("button", { name: "Register & get my username" }).click();
   await expect(phone.getByTestId("register-success")).toBeVisible();
   newUsername = (await phone.getByTestId("new-username").textContent())!.trim();
@@ -263,9 +267,17 @@ test("check-in desk: admin finds members by name and checks them in; adds a new 
 
 test("online self-registration makes you a member straight away (no visitors, no verification); contacts export for WhatsApp", async ({ browser }) => {
   const p = await newDevice(browser);
+  // Birthday and home address are required (checked on the server too, not just in the browser).
+  const missing = await p.request.post("/api/register", { data: { fullName: "No Birthday", phone: "0705 000 0001", address: "1 Test Street, Port Harcourt" } });
+  expect(missing.status()).toBe(400);
+  expect((await missing.json()).error).toBe("Enter your birthday");
+  const future = await p.request.post("/api/register", { data: { fullName: "Future Baby", phone: "0705 000 0002", birthday: "2999-01-01", address: "1 Test Street, Port Harcourt" } });
+  expect((await future.json()).error).toBe("Your birthday can't be in the future");
   await go(p, "/register");
   await p.getByLabel("Full name").fill("Obinna Online");
   await p.getByLabel("Phone number").fill("0705 111 2222");
+  await p.getByLabel("Birthday").fill("1990-11-30");
+  await p.getByLabel("Home address").fill("15 Olu Obasanjo Road, D-Line, Port Harcourt");
   await p.getByRole("button", { name: "Register & get my username" }).click();
   await expect(p.getByTestId("register-success")).toBeVisible();
   await p.context().close();
@@ -279,6 +291,13 @@ test("online self-registration makes you a member straight away (no visitors, no
   await expect(admin.getByRole("button", { name: "Mark verified" })).toHaveCount(0);
   await expect(admin.getByLabel("Status")).toHaveValue("member");
   await expect(admin.getByLabel("Status").locator("option", { hasText: "visitor" })).toHaveCount(0);
+  // What they typed at sign-up is on their record and in the members export.
+  await expect(admin.getByLabel("Birthday")).toHaveValue("1990-11-30");
+  await expect(admin.getByLabel("Address")).toHaveValue("15 Olu Obasanjo Road, D-Line, Port Harcourt");
+  const peopleCsv = await (await admin.request.get("/api/admin/export?type=people")).text();
+  expect(peopleCsv.split("\n")[0]).toContain("birthday,address");
+  expect(peopleCsv).toContain("1990-11-30");
+  expect(peopleCsv).toContain("15 Olu Obasanjo Road, D-Line, Port Harcourt");
 
   const vcf = await admin.request.get("/api/admin/export?type=vcf");
   expect(vcf.headers()["content-type"]).toContain("text/vcard");

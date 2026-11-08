@@ -56,7 +56,9 @@ export function buildFixture() {
       status: "completed", created_at: iso(daysAgo(60)), updated_at: iso(daysAgo(1))
     });
   }
-  const nextSunday = new Date(lastSunday.getTime() + 7 * 86400000);
+  // Always in the future — on a Sunday after the 9:00 service, "next Sunday" is a week away.
+  let nextSunday = new Date(lastSunday.getTime() + 7 * 86400000);
+  if (nextSunday <= now) nextSunday = new Date(nextSunday.getTime() + 7 * 86400000);
   services.push({
     id: id(), title: "Sunday Celebration Service", description: "Thanksgiving Sunday", category: "Sunday worship", location: "Main auditorium",
     starts_at: iso(nextSunday), ends_at: iso(new Date(nextSunday.getTime() + 3 * 3600000)), check_in_opens_at: null, check_in_closes_at: null,

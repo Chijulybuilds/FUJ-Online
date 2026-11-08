@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     })]);
   } else {
     const people = await listPeople();
-    body = csv([["code", "name", "username", "phone", "email", "status", "first_visit", "joined"], ...people.map((p) => [p.person_code, p.full_name, p.username, p.phone, p.email, p.status, p.first_visit_at, p.joined_at])]);
+    body = csv([["code", "name", "username", "phone", "email", "birthday", "address", "status", "first_visit", "joined"], ...people.map((p) => [p.person_code, p.full_name, p.username, p.phone, p.email, p.birthday, p.address, p.status, p.first_visit_at, p.joined_at])]);
   }
   await audit(admin.email, "export", type ?? "people", null);
   return new NextResponse(body, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="flagupjesus-${type ?? "people"}.csv"` } });
