@@ -11,6 +11,8 @@ import { FIRST_TIMER_OUTCOMES, getFirstTimer, STAGES } from "@/lib/repo/first-ti
 import { getSettings } from "@/lib/repo/settings";
 import { logFirstTimerContactAction, updateFirstTimerAction } from "@/lib/actions/admin";
 import { firstName } from "@/lib/identity-utils";
+import { childrenOf } from "@/lib/repo/people";
+import { ageOf } from "@/lib/children";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +25,7 @@ export default async function FirstTimerPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const ft = await getFirstTimer(id).catch(() => null);
   if (!ft) notFound();
-  const [staff, settings] = await Promise.all([db().list("admin_users", { where: { active: true } }), getSettings()]);
+  const [staff, settings, kids] = await Promise.all([db().list("admin_users", { where: { active: true } }), getSettings(), childrenOf(ft.person).catch(() => [])]);
   const p = ft.person;
   const wa = p.normalized_phone.replace(/^\+/, "");
   const greeting = encodeURIComponent(`Hello ${firstName(p.full_name)}, this is FlagUpJesus Global Ministry. Thank you so much for worshipping with us! How did you enjoy the service? We'd love to see you again this Sunday.`);
@@ -66,6 +68,7 @@ export default async function FirstTimerPage({ params }: { params: Promise<{ id:
             <dt>Birthday</dt><dd>{p.birthday ? formatDate(p.birthday, { day: "numeric", month: "long" }) : "—"}</dd>
             <dt>Username</dt><dd className="username-badge">{p.username}</dd>
             <dt>Services attended</dt><dd>{ft.visits}</dd>
+            {kids.length > 0 && <><dt>Children</dt><dd>{kids.map((k) => `${k.full_name.split(" ")[0]}${ageOf(k.birthday) !== null ? ` (${ageOf(k.birthday)})` : ""}`).join(", ")}</dd></>}
           </dl>
           <div className="mt-5 rounded-xl border border-slate-100 p-4 text-sm" data-testid="first-timer-auto">
             <p className="font-semibold">Automatic messages</p>

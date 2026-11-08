@@ -55,11 +55,18 @@ function persist(path: string, data: Store) {
   renameSync(tmp, path);
 }
 
+/** Partial unique keys (Postgres "where …"): children share their parent's phone number. */
+const ONLY_WHEN: Partial<Record<TableName, Record<string, (row: Record<string, unknown>) => boolean>>> = {
+  people: { normalized_phone: (row) => !row.is_child }
+};
+
 function violates<N extends TableName>(rows: Tables[N][], table: N, candidate: Tables[N], ignore?: Tables[N]) {
   for (const keys of UNIQUE[table] ?? []) {
     const values = keys.map((k) => (candidate as unknown as Record<string, unknown>)[k]);
     if (values.some((v) => v === null || v === undefined)) continue;
-    const clash = rows.some((row) => row !== ignore && keys.every((k, i) => (row as unknown as Record<string, unknown>)[k] === values[i]));
+    const when = keys.length === 1 ? ONLY_WHEN[table]?.[keys[0]] : undefined;
+    if (when && !when(candidate as unknown as Record<string, unknown>)) continue;
+    const clash = rows.some((row) => row !== ignore && (!when || when(row as unknown as Record<string, unknown>)) && keys.every((k, i) => (row as unknown as Record<string, unknown>)[k] === values[i]));
     if (clash) return keys.join(",");
   }
   return null;

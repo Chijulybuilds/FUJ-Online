@@ -6,7 +6,8 @@ import { CheckCircle2, QrCode, ScanLine, UserPlus } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
-type Status = { ticket: { service: { title: string; starts_at: string }; expiresAt: number } | null; member: { name: string; username: string | null } | null; checkedIn: { name: string; at: string } | null };
+type Kid = { id: string; name: string; firstName: string; username: string | null; age: number | null; checkedIn: boolean };
+type Status = { ticket: { service: { title: string; starts_at: string }; expiresAt: number } | null; member: { name: string; username: string | null } | null; checkedIn: { name: string; at: string } | null; family?: Kid[] };
 type Phase = "loading" | "need-scan" | "ready" | "done" | "error";
 
 export function CheckInFlow() {
@@ -15,7 +16,9 @@ export function CheckInFlow() {
   const [status, setStatus] = useState<Status | null>(null);
   const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
-  const [result, setResult] = useState<{ firstName: string; status: string; service: string; username: string | null } | null>(null);
+  const [result, setResult] = useState<{ firstName: string; status: string; service: string; username: string | null; family?: Kid[] } | null>(null);
+  const [kidBusy, setKidBusy] = useState<string | null>(null);
+  const [kidMessage, setKidMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const started = useRef(false);
 
@@ -38,7 +41,7 @@ export function CheckInFlow() {
       }
       const s = (await (await fetch("/api/check-in/status", { cache: "no-store" })).json()) as Status;
       setStatus(s);
-      if (s.checkedIn) { setResult({ firstName: s.checkedIn.name, status: "already", service: s.ticket?.service.title ?? "", username: s.member?.username ?? null }); setPhase("done"); }
+      if (s.checkedIn) { setResult({ firstName: s.checkedIn.name, status: "already", service: s.ticket?.service.title ?? "", username: s.member?.username ?? null, family: s.family }); setPhase("done"); }
       else setPhase(s.ticket ? "ready" : "need-scan");
     };
     run().catch(() => { setMessage("Network problem. Please scan again."); setPhase("error"); });
@@ -56,6 +59,18 @@ export function CheckInFlow() {
     }
     try { if (j.username) localStorage.setItem("fuj-username", j.username); } catch { /* ignore */ }
     setResult(j); setPhase("done");
+  }
+
+  async function checkInKid(kid: Kid) {
+    setKidBusy(kid.id); setKidMessage("");
+    const res = await fetch("/api/check-in/family", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ personId: kid.id }) });
+    const j = await res.json().catch(() => ({}));
+    setKidBusy(null);
+    if (!res.ok) { setKidMessage(j.error ?? "Check-in failed."); return; }
+    setResult((r) => (r ? { ...r, family: j.family } : r));
+  }
+  async function checkInAll() {
+    for (const kid of result?.family?.filter((k) => !k.checkedIn) ?? []) await checkInKid(kid);
   }
 
   return (
@@ -102,6 +117,7 @@ export function CheckInFlow() {
               <p className="text-sm font-semibold">First time here? Welcome! 👋</p>
               <p className="mt-1 text-xs text-slate-500">Register in a minute and get your own flag username.</p>
               <Link href="/register" className="btn btn-secondary mt-3"><UserPlus size={15} /> Register now</Link>
+              <p className="mt-3 text-xs text-slate-500">Child without a phone? <Link href="/register?child=1" className="font-semibold text-blue-600">Register them with your number →</Link></p>
             </div>
           </div>
         )}
@@ -111,6 +127,26 @@ export function CheckInFlow() {
             <div className="success-ring mx-auto"><CheckCircle2 size={42} /></div>
             <h1 className="mt-5 text-2xl font-bold">{result.status === "already" ? `You're already checked in, ${result.firstName}` : `Welcome, ${result.firstName}!`}</h1>
             <p className="mt-2 text-sm text-slate-500">{result.status === "already" ? "No need to check in again for this service." : `You're checked in to ${result.service}. Enjoy the service! 🙌`}</p>
+            {result.family && result.family.length > 0 && (
+              <div className="family-card mt-6 text-left" data-testid="family-checkin">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-bold">👨‍👩‍👧 Your children</p>
+                  {result.family.some((k) => !k.checkedIn) && result.family.length > 1 && <button type="button" className="btn btn-secondary btn-sm" disabled={Boolean(kidBusy)} onClick={() => void checkInAll()}>Check in all</button>}
+                </div>
+                <ul className="mt-3 space-y-2">
+                  {result.family.map((k) => (
+                    <li key={k.id} className={`family-kid ${k.checkedIn ? "in" : ""}`}>
+                      <span><b>{k.name}</b>{k.age !== null && <small> · {k.age < 1 ? "baby" : `${k.age} yr${k.age === 1 ? "" : "s"}`}</small>}</span>
+                      {k.checkedIn
+                        ? <span className="font-semibold text-[var(--ok,#16834a)]">✓ Checked in</span>
+                        : <button type="button" className="btn btn-primary btn-sm" disabled={kidBusy === k.id} onClick={() => void checkInKid(k)}>{kidBusy === k.id ? "…" : `Check in ${k.firstName}`}</button>}
+                    </li>
+                  ))}
+                </ul>
+                {kidMessage && <p className="alert alert-err mt-3">{kidMessage}</p>}
+                <Link href="/member/children" className="mt-3 block text-xs font-semibold text-blue-600">+ Register another child</Link>
+              </div>
+            )}
             <div className="mt-6 grid gap-2">
               <Link href="/member" className="btn btn-primary">Open my portal</Link>
               <Link href="/member/prayer-requests" className="btn btn-secondary">Send a prayer request</Link>

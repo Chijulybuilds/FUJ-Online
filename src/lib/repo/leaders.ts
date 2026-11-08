@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import type { Leader, Person } from "@/lib/db/types";
 import { normalizePhone } from "@/lib/identity-utils";
 import { nowIso, uid } from "@/lib/utils";
-import { createPerson, FriendlyError, peopleById, updatePerson } from "./people";
+import { createPerson, findByPhone, FriendlyError, peopleById, updatePerson } from "./people";
 
 export type LeaderRow = Leader & { person: Person };
 
@@ -59,7 +59,7 @@ function validate(input: LeaderInput) {
  */
 export async function addLeader(input: LeaderInput, actor: string): Promise<{ leader: Leader; person: Person; linked: boolean }> {
   const v = validate(input);
-  let person = await db().get("people", { normalized_phone: v.normalized });
+  let person = await findByPhone(v.normalized);
   const linked = Boolean(person);
   if (person) {
     const existing = await db().get("leaders", { person_id: person.id });

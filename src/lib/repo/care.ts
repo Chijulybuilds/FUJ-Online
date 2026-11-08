@@ -47,7 +47,8 @@ export async function runFollowUpAnalysis() {
     const recentIds = new Set(recent.map((s) => s.id));
     const oldest = new Date(recent[recent.length - 1].starts_at).getTime();
     for (const person of people.values()) {
-      if (person.status !== "member") continue;
+      // Children are followed up through their parents (Children's Church page).
+      if (person.status !== "member" || person.is_child) continue;
       const mine = attendance.filter((a) => a.person_id === person.id);
       const attendedBefore = mine.some((a) => new Date(a.checked_in_at).getTime() < oldest);
       // Present at any of those Sundays — or at any service since (e.g. Wednesday prayers) — means not absent.

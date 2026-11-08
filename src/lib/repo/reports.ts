@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { serviceSummaries } from "./services";
+import { nextBirthday } from "@/lib/children";
 
 export async function dashboardStats() {
   const [people, tasks, prayers, testimonies, donations, attendance] = await Promise.all([
@@ -20,6 +21,8 @@ export async function dashboardStats() {
     givingThisMonth: paid.filter((d) => d.paid_at && new Date(d.paid_at) >= monthStart).reduce((s, d) => s + Number(d.amount), 0),
     totalCheckIns: attendance.length,
     // Older databases (setup.sql not re-run yet) simply show 0.
+    childrenBirthdaysThisWeek: people.filter((p) => p.is_child && (nextBirthday(p.birthday)?.days ?? 99) <= 7).length,
+    children: people.filter((p) => p.is_child).length,
     firstTimersToWelcome: await db().list("first_timers", { where: { stage: "new" } }).then((r) => r.length, () => 0),
     partnerFollowUpsDue: await db().list("partners").then((r) => r.filter((p) => p.status !== "declined" && p.next_follow_up_at && new Date(p.next_follow_up_at).getTime() <= Date.now()).length, () => 0),
     summaries

@@ -407,6 +407,99 @@ test("FUJ Partners: sign-ups are followed up, pledges and gifts recorded, and me
   await expect(admin.getByLabel("Audience").locator("option:checked")).toHaveText(/FUJ Partners/);
 });
 
+test("children without a phone register with a parent's number; the parent checks the family in with one tap", async ({ browser }) => {
+  const born = (years: number) => new Date(Date.now() - (years * 365.25 + 40) * 86400000).toISOString().slice(0, 10);
+  const fam = await newDevice(browser);
+  await go(fam, "/register?child=1");
+  await expect(fam.getByTestId("child-register-form")).toBeVisible();
+  const form = fam.getByTestId("child-register-form");
+  await form.getByLabel("Child's full name").fill("Tobi Adeyemi");
+  await form.getByLabel("Child's birthday").fill(born(6));
+  await form.getByRole("radio", { name: /Boy/ }).check();
+  await form.getByLabel(/Anything we should know/).fill("Allergic to peanuts");
+  await form.getByRole("radio", { name: /Yes, first time/ }).check();
+  await form.getByLabel("Your full name").fill("Funke Adeyemi");
+  await form.getByLabel("You are the child's").selectOption("Mother");
+  await form.getByLabel(/Your phone number/).fill("0803 555 1234");
+  await form.getByLabel("Home address").fill("4 Elelenwo Street, Port Harcourt");
+  await form.getByRole("button", { name: "Register my child" }).click();
+  await expect(fam.getByText("Please confirm you're the child's parent or guardian")).toHaveCount(0);
+  await form.getByLabel(/I'm this child's parent or guardian/).check();
+  await form.getByRole("button", { name: "Register my child" }).click();
+  await expect(fam.getByTestId("child-register-success")).toContainText("Welcome to the family, Tobi!");
+  await expect(fam.getByTestId("child-username")).toHaveText(/^flagtobi\d{3}$/);
+  await shot(fam, "16-child-registered");
+  // Another child: the parent's details are kept.
+  await fam.getByRole("button", { name: "Register another child" }).click();
+  await expect(fam.getByTestId("child-register-form").getByLabel(/Your phone number/)).toHaveValue("0803 555 1234");
+  await fam.getByTestId("child-register-form").getByLabel("Child's full name").fill("Ada Adeyemi");
+  await fam.getByTestId("child-register-form").getByLabel("Child's birthday").fill(born(9));
+  await fam.getByTestId("child-register-form").getByRole("radio", { name: /No, been before/ }).check();
+  await fam.getByTestId("child-register-form").getByLabel(/I'm this child's parent or guardian/).check();
+  await fam.getByTestId("child-register-form").getByRole("button", { name: "Register my child" }).click();
+  await expect(fam.getByTestId("child-register-success")).toContainText("Welcome to the family, Ada!");
+  await expect(fam.getByText("Registered today: Tobi, Ada")).toBeVisible();
+  // The parent registers too, with the same number (pre-filled) — and the children are linked to her.
+  await fam.getByRole("button", { name: "Register yourself too" }).click();
+  await expect(fam.getByLabel("Phone number")).toHaveValue("0803 555 1234");
+  await fam.getByLabel("Birthday").fill("1988-04-22");
+  await fam.getByRole("radio", { name: /Yes, it's my first time/ }).check();
+  await fam.getByRole("button", { name: "Register & get my username" }).click();
+  await expect(fam.getByTestId("register-success")).toBeVisible();
+  await fam.getByTestId("register-children-link").click();
+  await fam.waitForURL(/\/member\/children$/);
+  await hydrated(fam);
+  await expect(fam.getByTestId("child-card")).toHaveCount(2);
+  await expect(fam.getByTestId("my-children")).toContainText("Tobi Adeyemi");
+  await fam.getByLabel("Child's full name").fill("Zara Adeyemi");
+  await fam.getByLabel("Birthday").fill(born(1));
+  await fam.getByRole("button", { name: "Register my child" }).click();
+  await expect(fam.getByText(/Zara is registered! 🎈 Username: flagzara\d{3}/)).toBeVisible();
+  await expect(fam.getByTestId("child-card")).toHaveCount(3);
+  await shot(fam, "17-my-children");
+
+  // At church: Funke scans the QR, checks herself in, then the children with one tap.
+  await go(fam, await currentQrUrl());
+  await fam.getByRole("button", { name: /Check in as Funke/ }).click();
+  const family = fam.getByTestId("family-checkin");
+  await expect(family).toContainText("Your children");
+  await expect(family.getByRole("button", { name: "Check in Tobi" })).toBeVisible();
+  await family.getByRole("button", { name: "Check in all" }).click();
+  await expect(family.getByText("✓ Checked in")).toHaveCount(3);
+  await shot(fam, "18-family-checkin");
+  await fam.context().close();
+
+  // The children's church page.
+  await go(admin, "/admin/children");
+  await expect(admin.getByTestId("children-count")).toHaveText("3");
+  const tobiRow = admin.getByTestId("children-table").getByRole("row").filter({ hasText: "Tobi Adeyemi" });
+  await expect(tobiRow).toContainText("Funke Adeyemi");
+  await expect(tobiRow).toContainText("Mother");
+  await expect(tobiRow).toContainText("Allergic to peanuts");
+  await expect(tobiRow).toContainText("In church today");
+  await expect(tobiRow).toContainText("Pre-school");
+  await expect(admin.getByTestId("group-juniors")).toContainText("1 child");
+  await shot(admin, "19-children-church");
+  const csv = await (await admin.request.get("/api/admin/export?type=children")).text();
+  expect(csv).toContain("Tobi Adeyemi");
+  expect(csv).toContain("Allergic to peanuts");
+  // Children don't appear in the phone contacts export (they share the parent's number).
+  expect(await (await admin.request.get("/api/admin/export?type=vcf")).text()).not.toContain("Tobi Adeyemi");
+  await tobiRow.getByRole("link", { name: /Tobi Adeyemi/ }).click();
+  await expect(admin.getByTestId("child-summary")).toContainText("Funke Adeyemi");
+  await expect(admin.getByTestId("child-care-notes")).toContainText("Allergic to peanuts");
+
+  // Ushers can add a child at the desk with a parent's number.
+  const sid = serviceUrl.split("/").pop();
+  await go(admin, `/admin/attendance/desk?service=${sid}`);
+  await admin.getByLabel("New member full name").fill("Kemi Okafor");
+  await admin.getByLabel(/Child without a phone/).check();
+  await admin.getByLabel("Child's birthday").fill(born(4));
+  await admin.getByLabel("New member phone").fill("0803 123 4567");
+  await admin.getByRole("button", { name: "Add & check in" }).click();
+  await expect(admin.getByText(/Welcome Kemi! 🎈 Registered as a child with Grace Okafor's number/)).toBeVisible();
+});
+
 test("broadcast with response tracking, member replies, follow-up to non-responders", async ({ browser }) => {
   await go(admin, "/admin/messaging");
   await expect(admin.getByLabel("Audience").locator("option", { hasText: /visitor/i })).toHaveCount(0);

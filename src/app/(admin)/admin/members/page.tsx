@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { listPeople } from "@/lib/repo/people";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/utils";
+import { ageOf } from "@/lib/children";
 
 export default async function MembersPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
   await requireAdmin("members");
@@ -15,8 +16,9 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
   const lastSeen = new Map<string, string>();
   attendance.forEach((a) => { if ((lastSeen.get(a.person_id) ?? "") < a.checked_in_at) lastSeen.set(a.person_id, a.checked_in_at); });
   const term = q.toLowerCase();
-  const filtered = people.filter((p) => (!status || (status === "leaders" ? leaderUnit.has(p.id) : status === "inactive" ? p.status !== "member" : p.status === status)) && (!term || `${p.full_name} ${p.phone} ${p.normalized_phone} ${p.username} ${p.person_code} ${p.email}`.toLowerCase().includes(term)));
-  const tabs = [["", "All"], ["member", "Active"], ["leaders", `Leaders (${leaderUnit.size})`], ["inactive", "Inactive / moved"]];
+  const filtered = people.filter((p) => (!status || (status === "leaders" ? leaderUnit.has(p.id) : status === "children" ? p.is_child : status === "inactive" ? p.status !== "member" : p.status === status)) && (!term || `${p.full_name} ${p.phone} ${p.normalized_phone} ${p.username} ${p.person_code} ${p.email}`.toLowerCase().includes(term)));
+  const kids = people.filter((p) => p.is_child).length;
+  const tabs = [["", "All"], ["member", "Active"], ["leaders", `Leaders (${leaderUnit.size})`], ["children", `Children (${kids})`], ["inactive", "Inactive / moved"]];
   return (
     <>
       <PageHeading title="Members" description={`${people.length} member${people.length === 1 ? "" : "s"} · everyone who registers is a member and gets a unique flag username.`}
@@ -35,8 +37,8 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                 <tr key={p.id}>
                   <td><Link href={`/admin/members/${p.id}`} className="font-semibold hover:text-blue-600">{p.full_name}</Link><span className="block text-xs text-slate-400">{p.person_code}</span></td>
                   <td className="username-badge">{p.username}</td>
-                  <td>{p.phone}</td>
-                  <td><StatusPill value={p.status} />{leaderUnit.has(p.id) && <span className="pill pill-blue ml-1" title="On the leaders list">leader · {leaderUnit.get(p.id)}</span>}</td>
+                  <td>{p.phone}{p.is_child && <span className="block text-xs text-slate-400">parent: {p.guardian_name ?? "—"}</span>}</td>
+                  <td><StatusPill value={p.status} />{p.is_child && <span className="pill pill-amber ml-1">child{ageOf(p.birthday) !== null ? ` · ${ageOf(p.birthday)}` : ""}</span>}{leaderUnit.has(p.id) && <span className="pill pill-blue ml-1" title="On the leaders list">leader · {leaderUnit.get(p.id)}</span>}</td>
                   <td>{formatDate(p.joined_at ?? p.created_at)}</td>
                   <td>{formatDate(lastSeen.get(p.id))}</td>
                 </tr>
