@@ -34,14 +34,17 @@ export async function registerChild(input: ChildInput) {
 }
 
 export type ChildRow = Person & {
-  age: number | null; group: ReturnType<typeof ageGroupOf>; guardian: Person | null;
+  age: number | null; group: ReturnType<typeof ageGroupOf>; guardian: Person | null; ownPhone: boolean;
   visits: number; lastSeen: string | null; birthdayIn: number | null; turning: number | null; inToday: boolean;
 };
 
-/** Every registered child with their parent, age group, attendance and next birthday (for the admin page). */
+/**
+ * Everyone under 18 — registered with their own phone or a parent's — plus children on a parent's number who have
+ * since turned 18, with their parent, age group, attendance and next birthday (for the admin page).
+ */
 export async function listChildren(now = new Date()): Promise<ChildRow[]> {
   const people = await db().list("people", { order: { column: "full_name" } });
-  const kids = people.filter((p) => p.is_child);
+  const kids = people.filter((p) => p.is_child || (ageOf(p.birthday, now) ?? ADULT_AGE) < ADULT_AGE);
   if (!kids.length) return [];
   const byId = new Map(people.map((p) => [p.id, p]));
   const adultByPhone = new Map(people.filter((p) => !p.is_child).map((p) => [p.normalized_phone, p]));
@@ -53,7 +56,8 @@ export async function listChildren(now = new Date()): Promise<ChildRow[]> {
     const age = ageOf(k.birthday, now);
     const next = nextBirthday(k.birthday, now);
     return {
-      ...k, age, group: ageGroupOf(age), guardian: (k.guardian_id ? byId.get(k.guardian_id) : adultByPhone.get(k.normalized_phone)) ?? null,
+      ...k, age, group: ageGroupOf(age), ownPhone: !k.is_child,
+      guardian: k.is_child ? (k.guardian_id ? byId.get(k.guardian_id) : adultByPhone.get(k.normalized_phone)) ?? null : null,
       visits: mine.length, lastSeen: last, birthdayIn: next?.days ?? null, turning: next?.turning ?? null,
       inToday: mine.some((a) => new Date(new Date(a.checked_in_at).getTime() + 3600000).toISOString().slice(0, 10) === lagosToday)
     };

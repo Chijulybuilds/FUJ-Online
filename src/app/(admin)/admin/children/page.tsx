@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { Baby, Download, MessageCircle, Phone, Send } from "lucide-react";
 import { PageHeading } from "@/components/ui/page-heading";
-import { ActionForm, SubmitButton } from "@/components/ui/action-form";
 import { requireAdmin } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import { listChildren, type ChildRow } from "@/lib/repo/children";
-import { addChildAdminAction } from "@/lib/actions/admin";
-import { AGE_GROUPS, ageLabel, childEmoji, RELATIONSHIPS } from "@/lib/children";
+import { AGE_GROUPS, ageLabel, childEmoji } from "@/lib/children";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +19,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
     console.error("children unavailable", error);
     return (
       <>
-        <PageHeading title="Children's church" />
+        <PageHeading title="Children & teens" />
         <div className="alert alert-warn" data-testid="children-db-update">The database needs a one-time update before children can be registered. In Supabase, open <b>SQL Editor → New query</b>, paste everything from <code className="mx-1">supabase/setup.sql</code>and click <b>Run</b>, then refresh this page.</div>
       </>
     );
@@ -33,13 +31,13 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
   const birthdays = kids.filter((k) => k.birthdayIn !== null && k.birthdayIn <= 30).sort((a, b) => a.birthdayIn! - b.birthdayIn!);
   const inToday = kids.filter((k) => k.inToday).length;
   const care = kids.filter((k) => k.care_notes).length;
-  const families = new Set(kids.map((k) => k.guardian?.id ?? k.normalized_phone)).size;
+  const onParentsPhone = kids.filter((k) => !k.ownPhone).length;
 
   return (
     <>
       <PageHeading
-        title="Children's church"
-        description="Children registered with a parent's or guardian's phone number. They check in with their own username, or their parent checks the whole family in with one tap."
+        title="Children & teens"
+        description="Everyone under 18 — registered with their own phone number or a parent's / guardian's. Those on a parent's number check in with their own username, or the parent checks the whole family in with one tap."
         action={<>
           {kids.length > 0 && <a href="/api/admin/export?type=children" className="btn btn-secondary"><Download size={16} /> Children (CSV)</a>}
           {can(admin.role, "messaging") && kids.length > 0 && <Link href="/admin/messaging?audience=parents" className="btn btn-secondary" data-testid="message-parents"><Send size={16} /> Message parents</Link>}
@@ -47,7 +45,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
       />
 
       <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="card p-4"><p className="text-xs text-slate-500">Children</p><p className="text-2xl font-bold" data-testid="children-count">{kids.length}</p><p className="text-xs text-slate-400">from {families} famil{families === 1 ? "y" : "ies"}</p></div>
+        <div className="card p-4"><p className="text-xs text-slate-500">Children</p><p className="text-2xl font-bold" data-testid="children-count">{kids.length}</p><p className="text-xs text-slate-400">{onParentsPhone} on a parent&apos;s phone</p></div>
         <div className="card p-4"><p className="text-xs text-slate-500">In church today</p><p className="text-2xl font-bold">{inToday}</p><p className="text-xs text-slate-400">Checked in today</p></div>
         <div className="card p-4"><p className="text-xs text-slate-500">Birthdays in the next 30 days</p><p className="text-2xl font-bold">{birthdays.length}</p><p className="text-xs text-slate-400">🎂 Celebrate them in service</p></div>
         <div className="card p-4"><p className="text-xs text-slate-500">Care notes</p><p className={`text-2xl font-bold ${care ? "text-red-600" : ""}`}>{care}</p><p className="text-xs text-slate-400">Allergies or special needs</p></div>
@@ -79,10 +77,10 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
           </form>
           <div className="table-wrap">
             <table className="data-table" data-testid="children-table">
-              <thead><tr><th>Child</th><th>Age</th><th>Parent / guardian</th><th>Care notes</th><th>Attendance</th></tr></thead>
+              <thead><tr><th>Name</th><th>Age</th><th>Phone</th><th>Care notes</th><th>Attendance</th></tr></thead>
               <tbody>
                 {shown.map((k) => {
-                  const parentName = k.guardian?.full_name ?? k.guardian_name ?? "—";
+                  const parentName = k.ownPhone ? k.full_name : k.guardian?.full_name ?? k.guardian_name ?? "—";
                   const wa = k.normalized_phone.replace(/^\+/, "");
                   return (
                     <tr key={k.id}>
@@ -93,8 +91,8 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
                       </td>
                       <td>{ageLabel(k.birthday)}<span className="block text-xs text-slate-400">{k.group ? `${k.group.emoji} ${k.group.label}` : k.age !== null && k.age >= 18 ? "Turned 18" : "—"}</span></td>
                       <td>
-                        {k.guardian ? <Link href={`/admin/members/${k.guardian.id}`} className="font-semibold hover:text-blue-600">{parentName}</Link> : <span className="font-semibold">{parentName}</span>}
-                        <span className="block text-xs text-slate-400">{k.guardian_relationship ?? "Parent / guardian"}{!k.guardian && " · not registered"}</span>
+                        {k.ownPhone ? <span className="font-semibold">Own phone</span> : k.guardian ? <Link href={`/admin/members/${k.guardian.id}`} className="font-semibold hover:text-blue-600">{parentName}</Link> : <span className="font-semibold">{parentName}</span>}
+                        {!k.ownPhone && <span className="block text-xs text-slate-400">{k.guardian_relationship ?? "Parent / guardian"}&apos;s phone{!k.guardian && " · parent not registered"}</span>}
                         <span className="mt-1 flex gap-1">
                           <a className="btn btn-ghost btn-sm" href={`tel:${k.normalized_phone}`} aria-label={`Call ${parentName}`}><Phone size={13} /> {k.phone}</a>
                           <a className="btn btn-ghost btn-sm" target="_blank" rel="noreferrer" href={`https://wa.me/${wa}`} aria-label={`WhatsApp ${parentName}`}><MessageCircle size={13} /></a>
@@ -108,7 +106,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
                 {!shown.length && (
                   <tr><td colSpan={5} className="py-10 text-center text-slate-500">
                     <Baby className="mx-auto mb-2 text-[var(--accent)]" size={24} />
-                    {kids.length ? "No children match." : "No children registered yet. Parents can register children on the sign-up page (“My child”) or in their portal, and ushers at the check-in desk."}
+                    {kids.length ? "No one matches." : "No under-18s registered yet. They register on the “I'm new” page — with their own phone or a parent's — or ushers add them at the check-in desk."}
                   </td></tr>
                 )}
               </tbody>
@@ -129,21 +127,14 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
               {!birthdays.length && <li className="text-slate-500">No birthdays in the next 30 days.</li>}
             </ul>
           </section>
-          <section className="card p-6">
-            <h2 className="font-bold">Register a child</h2>
-            <p className="mt-1 text-xs text-slate-500">With the parent&apos;s or guardian&apos;s phone number. If the parent is registered with it, the child is linked to them.</p>
-            <ActionForm action={addChildAdminAction} className="mt-4 grid gap-3">
-              <label className="label">Child&apos;s full name<input className="input mt-1" name="full_name" required /></label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="label">Birthday<input className="input mt-1" name="birthday" type="date" required /></label>
-                <label className="label">Boy / girl<select className="input mt-1" name="gender" defaultValue=""><option value="">—</option><option value="male">Boy</option><option value="female">Girl</option></select></label>
-              </div>
-              <label className="label">Parent&apos;s phone number<input className="input mt-1" name="phone" required inputMode="tel" placeholder="0803 000 0000" /></label>
-              <label className="label">Parent / guardian&apos;s name<span className="hint">Needed if they aren&apos;t registered themselves</span><input className="input mt-1" name="guardian_name" /></label>
-              <label className="label">Relationship<select className="input mt-1" name="relationship" defaultValue="">{[["", "—"], ...RELATIONSHIPS.map((r) => [r, r])].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
-              <label className="label">Care notes <span className="font-normal text-slate-400">(optional)</span><textarea className="input mt-1" name="care_notes" maxLength={500} placeholder="Allergies, medical needs, pick-up…" /></label>
-              <SubmitButton pendingText="Registering…">Register child</SubmitButton>
-            </ActionForm>
+          <section className="card p-6" data-testid="under-18-how">
+            <h2 className="font-bold">How under-18s register</h2>
+            <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-600">
+              <li>On the <b>I&apos;m new</b> page they enter their details and birthday.</li>
+              <li>If they&apos;re under 18, they choose <b>My own phone</b> or <b>My parent&apos;s or guardian&apos;s</b> (with the parent&apos;s name), and confirm their parent knows.</li>
+              <li>On a parent&apos;s number they get their own username, are linked to the parent if registered, and messages go to the parent&apos;s phone.</li>
+            </ol>
+            <p className="mt-3 text-xs text-slate-500">No phone at all? Ushers can add them at the <Link href="/admin/attendance/desk" className="font-semibold text-blue-600">Check-in desk</Link>.</p>
           </section>
         </div>
       </div>

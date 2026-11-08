@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ageGroupOf, ageLabel, ageOf, childBirthdayProblem, childEmoji, nextBirthday } from "@/lib/children";
-import { childRegistrationSchema } from "@/lib/validation/auth";
+import { registrationSchema, usesParentsPhone } from "@/lib/validation/auth";
 
 const now = new Date("2026-11-08T10:00:00Z"); // Sunday 8 Nov 2026, 11:00 Lagos
 
@@ -36,20 +36,24 @@ describe("children helpers", () => {
   });
 });
 
-describe("child registration form", () => {
-  const base = {
-    fullName: "Tobi Adeyemi", birthday: "2019-05-04", gender: "male", guardianName: "Funke Adeyemi", relationship: "Mother",
-    phone: "0803 555 1234", email: "", address: "4 Elelenwo Street, Port Harcourt", careNotes: "Allergic to peanuts", firstTimer: "yes", consent: true
-  };
-  const firstError = (input: unknown) => { const r = childRegistrationSchema.safeParse(input); return r.success ? null : r.error.issues[0]?.message; };
-  it("accepts a child with a parent's phone number", () => {
-    expect(childRegistrationSchema.safeParse(base).success).toBe(true);
+describe("registration form: under 18", () => {
+  const born = (years: number) => new Date(Date.now() - (years * 365.25 + 40) * 86400000).toISOString().slice(0, 10);
+  const base = { fullName: "Chileme Caleb", phone: "0905 677 0824", email: "", birthday: born(7), address: "Harmony Estate, Port Harcourt", firstTimer: "no" };
+  const firstError = (input: unknown) => { const r = registrationSchema.safeParse(input); return r.success ? null : r.error.issues[0]?.message; };
+  it("adults don't see any of the under-18 questions", () => {
+    expect(registrationSchema.safeParse({ ...base, birthday: "1990-01-01" }).success).toBe(true);
   });
-  it("needs consent, a parent's name, a relationship and an under-18 birthday", () => {
-    expect(firstError({ ...base, consent: false })).toBe("Please confirm you're the child's parent or guardian");
-    expect(firstError({ ...base, guardianName: "" })).toBe("Enter the parent's or guardian's full name");
-    expect(firstError({ ...base, relationship: "Neighbour" })).toBe("Choose how you're related to the child");
-    expect(firstError({ ...base, birthday: "1990-01-01" })).toMatch(/under-18s/);
-    expect(firstError({ ...base, birthday: "" })).toBe("Enter your child's birthday");
+  it("asks under-18s whose phone number it is, and for their parent's consent", () => {
+    expect(firstError(base)).toMatch(/whose phone number you entered/);
+    expect(firstError({ ...base, phoneOwner: "self" })).toBe("Please confirm your parent or guardian knows you're registering");
+    expect(registrationSchema.safeParse({ ...base, phoneOwner: "self", guardianConsent: true }).success).toBe(true);
+  });
+  it("with a parent's number, needs the parent's name and relationship", () => {
+    expect(firstError({ ...base, phoneOwner: "parent", guardianConsent: true })).toBe("Enter your parent's or guardian's full name");
+    expect(firstError({ ...base, phoneOwner: "parent", guardianName: "Pastor Caleb", guardianConsent: true })).toBe("Choose how they're related to you");
+    const ok = { ...base, phoneOwner: "parent" as const, guardianName: "Pastor Caleb", relationship: "Father", guardianConsent: true };
+    expect(registrationSchema.safeParse(ok).success).toBe(true);
+    expect(usesParentsPhone(ok)).toBe(true);
+    expect(usesParentsPhone({ ...ok, birthday: "1990-01-01" })).toBe(false);
   });
 });

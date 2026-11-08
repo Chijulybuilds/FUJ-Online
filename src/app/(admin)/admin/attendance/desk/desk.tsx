@@ -71,7 +71,7 @@ export function Desk({ serviceId, serviceTitle }: { serviceId: string; serviceTi
           setAdding(false); if (ok) { form.reset(); setIsChild(false); }
         }}>
           <input className="input" name="fullName" required placeholder="Full name" aria-label="New member full name" defaultValue={q && !rows.length ? q : undefined} key={rows.length ? "x" : q} />
-          <label className="checkbox"><input type="checkbox" checked={isChild} onChange={(e) => setIsChild(e.target.checked)} /> <span>Child without a phone <span className="block text-xs text-slate-500">Uses a parent&apos;s or guardian&apos;s number</span></span></label>
+          <label className="checkbox"><input type="checkbox" checked={isChild} onChange={(e) => setIsChild(e.target.checked)} /> <span>Under 18, using a parent&apos;s phone <span className="block text-xs text-slate-500">Their own record and username, with a parent&apos;s or guardian&apos;s number</span></span></label>
           {isChild && <input className="input" name="birthday" type="date" required aria-label="Child's birthday" />}
           {isChild && <input className="input" name="guardianName" placeholder="Parent / guardian's name (if not registered)" aria-label="Parent or guardian name" />}
           {isChild && <select className="input" name="relationship" defaultValue="" aria-label="Relationship to child"><option value="">Relationship…</option>{RELATIONSHIPS.map((r) => <option key={r}>{r}</option>)}</select>}

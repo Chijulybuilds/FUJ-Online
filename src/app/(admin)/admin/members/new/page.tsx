@@ -8,7 +8,7 @@ export default async function NewMemberPage() {
   return (
     <>
       <PageHeading title="Add a member" description="Usher / admin registration. A unique flag username is generated automatically — share it with them for future check-ins." />
-      <p className="alert alert-ok mb-4 max-w-2xl text-sm">Registering a child who doesn&apos;t have a phone? Use <a className="font-semibold underline" href="/admin/children">Children&apos;s church → Register a child</a> with the parent&apos;s number.</p>
+      <p className="alert alert-ok mb-4 max-w-2xl text-sm">Under 18 without a phone of their own? They can register on the <b>I&apos;m new</b> page with a parent&apos;s or guardian&apos;s number, or an usher can add them at the <a className="font-semibold underline" href="/admin/attendance/desk">Check-in desk</a>.</p>
       <div className="card max-w-2xl p-6">
         <ActionForm action={createPersonAction} className="grid gap-4 sm:grid-cols-2">
           <label className="label sm:col-span-2">Full name<input className="input mt-2" name="full_name" required placeholder="Full name" /></label>

@@ -407,93 +407,110 @@ test("FUJ Partners: sign-ups are followed up, pledges and gifts recorded, and me
   await expect(admin.getByLabel("Audience").locator("option:checked")).toHaveText(/FUJ Partners/);
 });
 
-test("children without a phone register with a parent's number; the parent checks the family in with one tap", async ({ browser }) => {
+test("under-18s register on the same I'm new page — with their own phone or a parent's — and the parent checks the family in", async ({ browser }) => {
   const born = (years: number) => new Date(Date.now() - (years * 365.25 + 40) * 86400000).toISOString().slice(0, 10);
+  async function fill(page: Page, name: string, phone: string, birthday: string, firstTime = false) {
+    await page.getByLabel("Full name").fill(name);
+    await page.getByLabel(/^Phone number/).fill(phone);
+    await page.getByLabel("Birthday").fill(birthday);
+    await page.getByLabel("Home address").fill("4 Elelenwo Street, Port Harcourt");
+    await page.getByRole("radio", { name: firstTime ? /Yes, it's my first time/ : /No, I've been here before/ }).check();
+  }
+  // A parent scans the QR and registers (checked in automatically).
   const fam = await newDevice(browser);
-  await go(fam, "/register?child=1");
-  await expect(fam.getByTestId("child-register-form")).toBeVisible();
-  const form = fam.getByTestId("child-register-form");
-  await form.getByLabel("Child's full name").fill("Tobi Adeyemi");
-  await form.getByLabel("Child's birthday").fill(born(6));
-  await form.getByRole("radio", { name: /Boy/ }).check();
-  await form.getByLabel(/Anything we should know/).fill("Allergic to peanuts");
-  await form.getByRole("radio", { name: /Yes, first time/ }).check();
-  await form.getByLabel("Your full name").fill("Funke Adeyemi");
-  await form.getByLabel("You are the child's").selectOption("Mother");
-  await form.getByLabel(/Your phone number/).fill("0803 555 1234");
-  await form.getByLabel("Home address").fill("4 Elelenwo Street, Port Harcourt");
-  await form.getByRole("button", { name: "Register my child" }).click();
-  await expect(fam.getByText("Please confirm you're the child's parent or guardian")).toHaveCount(0);
-  await form.getByLabel(/I'm this child's parent or guardian/).check();
-  await form.getByRole("button", { name: "Register my child" }).click();
-  await expect(fam.getByTestId("child-register-success")).toContainText("Welcome to the family, Tobi!");
-  await expect(fam.getByTestId("child-username")).toHaveText(/^flagtobi\d{3}$/);
-  await shot(fam, "16-child-registered");
-  // Another child: the parent's details are kept.
-  await fam.getByRole("button", { name: "Register another child" }).click();
-  await expect(fam.getByTestId("child-register-form").getByLabel(/Your phone number/)).toHaveValue("0803 555 1234");
-  await fam.getByTestId("child-register-form").getByLabel("Child's full name").fill("Ada Adeyemi");
-  await fam.getByTestId("child-register-form").getByLabel("Child's birthday").fill(born(9));
-  await fam.getByTestId("child-register-form").getByRole("radio", { name: /No, been before/ }).check();
-  await fam.getByTestId("child-register-form").getByLabel(/I'm this child's parent or guardian/).check();
-  await fam.getByTestId("child-register-form").getByRole("button", { name: "Register my child" }).click();
-  await expect(fam.getByTestId("child-register-success")).toContainText("Welcome to the family, Ada!");
-  await expect(fam.getByText("Registered today: Tobi, Ada")).toBeVisible();
-  // The parent registers too, with the same number (pre-filled) — and the children are linked to her.
-  await fam.getByRole("button", { name: "Register yourself too" }).click();
-  await expect(fam.getByLabel("Phone number")).toHaveValue("0803 555 1234");
-  await fam.getByLabel("Birthday").fill("1988-04-22");
-  await fam.getByRole("radio", { name: /Yes, it's my first time/ }).check();
+  await go(fam, await currentQrUrl());
+  await fam.getByRole("link", { name: "Register now" }).click();
+  await hydrated(fam);
+  await fill(fam, "Funke Adeyemi", "0803 555 1234", "1988-04-22", true);
+  await expect(fam.getByTestId("under-18")).toHaveCount(0); // adults don't see the under-18 questions
   await fam.getByRole("button", { name: "Register & get my username" }).click();
   await expect(fam.getByTestId("register-success")).toBeVisible();
-  await fam.getByTestId("register-children-link").click();
-  await fam.waitForURL(/\/member\/children$/);
-  await hydrated(fam);
-  await expect(fam.getByTestId("child-card")).toHaveCount(2);
-  await expect(fam.getByTestId("my-children")).toContainText("Tobi Adeyemi");
-  await fam.getByLabel("Child's full name").fill("Zara Adeyemi");
-  await fam.getByLabel("Birthday").fill(born(1));
-  await fam.getByRole("button", { name: "Register my child" }).click();
-  await expect(fam.getByText(/Zara is registered! 🎈 Username: flagzara\d{3}/)).toBeVisible();
-  await expect(fam.getByTestId("child-card")).toHaveCount(3);
-  await shot(fam, "17-my-children");
+  await expect(fam.getByText(/checked in for today/)).toBeVisible();
 
-  // At church: Funke scans the QR, checks herself in, then the children with one tap.
+  // Her son registers on the same phone, on the same I'm new page, with her number.
+  await go(fam, "/register");
+  await expect(fam.getByTestId("signed-in-note")).toContainText("Funke");
+  await fill(fam, "Tobi Adeyemi", "0803 555 1234", born(6), true);
+  const minor = fam.getByTestId("under-18");
+  await expect(minor).toContainText("You're under 18");
+  await expect(fam.getByLabel(/become a FUJ Partner/)).toHaveCount(0);
+  // "My own phone" with a number that's already registered → a helpful hint.
+  await minor.getByRole("radio", { name: /My own phone/ }).check();
+  await minor.getByLabel(/My parent or guardian knows/).check();
+  await fam.getByRole("button", { name: "Register & get my username" }).click();
+  await expect(fam.getByText(/already registered to someone else. If it's your parent's or guardian's number/)).toBeVisible();
+  await minor.getByRole("radio", { name: /My parent's or guardian's/ }).check();
+  await minor.getByLabel("Parent or guardian's full name").fill("Funke Adeyemi");
+  await minor.getByLabel("They are my").selectOption("Mother");
+  await minor.getByLabel(/My parent or guardian knows/).check();
+  await shot(fam, "16-under-18-form");
+  await fam.getByRole("button", { name: "Register & get my username" }).click();
+  await expect(fam.getByTestId("register-success")).toContainText("Welcome to the family, Tobi!");
+  await expect(fam.getByTestId("parents-phone-note")).toContainText("Funke Adeyemi");
+  await expect(fam.getByText(/checked in for today/)).toBeVisible(); // same phone, same family
+  await expect(fam.getByTestId("new-username")).toHaveText(/^flagtobi\d{3}$/);
+  await shot(fam, "17-under-18-done");
+
+  // His sister registers later on another phone, also with mum's number (not at church).
+  const sis = await newDevice(browser);
+  await go(sis, "/register");
+  await fill(sis, "Ada Adeyemi", "08035551234", born(9));
+  await sis.getByRole("radio", { name: /My parent's or guardian's/ }).check();
+  await sis.getByLabel("Parent or guardian's full name").fill("Funke Adeyemi");
+  await sis.getByLabel("They are my").selectOption("Mother");
+  await sis.getByLabel(/My parent or guardian knows/).check();
+  await sis.getByRole("button", { name: "Register & get my username" }).click();
+  await expect(sis.getByTestId("register-success")).toContainText("Welcome to the family, Ada!");
+  await sis.context().close();
+
+  // A teenager with her own phone.
+  const teen = await newDevice(browser);
+  await go(teen, "/register");
+  await fill(teen, "Teni Bello", "0809 888 7777", born(15), true);
+  await teen.getByRole("radio", { name: /My own phone/ }).check();
+  await teen.getByLabel(/My parent or guardian knows/).check();
+  await teen.getByRole("button", { name: "Register & get my username" }).click();
+  await expect(teen.getByTestId("register-success")).toContainText("Welcome to the family, Teni!");
+  await teen.context().close();
+
+  // At church: mum (still signed in) scans again and checks Ada in with one tap.
   await go(fam, await currentQrUrl());
-  await fam.getByRole("button", { name: /Check in as Funke/ }).click();
   const family = fam.getByTestId("family-checkin");
   await expect(family).toContainText("Your children");
-  await expect(family.getByRole("button", { name: "Check in Tobi" })).toBeVisible();
-  await family.getByRole("button", { name: "Check in all" }).click();
-  await expect(family.getByText("✓ Checked in")).toHaveCount(3);
+  await expect(family.getByRole("listitem").filter({ hasText: "Tobi Adeyemi" })).toContainText("Checked in");
+  await family.getByRole("button", { name: "Check in Ada" }).click();
+  await expect(family.getByText("✓ Checked in")).toHaveCount(2);
   await shot(fam, "18-family-checkin");
   await fam.context().close();
 
-  // The children's church page.
+  // Admin: everyone under 18, own phone or a parent's.
   await go(admin, "/admin/children");
   await expect(admin.getByTestId("children-count")).toHaveText("3");
-  const tobiRow = admin.getByTestId("children-table").getByRole("row").filter({ hasText: "Tobi Adeyemi" });
+  const table = admin.getByTestId("children-table");
+  const tobiRow = table.getByRole("row").filter({ hasText: "Tobi Adeyemi" });
   await expect(tobiRow).toContainText("Funke Adeyemi");
-  await expect(tobiRow).toContainText("Mother");
-  await expect(tobiRow).toContainText("Allergic to peanuts");
+  await expect(tobiRow).toContainText("Mother's phone");
   await expect(tobiRow).toContainText("In church today");
   await expect(tobiRow).toContainText("Pre-school");
-  await expect(admin.getByTestId("group-juniors")).toContainText("1 child");
-  await shot(admin, "19-children-church");
+  await expect(table.getByRole("row").filter({ hasText: "Teni Bello" })).toContainText("Own phone");
+  await expect(admin.getByTestId("group-teens")).toContainText("1 child");
+  await expect(admin.getByTestId("under-18-how")).toContainText("I'm new");
+  await shot(admin, "19-children-teens");
   const csv = await (await admin.request.get("/api/admin/export?type=children")).text();
   expect(csv).toContain("Tobi Adeyemi");
-  expect(csv).toContain("Allergic to peanuts");
-  // Children don't appear in the phone contacts export (they share the parent's number).
-  expect(await (await admin.request.get("/api/admin/export?type=vcf")).text()).not.toContain("Tobi Adeyemi");
+  expect(csv).toContain("parent/guardian");
+  // Children on a parent's number aren't in the phone-contacts export (the parent is).
+  const vcf = await (await admin.request.get("/api/admin/export?type=vcf")).text();
+  expect(vcf).not.toContain("Tobi Adeyemi");
+  expect(vcf).toContain("Funke Adeyemi");
   await tobiRow.getByRole("link", { name: /Tobi Adeyemi/ }).click();
   await expect(admin.getByTestId("child-summary")).toContainText("Funke Adeyemi");
-  await expect(admin.getByTestId("child-care-notes")).toContainText("Allergic to peanuts");
 
-  // Ushers can add a child at the desk with a parent's number.
+  // Ushers can add an under-18 without a phone at the desk.
   const sid = serviceUrl.split("/").pop();
   await go(admin, `/admin/attendance/desk?service=${sid}`);
   await admin.getByLabel("New member full name").fill("Kemi Okafor");
-  await admin.getByLabel(/Child without a phone/).check();
+  await admin.getByLabel(/Under 18, using a parent's phone/).check();
   await admin.getByLabel("Child's birthday").fill(born(4));
   await admin.getByLabel("New member phone").fill("0803 123 4567");
   await admin.getByRole("button", { name: "Add & check in" }).click();

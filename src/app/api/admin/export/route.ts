@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
   if (type === "children") {
     const kids = await listChildren();
     await audit(admin.email, "export", "children", null, { count: kids.length });
-    const body = csv([["name", "username", "birthday", "age", "age_group", "gender", "parent_or_guardian", "relationship", "phone", "email", "address", "care_notes", "times_in_church", "last_attended"],
-      ...kids.map((k) => [k.full_name, k.username, k.birthday, k.age, k.group?.label, k.gender, k.guardian?.full_name ?? k.guardian_name, k.guardian_relationship, k.phone, k.email ?? k.guardian?.email, k.address, k.care_notes, k.visits, k.lastSeen?.slice(0, 10)])]);
+    const body = csv([["name", "username", "birthday", "age", "age_group", "gender", "phone", "whose_phone", "parent_or_guardian", "relationship", "email", "address", "care_notes", "times_in_church", "last_attended"],
+      ...kids.map((k) => [k.full_name, k.username, k.birthday, k.age, k.group?.label, k.gender, k.phone, k.ownPhone ? "own" : "parent/guardian", k.ownPhone ? "" : k.guardian?.full_name ?? k.guardian_name, k.guardian_relationship, k.email ?? k.guardian?.email, k.address, k.care_notes, k.visits, k.lastSeen?.slice(0, 10)])]);
     return new NextResponse(body, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="flagupjesus-children.csv"` } });
   }
   if (type === "leaders_vcf") {

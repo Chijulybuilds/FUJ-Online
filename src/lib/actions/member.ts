@@ -7,10 +7,6 @@ import { submitTestimony } from "@/lib/repo/content";
 import { FriendlyError, updatePerson } from "@/lib/repo/people";
 import { db } from "@/lib/db";
 import { addPartner, sendPartnerThanks } from "@/lib/repo/partners";
-import { registerChild } from "@/lib/repo/children";
-import { checkInFromTicket } from "@/lib/auth/identity";
-import { birthdayProblem } from "@/lib/validation/auth";
-import { childBirthdayProblem, RELATIONSHIPS } from "@/lib/children";
 
 type State = { ok?: boolean; message?: string } | null;
 const str = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
@@ -81,31 +77,3 @@ export async function becomePartnerAction(_: State, fd: FormData): Promise<State
   return { ok: true, message: "Thank you for partnering with us! 💛 Our partnership team will reach out to you." };
 }
 
-/** A parent registers a child who doesn't have a phone (Member portal → My children). */
-export async function addChildAction(_: State, fd: FormData): Promise<State> {
-  const me = await requireMember();
-  const parent = await db().get("people", { id: me.personId });
-  if (!parent || parent.is_child) return { ok: false, message: "Only a parent's or guardian's account can register children." };
-  const name = str(fd, "full_name");
-  if (name.length < 2) return { ok: false, message: "Enter your child's full name." };
-  const birthday = str(fd, "birthday");
-  const problem = birthdayProblem(birthday) ?? childBirthdayProblem(birthday);
-  if (problem) return { ok: false, message: problem.replace("Enter your birthday", "Enter your child's birthday") };
-  const careNotes = str(fd, "care_notes");
-  if (careNotes.length > 500) return { ok: false, message: "Please keep the notes under 500 characters." };
-  const gender = str(fd, "gender");
-  try {
-    const { child } = await registerChild({
-      full_name: name, birthday, gender: gender === "male" || gender === "female" ? gender : null, phone: parent.phone, address: str(fd, "address") || parent.address,
-      guardian: parent, guardian_relationship: RELATIONSHIPS.includes(str(fd, "relationship") as (typeof RELATIONSHIPS)[number]) ? str(fd, "relationship") : null,
-      care_notes: careNotes || null, first_timer: str(fd, "first_timer") ? str(fd, "first_timer") === "yes" : null
-    });
-    const checkIn = await checkInFromTicket(child.id).catch(() => null);
-    revalidatePath("/member/children");
-    return { ok: true, message: `${child.full_name.split(" ")[0]} is registered! 🎈 Username: ${child.username}${checkIn ? " — and checked in for today's service." : ""}` };
-  } catch (error) {
-    if (error instanceof FriendlyError) return { ok: false, message: error.message };
-    console.error(error);
-    return { ok: false, message: "Something went wrong. Please try again." };
-  }
-}

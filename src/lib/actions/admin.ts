@@ -17,7 +17,6 @@ import { saveAnnouncement, setAnnouncementStatus, updatePrayer, moderateTestimon
 import { recordDonation } from "@/lib/repo/giving";
 import { saveSettings } from "@/lib/repo/settings";
 import { addLeader, removeLeader, updateLeader } from "@/lib/repo/leaders";
-import { registerChild } from "@/lib/repo/children";
 import { audit } from "@/lib/repo/audit";
 import { isOurFlyerUrl } from "@/lib/storage";
 import { nowIso, uid } from "@/lib/utils";
@@ -560,20 +559,3 @@ export async function toggleStaffAction(fd: FormData) {
   revalidatePath("/admin/settings");
 }
 
-/* ---------------- Children ---------------- */
-export async function addChildAdminAction(_: State, fd: FormData): Promise<State> {
-  let id = "";
-  const result = await guarded("members", async (actor) => {
-    const birthday = str(fd, "birthday");
-    const gender = str(fd, "gender");
-    const { child, guardian } = await registerChild({
-      full_name: str(fd, "full_name"), birthday, gender: gender === "male" || gender === "female" ? gender : null, phone: str(fd, "phone"),
-      address: opt(fd, "address"), guardian_name: opt(fd, "guardian_name"), guardian_relationship: opt(fd, "relationship"), care_notes: opt(fd, "care_notes"),
-      first_timer: str(fd, "first_timer") ? str(fd, "first_timer") === "yes" : null, verified_via: "admin"
-    });
-    await audit(actor, "person.create_child", "people", child.id, { guardian_linked: Boolean(guardian) });
-    id = child.id;
-    return { ok: true };
-  });
-  return id ? { ok: true, redirectTo: `/admin/members/${id}?created=1` } : result;
-}
