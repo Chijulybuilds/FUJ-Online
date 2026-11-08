@@ -8,7 +8,7 @@ import { CopyButton } from "@/components/shared/copy-button";
  * verified = signed in with Google already. otp = require an SMS code (off by default: REGISTRATION_OTP=true).
  * Without OTP, the person is confirmed for free at their first in-person check-in.
  */
-export function RegisterForm({ defaults, checkInNote, verified = false, otp = false }: { defaults: { name?: string; email?: string }; checkInNote?: string; verified?: boolean; otp?: boolean }) {
+export function RegisterForm({ defaults, checkInNote, verified = false, otp = false }: { defaults: { name?: string; email?: string; phone?: string; address?: string }; checkInNote?: string; verified?: boolean; otp?: boolean }) {
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState(""); const [sending, setSending] = useState(false);
   const [codeSent, setCodeSent] = useState(false); const [cooldown, setCooldown] = useState(0);
@@ -27,6 +27,7 @@ export function RegisterForm({ defaults, checkInNote, verified = false, otp = fa
         <div className="mt-3 flex justify-center"><CopyButton value={done.username} label="Copy username" /></div>
         <p className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">📸 Screenshot or save it. Next Sunday, just scan the QR on the screen and type this username. No smartphone? Tell an usher your name at the door.</p>
         <Link href="/member" className="btn btn-primary mt-6 w-full">Go to my portal</Link>
+        <Link href="/member/children" className="btn btn-secondary mt-2 w-full" data-testid="register-children-link">👨‍👩‍👧 Register your children</Link>
       </div>
     );
   }
@@ -61,10 +62,10 @@ export function RegisterForm({ defaults, checkInNote, verified = false, otp = fa
     }}>
       {checkInNote && <p className="alert alert-ok">{checkInNote}</p>}
       <label className="label">Full name<input className="input mt-2" name="fullName" required defaultValue={defaults.name} autoComplete="name" placeholder="Your full name" /></label>
-      <label className="label">Phone number<input className="input mt-2" name="phone" required inputMode="tel" autoComplete="tel" placeholder="080X XXX XXXX" readOnly={codeSent} onChange={() => codeSent && setCodeSent(false)} /></label>
+      <label className="label">Phone number<input className="input mt-2" name="phone" required inputMode="tel" autoComplete="tel" placeholder="080X XXX XXXX" defaultValue={defaults.phone} readOnly={codeSent} onChange={() => codeSent && setCodeSent(false)} /></label>
       <label className="label">Email <span className="font-normal text-slate-400">(optional)</span><input className="input mt-2" name="email" type="email" defaultValue={defaults.email} autoComplete="email" /></label>
       <label className="label">Birthday<input className="input mt-2" name="birthday" type="date" required min="1900-01-01" autoComplete="bday" /></label>
-      <label className="label">Home address<textarea className="input mt-2 min-h-[4.5rem]" name="address" required minLength={5} maxLength={300} rows={2} autoComplete="street-address" placeholder="House number, street, area, city" /></label>
+      <label className="label">Home address<textarea className="input mt-2 min-h-[4.5rem]" name="address" required minLength={5} maxLength={300} rows={2} autoComplete="street-address" placeholder="House number, street, area, city" defaultValue={defaults.address} /></label>
       <fieldset className="label" data-testid="first-timer-question">
         <legend>Is this your first time worshipping with FlagUpJesus?</legend>
         <div className="choice-grid">

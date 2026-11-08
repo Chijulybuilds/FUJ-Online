@@ -2,7 +2,7 @@ import "server-only";
 import { db, DuplicateError } from "@/lib/db";
 import type { Attendance, Person, QrSession, Service } from "@/lib/db/types";
 import { nowIso, uid } from "@/lib/utils";
-import { peopleById, FriendlyError } from "./people";
+import { peopleById, FriendlyError, sameFamily } from "./people";
 import { closeAbsenteeTasksOnReturn } from "./auto-follow-up";
 import { noteFirstTimerCheckIn } from "./first-timers";
 
@@ -81,7 +81,11 @@ export async function recordAttendance(input: {
     // One phone, one person per service: stops a single device checking in a list of usernames.
     const sameDevice = await db().get("attendance", { service_id: input.serviceId, device_id: input.deviceId });
     if (sameDevice && sameDevice.person_id !== input.person.id) {
-      throw new FriendlyError("This phone has already been used to check someone in for this service. Please see an usher.");
+      // …except a family: a parent can check in the children who use their phone number.
+      const other = await db().get("people", { id: sameDevice.person_id });
+      if (!other || !sameFamily(other, input.person)) {
+        throw new FriendlyError("This phone has already been used to check someone in for this service. Please see an usher.");
+      }
     }
   }
   const now = nowIso();

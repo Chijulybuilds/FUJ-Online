@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { Broadcast, BroadcastRecipient, Channel, Person } from "@/lib/db/types";
 import { nowIso, uid } from "@/lib/utils";
-import { peopleById } from "./people";
+import { findByPhone, peopleById } from "./people";
 import { createTask } from "./care";
 import { emailAttempt, emailFromProblem, NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp, smsAttempt, WHATSAPP_ERROR_HINTS } from "@/lib/messaging/providers";
 import { firstName, normalizePhone } from "@/lib/identity-utils";
@@ -18,6 +18,7 @@ export const AUDIENCES: { value: string; label: string }[] = [
   { value: "first_timers", label: "First timers (still being followed up)" },
   { value: "partners", label: "FUJ Partners (everyone who signed up, except declined)" },
   { value: "partners_active", label: "FUJ Partners — committed & active" },
+  { value: "parents", label: "Parents & guardians of registered children" },
   { value: "absentees", label: "Absentees (open absence follow-ups)" },
   { value: "care_open", label: "Everyone with an open follow-up task" }
 ];
@@ -50,6 +51,13 @@ export async function resolveAudience(audience: string): Promise<Person[]> {
       const tasks = await db().list("follow_up_tasks", { where: { status: ["open", "in_progress"] } });
       const ids = new Set(tasks.filter((t) => kind === "care_open" || t.category === "absentee").map((t) => t.person_id));
       return people.filter((p) => ids.has(p.id));
+    }
+    case "parents": {
+      // Adults whose children are registered (linked, or using their phone number).
+      const kids = people.filter((p) => p.is_child);
+      const ids = new Set(kids.flatMap((k) => (k.guardian_id ? [k.guardian_id] : [])));
+      const phones = new Set(kids.filter((k) => !k.guardian_id).map((k) => k.normalized_phone));
+      return people.filter((p) => !p.is_child && (ids.has(p.id) || phones.has(p.normalized_phone)));
     }
     case "person": return people.filter((p) => p.id === arg);
     case "followup": {
@@ -102,13 +110,15 @@ export async function sendBroadcast(input: {
   for (const person of recipients) {
     const text = personalise(input.personalize ? input.personalize(input.body, person) : input.body, person);
     const image = input.image_url ? absoluteUrl(input.image_url) : null;
+    // Children use a parent's phone and email: they get the message in their app inbox only (no duplicate texts to the parent).
+    const direct = !person.is_child;
     // WhatsApp = WhatsApp first, SMS for anyone not on WhatsApp. SMS = a text message to everyone (also when WhatsApp is ticked).
-    let phone: PhoneDelivery | null = channels.includes("whatsapp") ? await deliverByPhone(person, input.title, text, image) : null;
-    if (channels.includes("sms") && !phone?.sms_status) {
+    let phone: PhoneDelivery | null = channels.includes("whatsapp") && direct ? await deliverByPhone(person, input.title, text, image) : null;
+    if (channels.includes("sms") && direct && !phone?.sms_status) {
       const sms = await smsOnly(person, input.title, text, image);
       phone = phone ? { ...phone, sms_status: sms.sms_status, channel_used: phone.channel_used ?? sms.channel_used } : sms;
     }
-    const email_status = channels.includes("email")
+    const email_status = channels.includes("email") && direct
       ? (person.email
         ? await sendEmail(person.email, input.title, `${text}${image ? `\n\nFlyer: ${image}` : ""}`, {
           html: broadcastEmailHtml({ title: input.title, body: text, imageUrl: image, churchName: settings?.church_name ?? "FlagUpJesus Global Ministry", siteUrl: env.appUrl, motto: settings?.tagline }),
@@ -186,7 +196,8 @@ export async function handleWhatsAppStatus(status: { id: string; status: string;
 
 /** An inbound WhatsApp message becomes a response to the person's most recent broadcast (shows in Inbox). */
 export async function handleWhatsAppInbound(from: string, text: string) {
-  const person = await db().get("people", { normalized_phone: normalizePhone(`+${from.replace(/^\+/, "")}`) });
+  // The adult who owns the number (children share their parent's number).
+  const person = await findByPhone(normalizePhone(`+${from.replace(/^\+/, "")}`));
   if (!person) return { matched: false };
   await markWhatsApp(person.id, "yes");
   const latest = (await db().list("broadcast_recipients", { where: { person_id: person.id }, order: { column: "created_at", ascending: false }, limit: 1 }))[0];

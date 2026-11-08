@@ -9,6 +9,7 @@ import { findByUsername, FriendlyError } from "@/lib/repo/people";
 import { recordAttendance } from "@/lib/repo/services";
 import { clientIp, rateLimit } from "@/lib/security/rate-limit";
 import { firstName } from "@/lib/identity-utils";
+import { familyForCheckIn } from "@/lib/repo/children";
 
 /** Second step of QR check-in: the member types their flag username (no OTP needed). */
 export async function POST(request: NextRequest) {
@@ -35,9 +36,11 @@ export async function POST(request: NextRequest) {
   try {
     const result = await recordAttendance({ person, serviceId: ticket.svc, method: "qr", deviceId: device });
     const service = await db().get("services", { id: ticket.svc });
+    // Parents: their children (registered with this phone number) can be checked in with one tap next.
+    const family = await familyForCheckIn(person, ticket.svc).catch(() => []);
     return NextResponse.json({
       status: result.status, firstName: firstName(person.full_name), username: person.username,
-      checkedInAt: result.attendance.checked_in_at, service: service?.title ?? "Service"
+      checkedInAt: result.attendance.checked_in_at, service: service?.title ?? "Service", family
     });
   } catch (error) {
     if (error instanceof FriendlyError) return NextResponse.json({ error: error.message, code: "device_used" }, { status: 409 });

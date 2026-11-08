@@ -1,8 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { RELATIONSHIPS } from "@/lib/children";
 import { Check, Search, UserPlus } from "lucide-react";
 
-type Row = { id: string; name: string; username: string | null; phone: string; status: string; checkedInAt: string | null };
+type Row = { id: string; name: string; username: string | null; phone: string; status: string; checkedInAt: string | null; child?: boolean; age?: number | null; guardian?: string | null };
 const time = (v: string) => new Date(v).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Lagos" });
 
 export function Desk({ serviceId, serviceTitle }: { serviceId: string; serviceTitle: string }) {
@@ -12,6 +13,7 @@ export function Desk({ serviceId, serviceTitle }: { serviceId: string; serviceTi
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ ok: boolean; text: string } | null>(null);
   const [adding, setAdding] = useState(false);
+  const [isChild, setIsChild] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (term: string) => {
@@ -22,14 +24,14 @@ export function Desk({ serviceId, serviceTitle }: { serviceId: string; serviceTi
 
   useEffect(() => { const t = setTimeout(() => void load(q), 180); return () => clearTimeout(t); }, [q, load]);
 
-  async function checkIn(body: { personId?: string; fullName?: string; phone?: string; firstTimer?: boolean }) {
+  async function checkIn(body: { personId?: string; fullName?: string; phone?: string; firstTimer?: boolean; child?: boolean; birthday?: string; guardianName?: string; relationship?: string }) {
     setBusy(body.personId ?? "new"); setFlash(null);
     const res = await fetch("/api/admin/desk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceId, ...body }) });
     const json = await res.json().catch(() => ({}));
     setBusy(null);
     if (!res.ok) { setFlash({ ok: false, text: json.error ?? "Check-in failed." }); return false; }
     const first = json.person.name.split(" ")[0];
-    setFlash({ ok: true, text: json.status === "already" ? `${json.person.name} was already checked in.` : json.created ? `Welcome ${first}! Added as a new member (username ${json.person.username}) and checked in.` : `${json.person.name} checked in ✓` });
+    setFlash({ ok: true, text: json.status === "already" ? `${json.person.name} was already checked in.` : json.created ? (json.child ? `Welcome ${first}! 🎈 Registered as a child with ${json.guardian}'s number (username ${json.person.username}) and checked in.` : `Welcome ${first}! Added as a new member (username ${json.person.username}) and checked in.`) : `${json.person.name} checked in ✓` });
     setQ(""); input.current?.focus(); await load("");
     return true;
   }
@@ -47,7 +49,7 @@ export function Desk({ serviceId, serviceTitle }: { serviceId: string; serviceTi
         <ul className="divide-y divide-slate-100">
           {rows.map((r) => (
             <li key={r.id} className="flex items-center justify-between gap-3 py-3" data-testid="desk-row">
-              <div className="min-w-0"><p className="truncate font-semibold">{r.name}</p><p className="text-xs text-slate-500">{r.username} · {r.phone} · {r.status}</p></div>
+              <div className="min-w-0"><p className="truncate font-semibold">{r.child && <span aria-hidden>🧒 </span>}{r.name}</p><p className="text-xs text-slate-500">{r.username} · {r.child ? `child${r.age !== null && r.age !== undefined ? `, ${r.age}` : ""} · parent: ${r.guardian ?? r.phone}` : `${r.phone} · ${r.status}`}</p></div>
               {r.checkedInAt
                 ? <span className="pill pill-green whitespace-nowrap"><Check size={12} className="mr-1" /> {time(r.checkedInAt)}</span>
                 : <button className="btn btn-primary btn-sm whitespace-nowrap" disabled={busy === r.id} onClick={() => checkIn({ personId: r.id })}>{busy === r.id ? "…" : "Check in"}</button>}
@@ -62,11 +64,18 @@ export function Desk({ serviceId, serviceTitle }: { serviceId: string; serviceTi
         <form className="mt-4 space-y-3" onSubmit={async (e) => {
           e.preventDefault(); setAdding(true);
           const fd = new FormData(e.currentTarget); const form = e.currentTarget;
-          const ok = await checkIn({ fullName: String(fd.get("fullName")), phone: String(fd.get("phone")), firstTimer: fd.get("firstTimer") === "on" });
-          setAdding(false); if (ok) form.reset();
+          const ok = await checkIn({
+            fullName: String(fd.get("fullName")), phone: String(fd.get("phone")), firstTimer: fd.get("firstTimer") === "on",
+            ...(isChild ? { child: true, birthday: String(fd.get("birthday") ?? ""), guardianName: String(fd.get("guardianName") ?? ""), relationship: String(fd.get("relationship") ?? "") } : {})
+          });
+          setAdding(false); if (ok) { form.reset(); setIsChild(false); }
         }}>
           <input className="input" name="fullName" required placeholder="Full name" aria-label="New member full name" defaultValue={q && !rows.length ? q : undefined} key={rows.length ? "x" : q} />
-          <input className="input" name="phone" required inputMode="tel" placeholder="Phone number" aria-label="New member phone" />
+          <label className="checkbox"><input type="checkbox" checked={isChild} onChange={(e) => setIsChild(e.target.checked)} /> <span>Child without a phone <span className="block text-xs text-slate-500">Uses a parent&apos;s or guardian&apos;s number</span></span></label>
+          {isChild && <input className="input" name="birthday" type="date" required aria-label="Child's birthday" />}
+          {isChild && <input className="input" name="guardianName" placeholder="Parent / guardian's name (if not registered)" aria-label="Parent or guardian name" />}
+          {isChild && <select className="input" name="relationship" defaultValue="" aria-label="Relationship to child"><option value="">Relationship…</option>{RELATIONSHIPS.map((r) => <option key={r}>{r}</option>)}</select>}
+          <input className="input" name="phone" required inputMode="tel" placeholder={isChild ? "Parent's phone number" : "Phone number"} aria-label="New member phone" />
           <label className="checkbox"><input type="checkbox" name="firstTimer" /> <span>First time at FlagUpJesus <span className="block text-xs text-slate-500">Starts their first-timer follow-up (welcome message + call)</span></span></label>
           <button className="btn btn-secondary w-full" disabled={adding}>{adding ? "Adding…" : "Add & check in"}</button>
         </form>

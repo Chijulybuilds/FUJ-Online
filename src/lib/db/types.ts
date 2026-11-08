@@ -31,6 +31,14 @@ export interface Person {
   verified_at: string | null;
   /** Answer to "Is this your first time at FlagUpJesus?" at registration (null = not asked). */
   first_timer: boolean | null;
+  /** A child registered with a parent's / guardian's phone number (phone + email are the parent's). */
+  is_child: boolean;
+  /** The parent's member record, when the parent is registered with that number. */
+  guardian_id: string | null;
+  guardian_name: string | null;
+  guardian_relationship: string | null;
+  /** Allergies, medical or special-care needs (children). */
+  care_notes: string | null;
   created_at: string;
   updated_at: string;
 }

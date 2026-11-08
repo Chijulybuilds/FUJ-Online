@@ -5,7 +5,7 @@ import { signingSecret, env } from "@/lib/env";
 import { normalizePhone } from "@/lib/identity-utils";
 import { providers, sendSms } from "@/lib/messaging/providers";
 import { nowIso, uid } from "@/lib/utils";
-import { FriendlyError } from "./people";
+import { findByPhone, FriendlyError } from "./people";
 
 const TTL_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
@@ -15,7 +15,7 @@ const hash = (phone: string, code: string) => createHmac("sha256", `${signingSec
 export async function requestOtp(rawPhone: string): Promise<{ phone: string; devCode?: string }> {
   const phone = normalizePhone(rawPhone);
   if (!phone || phone.length < 11) throw new FriendlyError("Enter a valid phone number.");
-  if (await db().get("people", { normalized_phone: phone })) throw new FriendlyError("This phone number is already registered. Sign in with your username instead.");
+  if (await findByPhone(phone)) throw new FriendlyError("This phone number is already registered. Sign in with your username instead.");
   if (!providers.sms && !env.devLoginEnabled) throw new FriendlyError("SMS verification isn't available right now. Please continue with Google or ask an usher to register you.");
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const now = Date.now();
