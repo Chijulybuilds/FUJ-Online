@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const LINKS = [
   ["Home", "/member"], ["Messages", "/member/messages"], ["Updates", "/member/announcements"], ["Prayer", "/member/prayer-requests"],
-  ["Testimonies", "/member/testimonies"], ["Attendance", "/member/attendance"], ["My children", "/member/children"], ["Giving", "/member/giving"], ["Profile", "/member/profile"]
+  ["Testimonies", "/member/testimonies"], ["Attendance", "/member/attendance"], ["Giving", "/member/giving"], ["Profile", "/member/profile"]
 ] as const;
 
 export function MemberShell({ children, unread, name }: { children: React.ReactNode; unread: number; name: string }) {

@@ -12,10 +12,11 @@ const MAX_ATTEMPTS = 5;
 const hash = (phone: string, code: string) => createHmac("sha256", `${signingSecret()}:otp`).update(`${phone}:${code}`).digest("hex");
 
 /** Sends a 6-digit registration code by SMS. In local development without SMS the code is returned for display. */
-export async function requestOtp(rawPhone: string): Promise<{ phone: string; devCode?: string }> {
+export async function requestOtp(rawPhone: string, opts: { parentsPhone?: boolean } = {}): Promise<{ phone: string; devCode?: string }> {
   const phone = normalizePhone(rawPhone);
   if (!phone || phone.length < 11) throw new FriendlyError("Enter a valid phone number.");
-  if (await findByPhone(phone)) throw new FriendlyError("This phone number is already registered. Sign in with your username instead.");
+  // An under-18 registering with a parent's number: the code goes to the parent's (already registered) phone.
+  if (!opts.parentsPhone && await findByPhone(phone)) throw new FriendlyError("This phone number is already registered. Sign in with your username instead.");
   if (!providers.sms && !env.devLoginEnabled) throw new FriendlyError("SMS verification isn't available right now. Please continue with Google or ask an usher to register you.");
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const now = Date.now();

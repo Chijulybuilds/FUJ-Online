@@ -5,7 +5,7 @@ export const NAV_GROUPS: { label: string; links: NavLink[] }[] = [
     { label: "Dashboard", href: "/admin", icon: "home", area: "dashboard" },
     { label: "Members", href: "/admin/members", icon: "users", area: "members" },
     { label: "Leaders", href: "/admin/leaders", icon: "leaders", area: "leaders" },
-    { label: "Children", href: "/admin/children", icon: "children", area: "members" },
+    { label: "Children & teens", href: "/admin/children", icon: "children", area: "members" },
     { label: "Services", href: "/admin/services", icon: "calendar", area: "services" },
     { label: "Check-in desk", href: "/admin/attendance/desk", icon: "check", area: "attendance" },
     { label: "Attendance", href: "/admin/attendance", icon: "qr", area: "attendance" }

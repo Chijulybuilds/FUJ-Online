@@ -117,7 +117,6 @@ export function CheckInFlow() {
               <p className="text-sm font-semibold">First time here? Welcome! 👋</p>
               <p className="mt-1 text-xs text-slate-500">Register in a minute and get your own flag username.</p>
               <Link href="/register" className="btn btn-secondary mt-3"><UserPlus size={15} /> Register now</Link>
-              <p className="mt-3 text-xs text-slate-500">Child without a phone? <Link href="/register?child=1" className="font-semibold text-blue-600">Register them with your number →</Link></p>
             </div>
           </div>
         )}
@@ -144,7 +143,6 @@ export function CheckInFlow() {
                   ))}
                 </ul>
                 {kidMessage && <p className="alert alert-err mt-3">{kidMessage}</p>}
-                <Link href="/member/children" className="mt-3 block text-xs font-semibold text-blue-600">+ Register another child</Link>
               </div>
             )}
             <div className="mt-6 grid gap-2">
