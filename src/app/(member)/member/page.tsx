@@ -8,7 +8,8 @@ import { publishedAnnouncements } from "@/lib/repo/content";
 import { CopyButton } from "@/components/shared/copy-button";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
-export default async function MemberHome() {
+export default async function MemberHome({ searchParams }: { searchParams: Promise<{ password?: string }> }) {
+  const { password } = await searchParams;
   const me = await requireMember();
   const person = (await db().get("people", { id: me.personId }))!;
   const [attendance, next, messages, news] = await Promise.all([
@@ -36,6 +37,7 @@ export default async function MemberHome() {
         </div>
         {next && <p className="mt-5 text-sm text-slate-300">Next: <b className="text-white">{next.title}</b> · {formatDateTime(next.starts_at)}</p>}
       </div>
+      {password === "set" && <p className="alert alert-ok mt-6" data-testid="password-set">🔐 Your password is set. Next time, sign in with your username (or email) and password — or your phone number, as before.</p>}
       {unread.length > 0 && (
         <Link href="/member/messages" className="alert alert-warn mt-6 block">📬 You have {unread.length} unread message{unread.length === 1 ? "" : "s"} from the church — latest: <b>{unread[0].broadcast.title}</b></Link>
       )}

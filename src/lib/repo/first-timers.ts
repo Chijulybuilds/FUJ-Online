@@ -171,7 +171,8 @@ export async function sendFirstTimerWelcome(items: { journey: FirstTimer; person
   if (!s.first_timer_auto || !due.length) return 0;
   await sendAutomaticMessage({
     subject: "first_timer", items: due.map((i) => ({ id: i.journey.id, person: i.person })), title: WELCOME_TITLE,
-    body: s.first_timer_welcome_message?.trim() || DEFAULT_WELCOME_MESSAGE, audience: "auto_first_timer:welcome", channels: followUpChannels(s),
+    // Not by email: everyone with an email already gets the "Welcome to FUJ Online Church" email with their username.
+    body: s.first_timer_welcome_message?.trim() || DEFAULT_WELCOME_MESSAGE, audience: "auto_first_timer:welcome", channels: followUpChannels(s).filter((c) => c !== "email"),
     author: FIRST_TIMER_AUTHOR, outcome: "auto_welcome", note: () => "Welcome message.", personalize: fill(s)
   });
   const now = nowIso();

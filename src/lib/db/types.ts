@@ -39,6 +39,8 @@ export interface Person {
   guardian_relationship: string | null;
   /** Allergies, medical or special-care needs (children). */
   care_notes: string | null;
+  /** When the "Welcome to FUJ Online Church" email with their flag username went out. */
+  welcome_email_sent_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -278,6 +280,13 @@ export interface ContactLog {
   created_at: string;
 }
 
+/** A member's optional password (scrypt hash) — kept apart from people, which members can read. */
+export interface MemberCredential {
+  person_id: string;
+  password_hash: string;
+  updated_at: string;
+}
+
 /** A church leader added by admins; contact details live on the linked person record. */
 export interface Leader {
   id: string;
@@ -368,6 +377,7 @@ export interface Tables {
   first_timers: FirstTimer;
   partners: Partner;
   contact_logs: ContactLog;
+  member_credentials: MemberCredential;
   church_settings: ChurchSettings;
   audit_logs: AuditLog;
 }

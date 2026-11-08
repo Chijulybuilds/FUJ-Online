@@ -17,6 +17,7 @@ import { saveAnnouncement, setAnnouncementStatus, updatePrayer, moderateTestimon
 import { recordDonation } from "@/lib/repo/giving";
 import { saveSettings } from "@/lib/repo/settings";
 import { addLeader, removeLeader, updateLeader } from "@/lib/repo/leaders";
+import { describeBacklog, sendWelcomeBacklog, sendWelcomeEmail } from "@/lib/repo/accounts";
 import { audit } from "@/lib/repo/audit";
 import { isOurFlyerUrl } from "@/lib/storage";
 import { nowIso, uid } from "@/lib/utils";
@@ -58,6 +59,8 @@ export async function createPersonAction(_: State, fd: FormData): Promise<State>
       verified_via: "admin", first_timer: firstTimer ? true : null
     });
     await audit(actor, "person.create", "people", person.id, { first_timer: firstTimer });
+    // Their flag username + a set-a-password link, by email.
+    after(() => sendWelcomeEmail(person).then(() => undefined, (error) => console.error("welcome email failed", error)));
     if (firstTimer) {
       const { journey } = await startFirstTimer(person, { source: "admin" });
       welcomeLater(journey, person);
@@ -559,3 +562,27 @@ export async function toggleStaffAction(fd: FormData) {
   revalidatePath("/admin/settings");
 }
 
+
+/* ---------------- Welcome emails ---------------- */
+/** Settings → Welcome emails → "Send now": a paced batch to everyone who hasn't had it yet. */
+export async function sendWelcomeBacklogAction(): Promise<State> {
+  return guarded("settings", async (actor) => {
+    const r = await sendWelcomeBacklog();
+    await audit(actor, "welcome_email.backlog", "people", null, r as unknown as Record<string, unknown>);
+    revalidatePath("/admin/settings");
+    return { ok: r.emailReady && !r.stoppedBecause, message: describeBacklog(r) };
+  });
+}
+
+/** Member record → "Send welcome email" (again). */
+export async function sendWelcomeToPersonAction(_: State, fd: FormData): Promise<State> {
+  return guarded("members", async (actor) => {
+    const person = await db().get("people", { id: str(fd, "id") });
+    if (!person) return { ok: false, message: "Person not found." };
+    if (!person.email) return { ok: false, message: "Add their email address first." };
+    const r = await sendWelcomeEmail(person, { force: true });
+    await audit(actor, "welcome_email.send", "people", person.id, { status: r.status });
+    revalidatePath(`/admin/members/${person.id}`);
+    return r.status === "sent" ? { ok: true, message: `Welcome email sent to ${person.email}.` } : { ok: false, message: r.detail ?? "The email couldn't be sent." };
+  });
+}

@@ -9,7 +9,8 @@ import { requireAdmin } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { attendanceForPerson } from "@/lib/repo/services";
-import { addPartnerAction, createTaskAction, startFirstTimerAction, updatePersonAction } from "@/lib/actions/admin";
+import { addPartnerAction, createTaskAction, sendWelcomeToPersonAction, startFirstTimerAction, updatePersonAction } from "@/lib/actions/admin";
+import { credentialFor } from "@/lib/repo/accounts";
 import { FREQUENCIES, frequencyLabel } from "@/lib/repo/partners";
 import { childrenOf } from "@/lib/repo/people";
 import { ageGroupOf, ageLabel, ageOf, childEmoji, nextBirthday, RELATIONSHIPS } from "@/lib/children";
@@ -32,6 +33,7 @@ export default async function MemberDetails({ params, searchParams }: { params: 
     person.is_child ? Promise.resolve([]) : childrenOf(person).catch(() => []),
     person.is_child && person.guardian_id ? db().get("people", { id: person.guardian_id }).catch(() => null) : Promise.resolve(null)
   ]);
+  const credential = await credentialFor(person.id);
   const age = ageOf(person.birthday);
   const group = ageGroupOf(age);
   const bday = nextBirthday(person.birthday);
@@ -80,6 +82,10 @@ export default async function MemberDetails({ params, searchParams }: { params: 
             <dl className="kv sm:col-span-2 mt-2"><dt>First visit</dt><dd>{formatDate(person.first_visit_at)}</dd><dt>Joined</dt><dd>{formatDate(person.joined_at)}</dd><dt>Heard via</dt><dd>{person.how_heard ?? "—"}</dd><dt>Sign-in</dt><dd>{person.auth_subject?.startsWith("google:") ? "Google linked" : "Username + phone"}</dd></dl>
             <div className="sm:col-span-2"><SubmitButton>Save changes</SubmitButton></div>
           </ActionForm>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 p-4 text-sm" data-testid="welcome-status">
+            <span>✉️ Welcome email: {person.welcome_email_sent_at ? <b>sent {formatDateTime(person.welcome_email_sent_at)}</b> : person.email ? <b>not sent yet</b> : <span className="text-slate-500">no email address</span>}<span className="block text-xs text-slate-500">Password: {credential ? "set" : "not set (signs in with phone number)"}</span></span>
+            {person.email && <ActionForm action={sendWelcomeToPersonAction}><input type="hidden" name="id" value={person.id} /><SubmitButton className="btn btn-secondary btn-sm" pendingText="Sending…">{person.welcome_email_sent_at ? "Send again" : "Send welcome email"}</SubmitButton></ActionForm>}
+          </div>
         </section>
         <div className="space-y-6">
           <section className="card p-6">

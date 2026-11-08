@@ -65,17 +65,18 @@ describe("first timers", () => {
     expect(await db().get("first_timers", { person_id: oldMember.id })).toBeNull();
   });
 
-  it("sends the welcome message once, on every channel, and logs it", async () => {
+  it("sends the welcome message once, on WhatsApp / SMS / app inbox, and logs it", async () => {
     calls.length = 0;
     const journey = (await db().get("first_timers", { id: journeyId }))!;
     const person = (await db().get("people", { id: personId }))!;
     expect(await ft.sendFirstTimerWelcome([{ journey, person }])).toBe(1);
     expect(sentTo("2348050000001")).toBe(true);
-    expect(calls.some((c) => c.url.includes("resend"))).toBe(true);
+    // Not by email — the "Welcome to FUJ Online Church" account email (with their username) covers that.
+    expect(calls.some((c) => c.url.includes("resend"))).toBe(false);
     const b = (await db().list("broadcasts", { where: { audience: "auto_first_timer:welcome" } }))[0];
     expect(b).toMatchObject({ title: "Welcome to FlagUpJesus", recipient_count: 1, kind: "follow_up" });
     expect((await db().get("first_timers", { id: journeyId }))!.welcome_sent_at).not.toBeNull();
-    expect((await logs("first_timer", journeyId)).some((l) => l.outcome === "auto_welcome" && /Sent via app inbox, WhatsApp, SMS, email/.test(l.note ?? ""))).toBe(true);
+    expect((await logs("first_timer", journeyId)).some((l) => l.outcome === "auto_welcome" && /Sent via app inbox, WhatsApp, SMS\./.test(l.note ?? ""))).toBe(true);
     expect(await ft.sendFirstTimerWelcome([{ journey: (await db().get("first_timers", { id: journeyId }))!, person }])).toBe(0);
   });
 

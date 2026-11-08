@@ -10,7 +10,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <AuthCard>
       <h1 className="text-2xl font-bold">Welcome back</h1>
-      <p className="mt-2 text-sm text-slate-500">Sign in with Google, or your flag username and phone number.</p>
+      <p className="mt-2 text-sm text-slate-500">Sign in with Google, or your flag username and phone number — or a password, if you set one.</p>
       {error && <p className="alert alert-err mt-5">{ERRORS[error] ?? "Sign-in failed."}</p>}
       <div className="mt-6 space-y-4">
         <GoogleButton intent="member" enabled={env.googleEnabled} />

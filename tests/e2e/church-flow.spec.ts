@@ -517,6 +517,59 @@ test("under-18s register on the same I'm new page — with their own phone or a 
   await expect(admin.getByText(/Welcome Kemi! 🎈 Registered as a child with Grace Okafor's number/)).toBeVisible();
 });
 
+test("members can set a password and sign in with it; welcome emails (username + password link) are tracked", async ({ browser }) => {
+  const m = await newDevice(browser);
+  await memberLogin(m, "flagdavid102", "08062345678");
+  await go(m, "/member/profile");
+  const card = m.getByTestId("password-card");
+  await expect(card).toContainText("Optional");
+  await card.getByLabel(/^Password/).fill("short");
+  await card.getByLabel("Type it again").fill("short");
+  await card.getByRole("button", { name: "Set password" }).click();
+  await expect(m.getByText(/at least 8 characters/i).first()).toBeVisible();
+  await card.getByLabel(/^Password/).fill("Grace&Truth2026");
+  await card.getByLabel("Type it again").fill("Grace&Truth2026");
+  await card.getByRole("button", { name: "Set password" }).click();
+  await expect(m.getByText(/Password set! You can now sign in/)).toBeVisible();
+  await m.reload();
+  await expect(m.getByTestId("password-card")).toContainText("Change the password");
+  await m.context().clearCookies();
+
+  // Sign in with username + password (phone number still works too).
+  await go(m, "/login");
+  await m.getByRole("tab", { name: /Password/ }).click();
+  await m.getByLabel("Username or email").fill("flagdavid102");
+  await m.getByLabel("Password", { exact: true }).fill("not-my-password");
+  await m.getByRole("button", { name: "Sign in" }).click();
+  await expect(m.getByText(/don't match/)).toBeVisible();
+  await m.getByLabel("Password", { exact: true }).fill("Grace&Truth2026");
+  await m.getByRole("button", { name: "Sign in" }).click();
+  await m.waitForURL(/\/member$/);
+  await expect(m.getByTestId("portal-username")).toHaveText("flagdavid102");
+  await shot(m, "20-password-signin");
+  await m.context().clearCookies();
+  // Forgot password never says whether an account exists; bad links explain what to do.
+  await go(m, "/login");
+  await m.getByRole("tab", { name: /Password/ }).click();
+  await m.getByRole("button", { name: "Forgot your password?" }).click();
+  await m.getByLabel("Username or email").fill("flagdavid102");
+  await m.getByRole("button", { name: "Email me a link" }).click();
+  await expect(m.getByTestId("forgot-sent")).toContainText("If we have an email address for that account");
+  await go(m, "/set-password?token=abc.def");
+  await expect(m.getByTestId("set-password-problem")).toContainText("isn't valid");
+  await m.context().close();
+
+  // Admin: who has had the welcome email (no email provider in tests, so nothing is lost — it waits).
+  await go(admin, "/admin/settings");
+  const welcome = admin.getByTestId("welcome-emails");
+  await expect(welcome).toContainText("flag username");
+  await expect(welcome).toContainText("Email isn't set up yet");
+  await expect(welcome.getByTestId("welcome-pending")).not.toHaveText("0");
+  const david = (await (await admin.request.get("/api/admin/desk?serviceId=x&q=david")).json()).people[0];
+  await go(admin, `/admin/members/${david.id}`);
+  await expect(admin.getByTestId("welcome-status")).toContainText("Password: set");
+});
+
 test("broadcast with response tracking, member replies, follow-up to non-responders", async ({ browser }) => {
   await go(admin, "/admin/messaging");
   await expect(admin.getByLabel("Audience").locator("option", { hasText: /visitor/i })).toHaveCount(0);

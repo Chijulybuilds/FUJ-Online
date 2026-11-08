@@ -20,7 +20,7 @@ export function RegisterForm({ defaults, checkInNote, verified = false, otp = fa
   const [phoneOwner, setPhoneOwner] = useState<"" | "self" | "parent">("");
   const minor = age !== null && age >= 0 && age < ADULT_AGE;
   const parentsPhone = minor && phoneOwner === "parent";
-  const [done, setDone] = useState<{ username: string; name: string; checkedIn: boolean; firstTimer?: boolean; partner?: boolean; parentsPhone?: boolean; guardianName?: string | null } | null>(null);
+  const [done, setDone] = useState<{ username: string; name: string; checkedIn: boolean; firstTimer?: boolean; partner?: boolean; parentsPhone?: boolean; guardianName?: string | null; emailed?: boolean } | null>(null);
   if (done) {
     return (
       <div className="text-center" data-testid="register-success">
@@ -32,6 +32,7 @@ export function RegisterForm({ defaults, checkInNote, verified = false, otp = fa
         <p className="mt-5 text-sm text-slate-500">Your check-in username is</p>
         <p className="username-badge mt-2 text-3xl font-extrabold text-blue-600" data-testid="new-username">{done.username}</p>
         <div className="mt-3 flex justify-center"><CopyButton value={done.username} label="Copy username" /></div>
+        {done.emailed && <p className="mt-3 text-sm text-slate-600" data-testid="username-emailed">✉️ We&apos;ve also emailed it to you, with a link to set a password if you&apos;d like one.</p>}
         <p className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">📸 Screenshot or save it. Next Sunday, just scan the QR on the screen and type this username. No smartphone? Tell an usher your name at the door.</p>
         {done.parentsPhone && <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-600" data-testid="parents-phone-note">📱 You registered with {done.guardianName ? <b>{done.guardianName}</b> : "your parent"}&apos;s phone number. Sign in with your username and that number — messages for you come to their phone.</p>}
         <Link href="/member" className="btn btn-primary mt-6 w-full">Go to my portal</Link>

@@ -61,7 +61,7 @@ export async function sendSms(to: string, text: string): Promise<SendResult> {
 export async function emailAttempt(to: string, subject: string, text: string, extra: { html?: string; replyTo?: string | null } = {}): Promise<Attempt> {
   if (!providers.email) return { status: "skipped", detail: "Email isn't set up (RESEND_API_KEY / EMAIL_FROM)." };
   try {
-    const res = await fetch("https://api.resend.com/emails", {
+    const res = await fetch(`${(process.env.RESEND_BASE_URL || "https://api.resend.com").replace(/\/+$/, "")}/emails`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
       body: JSON.stringify({ from: process.env.EMAIL_FROM, to, subject, text, ...(extra.html ? { html: extra.html } : {}), ...(extra.replyTo ? { reply_to: extra.replyTo } : {}) })

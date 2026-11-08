@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -87,6 +88,10 @@ export async function completeIdentity(identity: Omit<Identity, "exp">, intent: 
   }
   if (person) {
     await setMemberSession(person);
+    if (person.email && !person.welcome_email_sent_at) {
+      const who = person;
+      after(() => import("@/lib/repo/accounts").then((m) => m.sendWelcomeEmail(who)).then(() => undefined, (error) => console.error("welcome email failed", error)));
+    }
     const checkedIn = await checkInFromTicket(person.id).catch(() => null);
     return checkedIn ? "/check-in" : "/member";
   }

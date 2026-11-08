@@ -73,7 +73,7 @@ async function nextPersonCode() {
   return `FOJ-${String(max + 1).padStart(4, "0")}`;
 }
 
-const NEWER_COLUMNS = ["first_timer", "is_child", "guardian_id", "guardian_name", "guardian_relationship", "care_notes"] as const;
+const NEWER_COLUMNS = ["first_timer", "is_child", "guardian_id", "guardian_name", "guardian_relationship", "care_notes", "welcome_email_sent_at"] as const;
 /** Saves a new person; if the database hasn't been updated with the newest columns yet, saves adults without them. */
 async function insertPerson(row: Person) {
   try {
@@ -116,6 +116,7 @@ export async function createPerson(input: NewPerson): Promise<Person> {
         is_child: Boolean(input.is_child), guardian_id: input.is_child ? input.guardian_id ?? null : null,
         guardian_name: input.is_child ? input.guardian_name?.trim() || null : null,
         guardian_relationship: input.is_child ? input.guardian_relationship || null : null, care_notes: input.care_notes?.trim() || null,
+        welcome_email_sent_at: null,
         auth_subject: input.auth_subject ?? null, avatar_url: input.avatar_url ?? null, gender: input.gender || null,
         birthday: input.birthday || null, address: input.address || null, how_heard: input.how_heard || null,
         last_seen_at: null, whatsapp: "unknown", whatsapp_checked_at: null,
