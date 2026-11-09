@@ -613,7 +613,7 @@ test("broadcast with response tracking, member replies, follow-up to non-respond
   await admin.getByRole("button", { name: "Send broadcast" }).click();
   await admin.waitForURL(/\/admin\/messaging\/[0-9a-f-]{36}\?sent=1/);
   const trackingUrl = admin.url().split("?")[0];
-  await expect(admin.getByText(/Sent to \d+ people in the member portal/)).toBeVisible();
+  await expect(admin.getByText(/Sent to \d+ (people|person) in the member portal/)).toBeVisible();
   // Free WhatsApp distribution: flyer + group-friendly text ready to share.
   const share = admin.getByTestId("share-whatsapp");
   await expect(share.getByRole("img", { name: "Flyer" })).toBeVisible();

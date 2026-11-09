@@ -96,7 +96,7 @@ describe("Settings → Messaging channels test", () => {
     fetchMock.mockImplementationOnce(async () => new Response(JSON.stringify({ error: { code: 131030, message: "Recipient phone number not in allowed list" } }), { status: 400 }));
     const r = await messaging.sendTestMessage("whatsapp", "08031000099");
     expect(r.ok).toBe(false);
-    expect(r.message).toMatch(/error 131030.*test recipient list/);
+    expect(r.message).toMatch(/Error 131030: You're on Meta's test number.*allowed list/);
     expect((await messaging.sendTestMessage("sms", "08031000099")).ok).toBe(true);
     expect((await messaging.sendTestMessage("email", "not-an-email")).ok).toBe(false);
   });

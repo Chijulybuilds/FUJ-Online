@@ -4,7 +4,7 @@ import type { Broadcast, BroadcastRecipient, Channel, Person } from "@/lib/db/ty
 import { nowIso, uid } from "@/lib/utils";
 import { findByPhone, peopleById } from "./people";
 import { createTask } from "./care";
-import { emailAttempt, emailFromProblem, NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp, smsAttempt, WHATSAPP_ERROR_HINTS } from "@/lib/messaging/providers";
+import { emailAttempt, emailFromProblem, NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp, smsAttempt, whatsappReason } from "@/lib/messaging/providers";
 import { firstName, normalizePhone } from "@/lib/identity-utils";
 import { absoluteUrl } from "@/lib/storage";
 import { env } from "@/lib/env";
@@ -126,16 +126,42 @@ export async function sendBroadcast(input: {
         })
         : "skipped")
       : null;
-    await db().insert("broadcast_recipients", {
+    await saveRecipient({
       id: uid(), broadcast_id: broadcast.id, person_id: person.id, read_at: null, response: null, responded_at: null,
       sms_status: phone?.sms_status ?? null, email_status, whatsapp_status: phone?.whatsapp_status ?? null,
-      whatsapp_message_id: phone?.whatsapp_message_id ?? null, channel_used: phone?.channel_used ?? null, created_at: now
+      whatsapp_message_id: phone?.whatsapp_message_id ?? null, channel_used: phone?.channel_used ?? null, created_at: now,
+      ...(phone?.whatsapp_error ? { whatsapp_error: phone.whatsapp_error } : {})
     });
   }
   return broadcast;
 }
 
-type PhoneDelivery = Pick<BroadcastRecipient, "sms_status" | "whatsapp_status" | "whatsapp_message_id" | "channel_used">;
+/** True when the database hasn't been given the whatsapp_error column yet (supabase/setup.sql not re-run). */
+const missingErrorColumn = (error: unknown) => error instanceof Error && error.message.includes("whatsapp_error");
+/** Saves a recipient row; the failure reason is dropped (not the row) if the database is a version behind. */
+async function saveRecipient(row: BroadcastRecipient) {
+  try {
+    return await db().insert("broadcast_recipients", row);
+  } catch (error) {
+    if (row.whatsapp_error === undefined || !missingErrorColumn(error)) throw error;
+    console.error("broadcast_recipients.whatsapp_error is missing — re-run supabase/setup.sql. Saving without the reason.");
+    const rest = { ...row };
+    delete rest.whatsapp_error;
+    return await db().insert("broadcast_recipients", rest);
+  }
+}
+async function updateRecipient(id: string, patch: Partial<BroadcastRecipient>) {
+  try {
+    await db().update("broadcast_recipients", { id }, patch);
+  } catch (error) {
+    if (patch.whatsapp_error === undefined || !missingErrorColumn(error)) throw error;
+    const rest = { ...patch };
+    delete rest.whatsapp_error;
+    await db().update("broadcast_recipients", { id }, rest);
+  }
+}
+
+type PhoneDelivery = Pick<BroadcastRecipient, "sms_status" | "whatsapp_status" | "whatsapp_message_id" | "channel_used" | "whatsapp_error">;
 const smsText = (title: string, text: string, image?: string | null) => `${title}: ${text}${image ? ` Flyer: ${image}` : ""}`;
 
 async function smsOnly(person: Person, title: string, text: string, image?: string | null): Promise<PhoneDelivery> {
@@ -157,7 +183,7 @@ export async function deliverByPhone(person: Person, title: string, text: string
   if (wa.status === "sent") return { sms_status: null, whatsapp_status: "sent", whatsapp_message_id: wa.id ?? null, channel_used: "whatsapp" };
   if (wa.errorCode && NOT_ON_WHATSAPP_CODES.has(wa.errorCode)) await markWhatsApp(person.id, "no");
   const r = await smsOnly(person, title, text, image);
-  return { ...r, whatsapp_status: "failed" };
+  return { ...r, whatsapp_status: "failed", whatsapp_error: whatsappReason(wa.errorCode, wa.detail) };
 }
 
 async function markWhatsApp(personId: string, value: "yes" | "no") {
@@ -165,7 +191,8 @@ async function markWhatsApp(personId: string, value: "yes" | "no") {
 }
 
 /** Applies a WhatsApp delivery receipt (sent / delivered / read / failed) to the matching recipient. */
-export async function handleWhatsAppStatus(status: { id: string; status: string; errors?: { code?: number }[] }) {
+export type WhatsAppStatusError = { code?: number; title?: string; message?: string; error_data?: { details?: string } };
+export async function handleWhatsAppStatus(status: { id: string; status: string; errors?: WhatsAppStatusError[] }) {
   const row = await db().get("broadcast_recipients", { whatsapp_message_id: status.id });
   if (!row) return { matched: false };
   const now = nowIso();
@@ -176,7 +203,9 @@ export async function handleWhatsAppStatus(status: { id: string; status: string;
   }
   let fellBack = false;
   if (status.status === "failed") {
-    const code = status.errors?.[0]?.code;
+    const err = status.errors?.[0];
+    const code = err?.code;
+    patch.whatsapp_error = whatsappReason(code, err?.error_data?.details || err?.message || err?.title);
     if (code && NOT_ON_WHATSAPP_CODES.has(code)) { await markWhatsApp(row.person_id, "no"); patch.whatsapp_status = "not_on_whatsapp"; }
     if (!row.sms_status || row.sms_status === "failed") {
       const [person, broadcast] = await Promise.all([db().get("people", { id: row.person_id }), db().get("broadcasts", { id: row.broadcast_id })]);
@@ -190,7 +219,7 @@ export async function handleWhatsAppStatus(status: { id: string; status: string;
   // Never downgrade a final state (read beats delivered beats sent) when receipts arrive out of order.
   const rank: Record<string, number> = { sent: 1, delivered: 2, read: 3 };
   if (rank[row.whatsapp_status ?? ""] && rank[status.status] && rank[status.status] < rank[row.whatsapp_status ?? ""]) delete patch.whatsapp_status;
-  await db().update("broadcast_recipients", { id: row.id }, patch);
+  await updateRecipient(row.id, patch);
   return { matched: true, fellBack };
 }
 
@@ -332,6 +361,5 @@ export async function sendTestMessage(channel: string, to: string): Promise<{ ok
   if (!providers.whatsapp) return { ok: false, message: "WhatsApp isn't set up yet (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID)." };
   const r = await sendWhatsApp(phone, title, body);
   if (r.status === "sent") return { ok: true, message: `WhatsApp accepted the test for ${phone}. It should arrive in a few seconds.` };
-  const hint = r.errorCode ? WHATSAPP_ERROR_HINTS[r.errorCode] : undefined;
-  return { ok: false, message: `WhatsApp failed${r.errorCode ? ` (error ${r.errorCode})` : ""}: ${hint ?? r.detail ?? "unknown error"}` };
+  return { ok: false, message: `WhatsApp failed — ${whatsappReason(r.errorCode, r.detail)}` };
 }

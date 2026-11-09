@@ -28,6 +28,7 @@ export async function GET() {
       db().list("people", { where: { welcome_email_sent_at: null }, limit: 1 }),
       db().list("member_credentials", { limit: 1 }),
       db().list("people", { where: { shares_phone: true }, limit: 1 }),
+      db().list("broadcast_recipients", { where: { whatsapp_error: null }, limit: 1 }),
       db().list("follow_up_tasks", { where: { last_auto_message_at: null }, limit: 1 })
     ]).then(() => true, () => false);
     if (!schemaCurrent) problems.push("Database needs updating: in Supabase → SQL Editor, paste all of supabase/setup.sql and click Run");
