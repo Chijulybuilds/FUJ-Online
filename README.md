@@ -212,7 +212,7 @@ Turn on **auto-renewal** for the domain in Hostinger so the site never goes offl
 | Google sign-in returns "oauth_exchange" | The redirect URI in Google Cloud must exactly match `<NEXT_PUBLIC_APP_URL>/api/auth/google/callback`. |
 | QR display says check-in isn't open | Open check-in for the service first (Services → service → Open check-in). |
 | Flyer upload fails in production | Run migration `0007` (creates the public `flyers` storage bucket) and check the service-role key. |
-| Broadcast shows WhatsApp **failed** | Read the reason on the broadcast's page (or run **Settings → Check WhatsApp setup**). Most common: Meta's *test* number only reaches the ≤5 numbers on its "To" list (error 131030); the 24-hour token expired (190); the template isn't approved yet or has a different language (132001); no payment method on the WhatsApp account (131042). |
+| Broadcast shows WhatsApp **failed** | Read the reason on the broadcast's page (or run **Settings → Check WhatsApp setup**). Most common: Meta's *test* number only reaches the ≤5 numbers on its "To" list (error 131030); the 24-hour token expired (190); the template isn't approved yet or has a different language (132001); no payment method on the WhatsApp account (131042); *“API access blocked”* (200) means Meta has restricted the Meta app or account behind the token — clear any notice on the app's dashboard at developers.facebook.com/apps and in business.facebook.com → Account quality, then make a fresh System User token. |
 | Port 3000 is busy | `npm run dev -- --port 3001`. |
 
 ## 11. Project layout
