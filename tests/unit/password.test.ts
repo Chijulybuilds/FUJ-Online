@@ -27,7 +27,7 @@ describe("member passwords", () => {
     const [body, sig] = token.split(".");
     const forged = Buffer.from(JSON.stringify({ p: "person-2", e: Date.now() + 1e9, v: "none", k: "welcome" })).toString("base64url");
     expect(readPasswordToken(`${forged}.${sig}`)).toBeNull();
-    expect(readPasswordToken(`${body}.x${sig.slice(1)}`)).toBeNull();
+    expect(readPasswordToken(`${body}.${sig[0] === "x" ? "y" : "x"}${sig.slice(1)}`)).toBeNull(); // always a different signature
     expect(readPasswordToken("nonsense")).toBeNull();
     expect(readPasswordToken(null)).toBeNull();
   });

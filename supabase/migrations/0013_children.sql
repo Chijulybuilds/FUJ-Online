@@ -13,8 +13,14 @@ alter table public.people add column if not exists care_notes text;
 create index if not exists people_guardian_idx on public.people (guardian_id);
 
 -- One phone number per adult; children share their parent's number.
+-- Once 0015 has replaced this rule with people_phone_owner_key (family members may share a number too),
+-- it must not come back on a re-run: shared family numbers would make it fail.
 alter table public.people drop constraint if exists people_normalized_phone_key;
-create unique index if not exists people_adult_phone_key on public.people (normalized_phone) where not is_child;
+do $$ begin
+  if not exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'people_phone_owner_key') then
+    create unique index if not exists people_adult_phone_key on public.people (normalized_phone) where not is_child;
+  end if;
+end $$;
 create index if not exists people_phone_idx on public.people (normalized_phone);
 
 notify pgrst, 'reload schema';
