@@ -1,4 +1,5 @@
 import "server-only";
+import { runtimeEnv } from "@/lib/env";
 
 /**
  * Outbound adapters. In-app delivery always works; WhatsApp, SMS and email are only attempted
@@ -10,8 +11,18 @@ import "server-only";
 export const providers = {
   get sms() { return Boolean(process.env.TERMII_API_KEY && process.env.TERMII_SENDER_ID); },
   get email() { return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM); },
-  get whatsapp() { return Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID); },
-  get whatsappTemplate() { return process.env.WHATSAPP_TEMPLATE_NAME || null; }
+  get whatsapp() { return Boolean(wa.token && wa.phoneId); },
+  get whatsappTemplate() { return wa.template || null; }
+};
+
+/** WhatsApp settings, forgiving about stray spaces / quotes / a pasted "Bearer " in the dashboard. */
+const wa = {
+  get token() { return runtimeEnv("WHATSAPP_TOKEN").replace(/^Bearer\s+/i, ""); },
+  get phoneId() { return runtimeEnv("WHATSAPP_PHONE_NUMBER_ID"); },
+  get template() { return runtimeEnv("WHATSAPP_TEMPLATE_NAME"); },
+  get flyerTemplate() { return runtimeEnv("WHATSAPP_FLYER_TEMPLATE_NAME"); },
+  get lang() { return runtimeEnv("WHATSAPP_TEMPLATE_LANG") || "en"; },
+  get base() { return `https://graph.facebook.com/${runtimeEnv("WHATSAPP_API_VERSION") || "v21.0"}`; }
 };
 
 /** Free mailbox providers: nobody can send through Resend "from" these, only from a domain they've verified. */
@@ -82,6 +93,31 @@ export function templateSafe(text: string, max = 1000) {
 }
 
 export type WhatsAppResult = { status: SendResult; id?: string; errorCode?: number; detail?: string };
+type MetaError = { code?: number; message?: string; error_subcode?: number; error_data?: { details?: string } };
+
+/** English templates are often approved as "English (US)" (en_US) or "English (UK)" (en_GB) rather than "en". */
+const ENGLISH = ["en", "en_US", "en_GB"];
+/** The language code that last worked for each template, so later messages in a broadcast go straight through. */
+const workingLanguage = new Map<string, string>();
+function languagesFor(template: string) {
+  const first = workingLanguage.get(template) ?? wa.lang;
+  return [first, ...(/^en(_|$)/i.test(first) ? ENGLISH.filter((c) => c !== first) : [])];
+}
+
+async function postMessage(payload: Record<string, unknown>): Promise<WhatsAppResult> {
+  try {
+    const res = await fetch(`${wa.base}/${wa.phoneId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${wa.token}` },
+      body: JSON.stringify(payload)
+    });
+    const json = (await res.json().catch(() => ({}))) as { messages?: { id: string }[]; error?: MetaError };
+    if (res.ok && json.messages?.[0]?.id) return { status: "sent", id: json.messages[0].id };
+    return { status: "failed", errorCode: json.error?.code, detail: (json.error?.error_data?.details || json.error?.message || `WhatsApp returned HTTP ${res.status}`).slice(0, 300) };
+  } catch {
+    return { status: "failed", detail: "Couldn't reach WhatsApp (graph.facebook.com)." };
+  }
+}
 
 /**
  * Sends a broadcast over WhatsApp. Outside the 24-hour customer-service window Meta only delivers
@@ -93,48 +129,167 @@ export type WhatsAppResult = { status: SendResult; id?: string; errorCode?: numb
 export async function sendWhatsApp(to: string, title: string, body: string, imageUrl?: string | null): Promise<WhatsAppResult> {
   if (!providers.whatsapp) return { status: "skipped" };
   const recipient = to.replace(/^\+/, "");
-  const lang = { code: process.env.WHATSAPP_TEMPLATE_LANG ?? "en" };
   const bodyParams = (extra = "") => [{ type: "text", text: templateSafe(title, 60) }, { type: "text", text: templateSafe(body + extra) }];
-  const flyerTemplate = process.env.WHATSAPP_FLYER_TEMPLATE_NAME;
+  const flyerTemplate = wa.flyerTemplate;
   const template = providers.whatsappTemplate;
-  let payload: Record<string, unknown>;
+  const withTemplate = (name: string, components: unknown[]) => async () => {
+    let first: WhatsAppResult | null = null;
+    for (const code of languagesFor(name)) {
+      const r = await postMessage({ messaging_product: "whatsapp", to: recipient, type: "template", template: { name, language: { code }, components } });
+      if (r.status === "sent") { workingLanguage.set(name, code); return r; }
+      first ??= r;
+      if (r.errorCode !== 132001) return r; // only "template not found in this language" is worth retrying
+    }
+    const tried = languagesFor(name);
+    return { ...first!, detail: `${first!.detail ?? ""} (tried language codes ${tried.join(", ")})`.trim().slice(0, 300) };
+  };
   if (imageUrl && flyerTemplate) {
     // Approved template with an IMAGE header: the flyer arrives as a picture with the message under it.
-    payload = { messaging_product: "whatsapp", to: recipient, type: "template", template: { name: flyerTemplate, language: lang, components: [
-      { type: "header", parameters: [{ type: "image", image: { link: imageUrl } }] }, { type: "body", parameters: bodyParams() }] } };
-  } else if (template) {
-    payload = { messaging_product: "whatsapp", to: recipient, type: "template", template: { name: template, language: lang, components: [
-      { type: "body", parameters: bodyParams(imageUrl ? ` · Flyer: ${imageUrl}` : "") }] } };
-  } else if (imageUrl) {
-    payload = { messaging_product: "whatsapp", to: recipient, type: "image", image: { link: imageUrl, caption: `*${title}*\n\n${body}`.slice(0, 1024) } };
-  } else {
-    payload = { messaging_product: "whatsapp", to: recipient, type: "text", text: { preview_url: true, body: `*${title}*\n\n${body}`.slice(0, 4096) } };
+    return withTemplate(flyerTemplate, [{ type: "header", parameters: [{ type: "image", image: { link: imageUrl } }] }, { type: "body", parameters: bodyParams() }])();
   }
-  try {
-    const res = await fetch(`https://graph.facebook.com/${process.env.WHATSAPP_API_VERSION ?? "v21.0"}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
-      body: JSON.stringify(payload)
-    });
-    const json = (await res.json().catch(() => ({}))) as { messages?: { id: string }[]; error?: { code?: number; message?: string; error_data?: { details?: string } } };
-    if (res.ok && json.messages?.[0]?.id) return { status: "sent", id: json.messages[0].id };
-    return { status: "failed", errorCode: json.error?.code, detail: (json.error?.error_data?.details ?? json.error?.message)?.slice(0, 200) };
-  } catch {
-    return { status: "failed", detail: "Couldn't reach WhatsApp (graph.facebook.com)." };
-  }
+  if (template) return withTemplate(template, [{ type: "body", parameters: bodyParams(imageUrl ? ` · Flyer: ${imageUrl}` : "") }])();
+  if (imageUrl) return postMessage({ messaging_product: "whatsapp", to: recipient, type: "image", image: { link: imageUrl, caption: `*${title}*\n\n${body}`.slice(0, 1024) } });
+  return postMessage({ messaging_product: "whatsapp", to: recipient, type: "text", text: { preview_url: true, body: `*${title}*\n\n${body}`.slice(0, 4096) } });
 }
 
 /** WhatsApp error codes meaning "this number cannot receive WhatsApp messages". */
 export const NOT_ON_WHATSAPP_CODES = new Set([131026]);
 
-/** Plain-English fixes for the WhatsApp Cloud API errors people hit while setting up. */
+/** Plain-English fixes for the WhatsApp Cloud API errors people hit while setting up (codes from Meta's error reference). */
 export const WHATSAPP_ERROR_HINTS: Record<number, string> = {
-  190: "The access token is invalid or expired — create a permanent System User token and update WHATSAPP_TOKEN.",
-  100: "Meta rejected a setting — check WHATSAPP_PHONE_NUMBER_ID (the Phone number ID, not the phone number itself).",
-  131030: "This number isn't on your test recipient list — add it under WhatsApp → API Setup → To, or add a real business number.",
-  131026: "This number isn't on WhatsApp (they'll get SMS instead when SMS is set up).",
+  0: "Meta couldn't sign in with WHATSAPP_TOKEN — create a permanent System User token and update it in Vercel.",
+  190: "The access token is invalid or expired (the one on the API Setup page only lasts 24 hours) — create a permanent System User token and update WHATSAPP_TOKEN.",
+  10: "The token doesn't have WhatsApp permission — generate the System User token with whatsapp_business_messaging and whatsapp_business_management, and assign it the WhatsApp account.",
+  200: "The token doesn't have WhatsApp permission — generate the System User token with whatsapp_business_messaging and whatsapp_business_management, and assign it the WhatsApp account.",
+  100: "Meta rejected part of the request — usually WHATSAPP_PHONE_NUMBER_ID (it must be the long Phone number ID, not the phone number) or a template that doesn't use numbered variables {{1}} and {{2}}.",
+  131000: "Meta had a temporary problem — try again in a few minutes.",
+  131005: "Access denied — the token's System User needs the WhatsApp account assigned with full control.",
+  131008: "The template expects something the app didn't send (often a header image or extra variables) — fuj_broadcast should have no header and exactly {{1}} and {{2}} in the body.",
+  131009: "The template expects something the app didn't send (often a header image or extra variables) — fuj_broadcast should have no header and exactly {{1}} and {{2}} in the body.",
+  131021: "You can't send a WhatsApp from the church number to the church number itself — test with a different phone.",
+  131026: "This number isn't on WhatsApp, or hasn't accepted WhatsApp's latest terms (they'll get SMS instead when SMS is set up).",
+  131030: "You're on Meta's test number, which only reaches numbers on its allowed list — add this number under WhatsApp → API Setup → “To” (Manage phone number list), or connect the church's real number.",
+  131031: "The WhatsApp Business account is locked by Meta — check WhatsApp Manager → Account quality.",
+  131037: "The church number's display name hasn't been approved yet — check WhatsApp Manager → Phone numbers (approval can take a day or two).",
+  131042: "Payment problem — add a valid payment method in WhatsApp Manager → Payment settings (Meta charges per template message).",
+  131045: "The church number isn't registered for the Cloud API yet — finish adding it under WhatsApp → API Setup (verify the code and set a PIN).",
   131047: "More than 24 hours since this person messaged the church number — set an approved template in WHATSAPP_TEMPLATE_NAME.",
-  132001: "The template name or language wasn't found — check WHATSAPP_TEMPLATE_NAME / WHATSAPP_TEMPLATE_LANG and that it's approved.",
-  132000: "The template's number of {{variables}} doesn't match — the broadcast template needs exactly {{1}} (title) and {{2}} (message).",
-  131056: "Too many messages to this number in a short time — wait a minute and try again."
+  131048: "Meta is limiting messages because people blocked or reported recent ones — slow down and check WhatsApp Manager → Account quality.",
+  131049: "Meta chose not to deliver this marketing message (it limits how many marketing messages each person gets). Use a Utility template for notices and reminders, or try again later.",
+  131050: "This person has turned off marketing messages from businesses on WhatsApp.",
+  131051: "WhatsApp doesn't support this kind of message.",
+  131056: "Too many messages to this number in a short time — wait a minute and try again.",
+  131057: "The WhatsApp Business account is in maintenance — try again in a few minutes.",
+  132000: "The template's variables don't match — fuj_broadcast needs exactly two: {{1}} (title) and {{2}} (message).",
+  132001: "The template wasn't found — check it's approved in WhatsApp Manager → Message templates, that WHATSAPP_TEMPLATE_NAME matches its name exactly, and that WHATSAPP_TEMPLATE_LANG matches its language code (en, en_US or en_GB are tried automatically).",
+  132005: "The message is too long for the template — shorten it.",
+  132007: "The message breaks WhatsApp's template content rules — remove unusual formatting and try again.",
+  132012: "The template's variables are a different type from what the app sends — fuj_broadcast should use numbered text variables {{1}} and {{2}} and no header.",
+  132015: "The template is paused by Meta because of low quality — edit or recreate it in WhatsApp Manager.",
+  132016: "The template is disabled by Meta — create a new one and update WHATSAPP_TEMPLATE_NAME.",
+  133010: "The church number isn't registered for the Cloud API yet — finish adding it under WhatsApp → API Setup (verify the code and set a PIN).",
+  368: "Meta has temporarily restricted this WhatsApp account for policy reasons — check WhatsApp Manager → Account quality.",
+  130429: "Sending too fast for the account's limit — wait a moment and try again.",
+  80007: "Sending too fast for the account's limit — wait a moment and try again."
 };
+
+/** One plain-English line explaining a WhatsApp failure: the fix (when known) plus Meta's own words. */
+export function whatsappReason(errorCode?: number | null, detail?: string | null): string {
+  const hint = errorCode != null ? WHATSAPP_ERROR_HINTS[errorCode] : undefined;
+  const meta = detail?.trim();
+  const text = hint ? `${hint}${meta && !hint.includes(meta) ? ` (Meta: “${meta}”)` : ""}` : meta || "WhatsApp didn't say why.";
+  return `${errorCode != null ? `Error ${errorCode}: ` : ""}${text}`.slice(0, 500);
+}
+
+/* ------------------------------------------------------------------ setup check */
+export type CheckLine = { ok: boolean | null; text: string };
+type Health = { can_send_message?: string; entities?: { id?: string; entity_type?: string; can_send_message?: string; additional_info?: string[]; errors?: { error_code?: number; error_description?: string; possible_solution?: string }[] }[] };
+type PhoneInfo = { display_phone_number?: string; verified_name?: string; name_status?: string; code_verification_status?: string; quality_rating?: string; platform_type?: string; account_mode?: string; status?: string; health_status?: Health; error?: MetaError };
+type TemplateInfo = { name?: string; status?: string; language?: string; category?: string; parameter_format?: string; rejected_reason?: string; components?: { type?: string; format?: string; text?: string }[] };
+
+async function graphGet<T>(path: string): Promise<T & { error?: MetaError }> {
+  try {
+    const res = await fetch(`${wa.base}/${path}`, { headers: { Authorization: `Bearer ${wa.token}` } });
+    return (await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }))) as T & { error?: MetaError };
+  } catch {
+    return { error: { message: "Couldn't reach WhatsApp (graph.facebook.com)." } } as T & { error?: MetaError };
+  }
+}
+/** Asks for the given fields, dropping the optional ones if this API version doesn't know them. */
+async function getWithFallback<T>(node: string, fieldSets: string[], query = ""): Promise<T & { error?: MetaError }> {
+  let last = {} as T & { error?: MetaError };
+  for (const fields of fieldSets) {
+    last = await graphGet<T>(`${node}?fields=${fields}${query}`);
+    if (!last.error || last.error.code !== 100 || !/field/i.test(last.error.message ?? "")) return last;
+  }
+  return last;
+}
+
+/**
+ * Settings → "Check WhatsApp setup": reads (sends nothing) the church number, Meta's own health check of the number,
+ * WhatsApp account, business and app, and the broadcast template, then lists what's fine and what to fix.
+ */
+export async function checkWhatsAppSetup(): Promise<{ ok: boolean; lines: CheckLine[] }> {
+  const lines: CheckLine[] = [];
+  const add = (ok: boolean | null, text: string) => lines.push({ ok, text });
+  if (!providers.whatsapp) return { ok: false, lines: [{ ok: false, text: "WhatsApp isn't set up: add WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID in Vercel, then redeploy." }] };
+  if (!/^\d{10,20}$/.test(wa.phoneId)) add(false, "WHATSAPP_PHONE_NUMBER_ID should be the long Phone number ID from WhatsApp → API Setup, not the phone number itself.");
+  const phone = await getWithFallback<PhoneInfo>(wa.phoneId, [
+    "display_phone_number,verified_name,name_status,code_verification_status,quality_rating,platform_type,account_mode,status,health_status",
+    "display_phone_number,verified_name,quality_rating,health_status",
+    "display_phone_number,verified_name"
+  ]);
+  if (phone.error) {
+    if (phone.error.code == null) add(null, "Couldn't reach Meta's WhatsApp API (graph.facebook.com) from the server — try again in a minute.");
+    else add(false, `Meta refused the token / Phone number ID — ${whatsappReason(phone.error.code, phone.error.error_data?.details ?? phone.error.message)}`);
+    return { ok: false, lines };
+  }
+  add(true, `Token and Phone number ID work: sending from ${phone.display_phone_number ?? "?"}${phone.verified_name ? ` (“${phone.verified_name}”)` : ""}.`);
+  if (phone.account_mode === "SANDBOX" || /^\+?1\s?555/.test(phone.display_phone_number ?? "")) {
+    add(false, "This is Meta's free TEST number: it can only message the (up to 5) numbers added under WhatsApp → API Setup → “To”. Add your number there to test, and connect the church's real number to reach members.");
+  }
+  if (phone.platform_type && phone.platform_type !== "CLOUD_API") add(false, `The number isn't registered for the Cloud API yet (platform: ${phone.platform_type}) — finish adding it under WhatsApp → API Setup (verify the code and set a PIN).`);
+  if (phone.status && !["CONNECTED", "FLAGGED"].includes(phone.status)) add(false, `The number's status is ${phone.status} (it should be CONNECTED) — check WhatsApp Manager → Phone numbers.`);
+  if (phone.name_status && !["APPROVED", "AVAILABLE_WITHOUT_REVIEW"].includes(phone.name_status)) add(phone.name_status === "PENDING_REVIEW" ? null : false, `Display name status: ${phone.name_status} — messages may fail until Meta approves the name (WhatsApp Manager → Phone numbers).`);
+  if (phone.quality_rating && phone.quality_rating !== "GREEN" && phone.quality_rating !== "UNKNOWN") add(null, `Quality rating is ${phone.quality_rating} — people have been blocking or reporting messages; send less often and make them more relevant.`);
+  const health = phone.health_status;
+  if (health?.can_send_message) {
+    if (health.can_send_message === "AVAILABLE") add(true, "Meta's health check: the number, WhatsApp account, business and app can all send messages.");
+    for (const e of health.entities ?? []) {
+      const who = ({ PHONE_NUMBER: "Phone number", WABA: "WhatsApp Business account", BUSINESS: "Meta business", APP: "Meta app", MESSAGE_TEMPLATE: "Template" } as Record<string, string>)[e.entity_type ?? ""] ?? e.entity_type;
+      for (const err of e.errors ?? []) add(false, `${who} is blocked${err.error_code ? ` (error ${err.error_code})` : ""}: ${err.error_description ?? "no reason given"}${err.possible_solution ? ` — Fix: ${err.possible_solution}` : ""}`);
+      if (e.can_send_message === "LIMITED") add(null, `${who} is limited${e.additional_info?.length ? `: ${e.additional_info.join(" ")}` : "."}`);
+      if (e.can_send_message === "BLOCKED" && !e.errors?.length) add(false, `${who} is blocked from sending — check WhatsApp Manager for details.`);
+    }
+  }
+  // The broadcast template(s), read from the WhatsApp Business account the health check names.
+  const wabaId = health?.entities?.find((e) => e.entity_type === "WABA")?.id;
+  const names = [wa.template, wa.flyerTemplate].filter(Boolean);
+  if (!wa.template) add(false, "WHATSAPP_TEMPLATE_NAME isn't set — without an approved template WhatsApp only reaches people who messaged the church number in the last 24 hours.");
+  for (const name of names) {
+    if (!wabaId) { add(null, `Couldn't look up the template “${name}” from here — check it's Approved in WhatsApp Manager → Message templates, then use “Send test” below.`); break; }
+    const list = await getWithFallback<{ data?: TemplateInfo[] }>(`${wabaId}/message_templates`, ["name,status,language,category,parameter_format,rejected_reason,components", "name,status,language,category,components"], `&name=${encodeURIComponent(name)}&limit=50`);
+    if (list.error) { add(null, `Couldn't read the templates (${whatsappReason(list.error.code, list.error.message)}). The token may lack whatsapp_business_management.`); break; }
+    const found = (list.data ?? []).filter((t) => t.name === name);
+    if (!found.length) { add(false, `No template called “${name}” in this WhatsApp account — create it in WhatsApp Manager → Message templates, or correct ${name === wa.template ? "WHATSAPP_TEMPLATE_NAME" : "WHATSAPP_FLYER_TEMPLATE_NAME"} (lower-case, exactly as Meta shows it).`); continue; }
+    const approved = found.filter((t) => t.status === "APPROVED");
+    for (const t of found.filter((x) => x.status !== "APPROVED")) add(t.status === "PENDING" ? null : false, `Template “${name}” (${t.language}) is ${t.status}${t.rejected_reason && t.rejected_reason !== "NONE" ? ` (${t.rejected_reason})` : ""}${t.status === "PENDING" ? " — wait for Meta's approval (minutes to a day)." : " — edit and resubmit it, or create a new one."}`);
+    if (!approved.length) continue;
+    const langs = approved.map((t) => t.language ?? "?");
+    const usable = languagesFor(name);
+    const lang = langs.find((l) => usable.includes(l));
+    if (lang) add(true, `Template “${name}” is approved (${langs.join(", ")}, ${approved[0].category?.toLowerCase() ?? "?"}).`);
+    else add(false, `Template “${name}” is approved in ${langs.join(", ")}, but the app sends ${usable.join(" / ")} — set WHATSAPP_TEMPLATE_LANG=${langs[0]} in Vercel and redeploy.`);
+    const t = approved.find((x) => x.language === lang) ?? approved[0];
+    const body = t.components?.find((c) => c.type === "BODY")?.text ?? "";
+    const vars = [...new Set([...body.matchAll(/\{\{\s*([^}\s]+)\s*\}\}/g)].map((m) => m[1]))];
+    const header = t.components?.find((c) => c.type === "HEADER");
+    if (t.parameter_format === "NAMED" || vars.some((v) => !/^\d+$/.test(v))) add(false, `Template “${name}” uses named variables (${vars.map((v) => `{{${v}}}`).join(", ")}). The app fills numbered ones — recreate it with {{1}} for the title and {{2}} for the message.`);
+    else if (vars.length !== 2) add(false, `Template “${name}” has ${vars.length} variable${vars.length === 1 ? "" : "s"} in its body; it needs exactly two: {{1}} (title) and {{2}} (message).`);
+    const isFlyer = name === wa.flyerTemplate && name !== wa.template;
+    if (isFlyer && header?.format !== "IMAGE") add(false, `Flyer template “${name}” needs an Image header.`);
+    if (!isFlyer && header && (header.format !== "TEXT" || /\{\{/.test(header.text ?? ""))) add(false, `Template “${name}” has a ${header.format?.toLowerCase() ?? ""} header the app doesn't fill — remove the header (use WHATSAPP_FLYER_TEMPLATE_NAME for a picture template).`);
+  }
+  if (!lines.some((l) => l.ok === false)) add(true, "Everything Meta reports looks right. Use “Send test” below to send yourself a real message.");
+  return { ok: !lines.some((l) => l.ok === false), lines };
+}

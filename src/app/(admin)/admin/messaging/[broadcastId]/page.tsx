@@ -23,11 +23,25 @@ export default async function BroadcastTracking({ params, searchParams }: { para
   if (!b) notFound();
   const phoneCh = b.channels.includes("sms") || b.channels.includes("whatsapp");
   const wa = { whatsapp: b.recipients.filter((r) => r.channel_used === "whatsapp").length, sms: b.recipients.filter((r) => r.channel_used === "sms").length, pending: b.recipients.filter((r) => r.whatsapp_status === "sent" && !r.sms_status).length };
+  // WhatsApp failures, grouped by reason so one setup problem shows once with its fix.
+  const waFailed = b.recipients.filter((r) => r.whatsapp_status === "failed");
+  const reasons = [...waFailed.reduce((m, r) => {
+    const reason = r.whatsapp_error || "No reason was saved for this one (sent before the app recorded reasons) — use “Check WhatsApp setup” in Settings to see what Meta says.";
+    return m.set(reason, (m.get(reason) ?? 0) + 1);
+  }, new Map<string, number>())].sort((x, y) => y[1] - x[1]);
+  const people = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
   const rows = b.recipients.filter((r) => filter === "unread" ? !r.read_at : filter === "unresponded" ? !r.responded_at : filter === "responded" ? r.responded_at : true);
   return (
     <>
       <PageHeading title={b.title} description={<>{b.audienceLabel} · sent {formatDateTime(b.sent_at)} by {b.created_by} · channels: {b.channels.join(", ")}</>} action={<Link href="/admin/messaging" className="btn btn-secondary">All broadcasts</Link>} />
-      {sent && <p className="alert alert-ok mb-5">Sent to {b.stats.total} people in the member portal. Now tap <b>Share on WhatsApp</b> (right) to post the flyer to your WhatsApp lists and groups. Responses appear below and in the Inbox.</p>}
+      {sent && <p className="alert alert-ok mb-5">Sent to {people(b.stats.total)} in the member portal. Now tap <b>Share on WhatsApp</b> (right) to post the flyer to your WhatsApp lists and groups. Responses appear below and in the Inbox.</p>}
+      {waFailed.length > 0 && (
+        <div className="alert alert-err mb-5" data-testid="whatsapp-failures">
+          <p><b>WhatsApp couldn&apos;t deliver to {people(waFailed.length)}</b>{waFailed.length < b.stats.total ? ` of ${b.stats.total}` : ""}.{!providers.sms && " SMS isn't set up, so they only have the message in the member portal."} Why:</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">{reasons.map(([reason, n]) => <li key={reason}>{reason}{reasons.length > 1 || n > 1 ? ` — ${people(n)}` : ""}</li>)}</ul>
+          <p className="mt-2">Once it&apos;s fixed, run <Link href="/admin/settings#messaging" className="font-semibold underline">Settings → Check WhatsApp setup</Link> and “Send test”, then resend with the follow-up broadcast below.</p>
+        </div>
+      )}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Recipients" value={b.stats.total} icon={<Users size={18} />} />
         <StatCard label="Read" value={`${b.stats.read} (${b.stats.readRate}%)`} icon={<Eye size={18} />} tone="green" />
@@ -55,7 +69,7 @@ export default async function BroadcastTracking({ params, searchParams }: { para
                     <td><Link className="font-semibold hover:text-blue-600" href={`/admin/inbox/${r.person_id}`}>{r.person?.full_name ?? "—"}</Link><span className="block text-xs text-slate-400">{r.person?.phone}{r.person && r.person.whatsapp !== "no" && <> · <a className="font-semibold text-[#1fa855]" target="_blank" rel="noreferrer" href={`https://wa.me/${r.person.normalized_phone.replace(/^\+/, "")}?text=${encodeURIComponent(`Hi ${r.person.full_name.split(" ")[0]}, ${b.body.replaceAll("{first_name}", r.person.full_name.split(" ")[0])}`)}`}>WhatsApp</a></>}</span></td>
                     <td>{r.read_at ? <span className="pill pill-green">read {timeAgo(r.read_at)}</span> : <span className="pill pill-gray">unread</span>}</td>
                     <td className="max-w-xs">{r.response ? <span className="whitespace-pre-line">{r.response}</span> : <span className="text-slate-400">—</span>}</td>
-                    {phoneCh && <td className="whitespace-nowrap text-xs">{r.whatsapp_status && r.whatsapp_status !== "not_configured" && <span className="block">WhatsApp: <StatusPill value={r.whatsapp_status} /></span>}{r.sms_status && <span className="mt-1 block">SMS: <StatusPill value={r.sms_status} /></span>}{!r.whatsapp_status && !r.sms_status && "—"}</td>}
+                    {phoneCh && <td className="whitespace-nowrap text-xs">{r.whatsapp_status && r.whatsapp_status !== "not_configured" && <span className="block">WhatsApp: <StatusPill value={r.whatsapp_status} />{r.whatsapp_error && r.whatsapp_status === "failed" && <span className="mt-1 max-w-[15rem] whitespace-normal leading-snug text-red-600 line-clamp-3" title={r.whatsapp_error} data-testid="whatsapp-error">{r.whatsapp_error}</span>}</span>}{r.sms_status && <span className="mt-1 block">SMS: <StatusPill value={r.sms_status} /></span>}{!r.whatsapp_status && !r.sms_status && "—"}</td>}
                     {b.channels.includes("email") && <td><StatusPill value={r.email_status} /></td>}
                   </tr>
                 ))}

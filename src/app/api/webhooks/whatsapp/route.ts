@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { handleWhatsAppInbound, handleWhatsAppStatus } from "@/lib/repo/messaging";
+import { handleWhatsAppInbound, handleWhatsAppStatus, type WhatsAppStatusError } from "@/lib/repo/messaging";
 import { cleanEnvValue, runtimeEnv } from "@/lib/env";
 
 /**
@@ -31,7 +31,7 @@ function validSignature(raw: string, header: string | null) {
 
 type Payload = {
   entry?: { changes?: { value?: {
-    statuses?: { id: string; status: string; errors?: { code?: number }[] }[];
+    statuses?: { id: string; status: string; errors?: WhatsAppStatusError[] }[];
     messages?: { from: string; type: string; text?: { body?: string }; button?: { text?: string }; interactive?: { button_reply?: { title?: string } } }[];
   } }[] }[];
 };

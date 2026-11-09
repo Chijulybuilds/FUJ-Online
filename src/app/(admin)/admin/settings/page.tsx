@@ -3,7 +3,7 @@ import { ActionForm, SubmitButton } from "@/components/ui/action-form";
 import { requireAdmin } from "@/lib/auth/session";
 import { can, ROLE_LABELS } from "@/lib/auth/roles";
 import { getSettings } from "@/lib/repo/settings";
-import { addStaffAction, saveFirstTimerPartnerSettingsAction, saveFollowUpSettingsAction, saveSettingsAction, sendTestMessageAction, sendWelcomeBacklogAction, toggleStaffAction } from "@/lib/actions/admin";
+import { addStaffAction, checkWhatsAppAction, saveFirstTimerPartnerSettingsAction, saveFollowUpSettingsAction, saveSettingsAction, sendTestMessageAction, sendWelcomeBacklogAction, toggleStaffAction } from "@/lib/actions/admin";
 import { WELCOME_BATCH, welcomeStats } from "@/lib/repo/accounts";
 import { DEFAULT_FIRST_MESSAGE, DEFAULT_REMINDER_MESSAGE } from "@/lib/repo/auto-follow-up";
 import { DEFAULT_INVITE_MESSAGE, DEFAULT_WELCOME_MESSAGE } from "@/lib/repo/first-timers";
@@ -128,6 +128,13 @@ export default async function SettingsPage() {
                 </li>
               ))}
             </ul>
+            {providers.whatsapp && (
+              <ActionForm action={checkWhatsAppAction} className="mt-5 border-t border-slate-100 pt-4">
+                <p className="text-sm font-semibold">WhatsApp not arriving?</p>
+                <p className="mt-1 text-xs text-slate-500">Asks Meta about the token, the church number, the account&apos;s health and the broadcast template, and says what to fix. Nothing is sent.</p>
+                <div className="mt-2"><SubmitButton className="btn btn-secondary" pendingText="Checking with Meta…">Check WhatsApp setup</SubmitButton></div>
+              </ActionForm>
+            )}
             {channels.some(([, ok]) => ok) && (
               <ActionForm action={sendTestMessageAction} className="mt-5 grid gap-2 border-t border-slate-100 pt-4">
                 <p className="text-sm font-semibold">Send yourself a test</p>

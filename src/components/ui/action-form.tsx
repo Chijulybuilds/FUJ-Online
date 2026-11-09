@@ -26,7 +26,7 @@ export function ActionForm({ action, children, className, resetOnSuccess = false
   return (
     <form ref={ref} action={formAction} className={className} data-action-form>
       {children}
-      {state?.message && !state.redirectTo && <p role="status" className={`alert mt-3 ${state.ok ? "alert-ok" : "alert-err"}`}>{state.message}</p>}
+      {state?.message && !state.redirectTo && <p role="status" className={`alert mt-3 whitespace-pre-line ${state.ok ? "alert-ok" : "alert-err"}`}>{state.message}</p>}
     </form>
   );
 }

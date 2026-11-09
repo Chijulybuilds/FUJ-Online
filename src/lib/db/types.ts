@@ -217,6 +217,8 @@ export interface BroadcastRecipient {
   email_status: string | null;
   whatsapp_status: string | null;
   whatsapp_message_id: string | null;
+  /** Why WhatsApp failed for this person, in plain English (migration 0016; absent on older databases). */
+  whatsapp_error?: string | null;
   /** Which phone channel actually carried the message: "whatsapp" | "sms" | null. */
   channel_used: string | null;
   created_at: string;

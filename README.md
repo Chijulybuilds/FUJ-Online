@@ -41,7 +41,7 @@ Open http://localhost:3000.
 
 ## 2. Connect Supabase (database)
 
-1. **Easiest:** open `supabase/setup.sql`, copy **all** of it into Supabase → **SQL Editor → New query**, and click **Run**. It contains every migration plus FUJ's starting values, and is safe on a brand-new project *and* on one that already ran some or all migrations (it only adds what's missing). Alternatively run the files in `supabase/migrations/` (`0001` → `0015`) in order — each one can also be re-run safely.
+1. **Easiest:** open `supabase/setup.sql`, copy **all** of it into Supabase → **SQL Editor → New query**, and click **Run**. It contains every migration plus FUJ's starting values, and is safe on a brand-new project *and* on one that already ran some or all migrations (it only adds what's missing). Alternatively run the files in `supabase/migrations/` (`0001` → `0016`) in order — each one can also be re-run safely.
 2. After changing a migration, regenerate the combined file with `npm run db:setup-sql` (a test fails if it's out of date).
 3. Put the Project URL, anon key and **service-role key** in `.env.local`. The service-role key is used only on the server (route handlers / server actions); permissions are enforced in the app layer and RLS stays on so the anon key cannot read church data.
 4. Check `GET /api/health` → `{"mode":"supabase","database":"ready"}`. If you see `PGRST205`, run `notify pgrst, 'reload schema';`.
@@ -72,7 +72,7 @@ Members can sign in with Google (linked by Google account / email) or with usern
 3. In the admin, write the broadcast, attach the **flyer**, send → on the tracking page tap **Share on WhatsApp** → choose your broadcast lists / groups / Status → send. On a computer it opens WhatsApp Web with the text; download the flyer and attach it.
 4. For individual follow-ups (absentees, new members) use the **WhatsApp** link on each recipient row or on the pastoral-care task — it opens a chat with a personalised message.
 
-**B. Automatic: WhatsApp, SMS and email from the app** — tick the channels on each broadcast; each one needs its keys added in **Vercel → Settings → Environment Variables** (Production), then **Redeploy**. Afterwards open **Admin → Settings → Messaging channels**: it shows *Connected* and has a **Send test** button that explains any error in plain English. `/api/health` also names any missing or half-set key.
+**B. Automatic: WhatsApp, SMS and email from the app** — tick the channels on each broadcast; each one needs its keys added in **Vercel → Settings → Environment Variables** (Production), then **Redeploy**. Afterwards open **Admin → Settings → Messaging channels**: it shows *Connected*, has **Check WhatsApp setup** (asks Meta about the token, the church number, the account's health — payment method, display name, test-number limits — and the broadcast template, without sending anything) and a **Send test** button that explains any error in plain English. When a broadcast fails on WhatsApp, its tracking page shows Meta's reason and the fix next to each person. `/api/health` also names any missing or half-set key.
 
 #### WhatsApp (Meta WhatsApp Business Cloud API)
 1. Go to **https://developers.facebook.com/apps** → *Create app* → use case **"Connect with customers through WhatsApp"** (type *Business*) → link or create your **Meta Business portfolio** (business.facebook.com).
@@ -82,7 +82,7 @@ Members can sign in with Google (linked by Google account / email) or with usern
    - Name `fuj_broadcast`, category **Utility** (meeting reminders, notices) or **Marketing** (programmes, campaigns), language **English** → body (variables can't be the very first or last thing):
      `Hello from FlagUpJesus Global Ministry 👋` · `*{{1}}*` · `{{2}}` · `Reply to this message to respond.` (one per line; give samples like "Leaders meeting" / "Hi, we meet on Saturday at 4pm.") → `WHATSAPP_TEMPLATE_NAME=fuj_broadcast`
    - Optional `fuj_flyer` — same body plus a **Header: Image** → `WHATSAPP_FLYER_TEMPLATE_NAME=fuj_flyer` (used when a broadcast has a flyer).
-   - `WHATSAPP_TEMPLATE_LANG=en` (match the template's language code, e.g. `en_US` if you picked "English (US)").
+   - `WHATSAPP_TEMPLATE_LANG=en` (match the template's language code). English templates approved as `en_US` ("English (US)") or `en_GB` are found automatically; for any other language set its code here. **Check WhatsApp setup** says which language Meta approved.
    Approval usually takes minutes to a day. The app fills `{{1}}` with the title and `{{2}}` with the message.
 5. **WhatsApp → Configuration → Webhook**: callback URL `https://www.flagupjesus.org/api/webhooks/whatsapp`, verify token = any secret you make up (also set it as `WHATSAPP_VERIFY_TOKEN` and redeploy *first*), then subscribe to **messages**. Copy **App settings → Basic → App secret** → `WHATSAPP_APP_SECRET`. This gives delivery/read receipts, automatic SMS for numbers not on WhatsApp, and replies in the Inbox.
 6. To message everyone (not just test numbers): **WhatsApp → API Setup → Add phone number** — the church's own number (it must not be active in the WhatsApp app at the same time, unless Meta offers you to keep both), add a payment method, and complete **business verification** to lift the starting limit (250 people per 24 h).
@@ -212,6 +212,7 @@ Turn on **auto-renewal** for the domain in Hostinger so the site never goes offl
 | Google sign-in returns "oauth_exchange" | The redirect URI in Google Cloud must exactly match `<NEXT_PUBLIC_APP_URL>/api/auth/google/callback`. |
 | QR display says check-in isn't open | Open check-in for the service first (Services → service → Open check-in). |
 | Flyer upload fails in production | Run migration `0007` (creates the public `flyers` storage bucket) and check the service-role key. |
+| Broadcast shows WhatsApp **failed** | Read the reason on the broadcast's page (or run **Settings → Check WhatsApp setup**). Most common: Meta's *test* number only reaches the ≤5 numbers on its "To" list (error 131030); the 24-hour token expired (190); the template isn't approved yet or has a different language (132001); no payment method on the WhatsApp account (131042). |
 | Port 3000 is busy | `npm run dev -- --port 3001`. |
 
 ## 11. Project layout

@@ -13,6 +13,7 @@ import { describeRun, runAbsenteeFollowUps } from "@/lib/repo/auto-follow-up";
 import { describeFirstTimerRun, logFirstTimerContact, runFirstTimerFollowUps, sendFirstTimerWelcome, startFirstTimer, updateFirstTimer } from "@/lib/repo/first-timers";
 import { addPartner, describePartnerRun, logPartnerContact, runPartnerFollowUps, sendPartnerThanks, updatePartner } from "@/lib/repo/partners";
 import { sendBroadcast, sendTestMessage, smsUndelivered, tasksForNonResponders } from "@/lib/repo/messaging";
+import { checkWhatsAppSetup } from "@/lib/messaging/providers";
 import { saveAnnouncement, setAnnouncementStatus, updatePrayer, moderateTestimony } from "@/lib/repo/content";
 import { recordDonation } from "@/lib/repo/giving";
 import { saveSettings } from "@/lib/repo/settings";
@@ -258,6 +259,15 @@ export async function replyToPersonAction(_: State, fd: FormData): Promise<State
     await sendBroadcast({ title: str(fd, "title") || "Message from the church", body, kind: "direct", audience: `person:${personId}`, channels: channelsFrom(fd), request_response: true, created_by: actor });
     revalidatePath(`/admin/inbox/${personId}`);
     return { ok: true, message: "Reply sent." };
+  });
+}
+
+/** Settings → Messaging channels → "Check WhatsApp setup": reads Meta's view of the setup (sends nothing). */
+export async function checkWhatsAppAction(): Promise<State> {
+  return guarded("settings", async (actor) => {
+    const result = await checkWhatsAppSetup();
+    await audit(actor, "messaging.whatsapp_check", "settings", null, { ok: result.ok });
+    return { ok: result.ok, message: result.lines.map((l) => `${l.ok === true ? "✅" : l.ok === false ? "❌" : "⚠️"} ${l.text}`).join("\n") };
   });
 }
 
