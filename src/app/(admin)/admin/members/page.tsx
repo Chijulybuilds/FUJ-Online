@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, UserPlus } from "lucide-react";
+import { Download, Upload, UserPlus } from "lucide-react";
 import { PageHeading } from "@/components/ui/page-heading";
 import { StatusPill } from "@/components/ui/status-pill";
 import { requireAdmin } from "@/lib/auth/session";
@@ -22,7 +22,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeading title="Members" description={`${people.length} member${people.length === 1 ? "" : "s"} · everyone who registers is a member and gets a unique flag username.`}
-        action={<><a href="/api/admin/export?type=people" className="btn btn-secondary"><Download size={16} /> Export CSV</a><a href="/api/admin/export?type=vcf" className="btn btn-secondary" title="Import into the church phone to build WhatsApp broadcast lists"><Download size={16} /> Contacts for WhatsApp (.vcf)</a><Link href="/admin/members/new" className="btn btn-primary"><UserPlus size={16} /> Add member</Link></>} />
+        action={<><a href="/api/admin/export?type=people" className="btn btn-secondary"><Download size={16} /> Export CSV</a><a href="/api/admin/export?type=vcf" className="btn btn-secondary" title="Import into the church phone to build WhatsApp broadcast lists"><Download size={16} /> Contacts for WhatsApp (.vcf)</a><Link href="/admin/members/import" className="btn btn-secondary" data-testid="import-link"><Upload size={16} /> Import contacts</Link><Link href="/admin/members/new" className="btn btn-primary"><UserPlus size={16} /> Add member</Link></>} />
       <div className="card">
         <form className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
           <input className="input max-w-sm" name="q" defaultValue={q} placeholder="Search name, phone, username or ID…" aria-label="Search people" />

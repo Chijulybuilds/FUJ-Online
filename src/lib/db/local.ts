@@ -58,7 +58,7 @@ function persist(path: string, data: Store) {
 
 /** Partial unique keys (Postgres "where …"): children share their parent's phone number. */
 const ONLY_WHEN: Partial<Record<TableName, Record<string, (row: Record<string, unknown>) => boolean>>> = {
-  people: { normalized_phone: (row) => !row.is_child }
+  people: { normalized_phone: (row) => !row.is_child && !row.shares_phone }
 };
 
 function violates<N extends TableName>(rows: Tables[N][], table: N, candidate: Tables[N], ignore?: Tables[N]) {

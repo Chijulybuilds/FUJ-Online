@@ -33,7 +33,9 @@ export interface Person {
   first_timer: boolean | null;
   /** A child registered with a parent's / guardian's phone number (phone + email are the parent's). */
   is_child: boolean;
-  /** The parent's member record, when the parent is registered with that number. */
+  /** An adult who uses a family member's phone number (e.g. a couple with one phone). */
+  shares_phone: boolean;
+  /** Whose number it is: the parent (children) or the family member (shares_phone), when registered. */
   guardian_id: string | null;
   guardian_name: string | null;
   guardian_relationship: string | null;

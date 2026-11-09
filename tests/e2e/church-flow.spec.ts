@@ -570,6 +570,37 @@ test("members can set a password and sign in with it; welcome emails (username +
   await expect(admin.getByTestId("welcome-status")).toContainText("Password: set");
 });
 
+test("admins import an Excel contact list: people already in the database are skipped, families share numbers", async () => {
+  await go(admin, "/admin/members");
+  await admin.getByTestId("import-link").click();
+  await admin.waitForURL(/\/admin\/members\/import$/);
+  await hydrated(admin);
+  await admin.getByLabel("Contact list file").setInputFiles("tests/fixtures/contacts-sample.xlsx");
+  const summary = admin.getByTestId("import-summary");
+  await expect(summary).toContainText("3 new");
+  await expect(summary).toContainText("1 on a family number");
+  await expect(summary).toContainText("1 already in the database"); // Grace Okafor is registered
+  await expect(summary).toContainText("1 listed twice");
+  await expect(summary).toContainText("1 without a phone number");
+  const table = admin.getByTestId("import-table");
+  await expect(table.getByRole("row").filter({ hasText: "Grace Okafor" })).toContainText("Already in the database as Grace Okafor");
+  await expect(table.getByRole("row").filter({ hasText: "Mrs. Ifeoma Bassey" })).toContainText("Shares Pst. Daniel Bassey's number");
+  await shot(admin, "21-import-preview");
+  await admin.getByTestId("import-run").click();
+  await expect(admin.getByTestId("import-done")).toBeVisible({ timeout: 30000 });
+  await expect(admin.getByTestId("import-added")).toHaveText("4");
+  await expect(admin.getByTestId("import-skipped")).toHaveText("3");
+  await shot(admin, "22-import-done");
+  // They're members now — and importing the same file again adds nobody.
+  await go(admin, "/admin/members?q=bassey");
+  await expect(admin.getByRole("link", { name: "Mrs. Ifeoma Bassey" })).toBeVisible();
+  await go(admin, "/admin/members/import");
+  await admin.getByLabel("Contact list file").setInputFiles("tests/fixtures/contacts-sample.xlsx");
+  await expect(admin.getByTestId("import-summary")).toContainText("0 new");
+  await expect(admin.getByTestId("import-run")).toHaveText(/Nothing new to import/);
+  await expect(admin.getByTestId("import-run")).toBeDisabled();
+});
+
 test("broadcast with response tracking, member replies, follow-up to non-responders", async ({ browser }) => {
   await go(admin, "/admin/messaging");
   await expect(admin.getByLabel("Audience").locator("option", { hasText: /visitor/i })).toHaveCount(0);

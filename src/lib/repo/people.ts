@@ -20,17 +20,20 @@ export async function peopleByPhone(phone: string) {
   return normalized ? db().list("people", { where: { normalized_phone: normalized } }) : [];
 }
 
-/** The adult who owns this phone number (children registered with a parent's number are skipped). */
+/** Uses someone else's phone number: a child on a parent's number, or a family member sharing one. */
+export const usesSharedPhone = (p: Pick<Person, "is_child" | "shares_phone">) => Boolean(p.is_child || p.shares_phone);
+
+/** The person who owns this phone number (children and family members sharing it are skipped). */
 export async function findByPhone(phone: string) {
-  return (await peopleByPhone(phone)).find((p) => !p.is_child) ?? null;
+  return (await peopleByPhone(phone)).find((p) => !usesSharedPhone(p)) ?? null;
 }
 
 export async function findByEmail(email: string) {
   const target = email.trim().toLowerCase();
   if (!target) return null;
-  const direct = (await db().list("people", { where: { email: target } })).find((p) => !p.is_child);
+  const direct = (await db().list("people", { where: { email: target } })).find((p) => !usesSharedPhone(p));
   if (direct) return direct;
-  return (await db().list("people")).find((p) => !p.is_child && p.email?.toLowerCase() === target) ?? null;
+  return (await db().list("people")).find((p) => !usesSharedPhone(p) && p.email?.toLowerCase() === target) ?? null;
 }
 
 /** A parent's children: linked to them, or registered with their phone number before they registered. */
@@ -47,9 +50,9 @@ export async function childrenOf(parent: Pick<Person, "id" | "normalized_phone" 
 }
 
 /** Same family: a child and the parent whose phone number they use (or are linked to). */
-export function sameFamily(a: Pick<Person, "id" | "normalized_phone" | "is_child" | "guardian_id">, b: Pick<Person, "id" | "normalized_phone" | "is_child" | "guardian_id">) {
+export function sameFamily(a: Pick<Person, "id" | "normalized_phone" | "is_child" | "shares_phone" | "guardian_id">, b: Pick<Person, "id" | "normalized_phone" | "is_child" | "shares_phone" | "guardian_id">) {
   if (a.id === b.id) return true;
-  if (!a.is_child && !b.is_child) return false;
+  if (!usesSharedPhone(a) && !usesSharedPhone(b)) return false;
   return a.normalized_phone === b.normalized_phone || a.guardian_id === b.id || b.guardian_id === a.id;
 }
 
@@ -61,6 +64,10 @@ export type NewPerson = {
   first_timer?: boolean | null;
   /** A child registered with a parent's / guardian's phone number. */
   is_child?: boolean;
+  /** An adult using a family member's phone number. */
+  shares_phone?: boolean;
+  /** Override "first visit" (null = unknown, e.g. imported from an old list). */
+  first_visit_at?: string | null;
   guardian_id?: string | null;
   guardian_name?: string | null;
   guardian_relationship?: string | null;
@@ -73,14 +80,14 @@ async function nextPersonCode() {
   return `FOJ-${String(max + 1).padStart(4, "0")}`;
 }
 
-const NEWER_COLUMNS = ["first_timer", "is_child", "guardian_id", "guardian_name", "guardian_relationship", "care_notes", "welcome_email_sent_at"] as const;
+const NEWER_COLUMNS = ["first_timer", "is_child", "shares_phone", "guardian_id", "guardian_name", "guardian_relationship", "care_notes", "welcome_email_sent_at"] as const;
 /** Saves a new person; if the database hasn't been updated with the newest columns yet, saves adults without them. */
 async function insertPerson(row: Person) {
   try {
     return await db().insert("people", row);
   } catch (error) {
     if (!(error instanceof DuplicateError) && error instanceof Error && NEWER_COLUMNS.some((c) => error.message.includes(c))) {
-      if (row.is_child) throw new FriendlyError("Children's registration needs a quick update on the church's side. Please ask an usher or try again later.");
+      if (row.is_child || row.shares_phone) throw new FriendlyError("Registering someone on another person's phone number needs a quick update on the church's side. Please ask an usher or try again later.");
       console.error("people is missing newer columns — re-run supabase/setup.sql. Saving without them.");
       const rest: Record<string, unknown> = { ...row };
       for (const c of NEWER_COLUMNS) delete rest[c];
@@ -95,11 +102,11 @@ export async function createPerson(input: NewPerson): Promise<Person> {
   const normalized = normalizePhone(input.phone);
   if (!normalized || normalized.length < 8) throw new FriendlyError("Enter a valid phone number.");
   const samePhone = await db().list("people", { where: { normalized_phone: normalized } });
-  if (input.is_child) {
-    // A child uses their parent's number; just don't register the same child twice.
-    const twin = samePhone.find((p) => p.is_child && p.full_name.trim().toLowerCase() === input.full_name.trim().toLowerCase());
+  if (input.is_child || input.shares_phone) {
+    // Children and family members use someone else's number; just don't register the same person twice.
+    const twin = samePhone.find((p) => p.full_name.trim().toLowerCase() === input.full_name.trim().toLowerCase());
     if (twin) throw new FriendlyError(`${twin.full_name} is already registered with this phone number — their username is ${twin.username}.`);
-  } else if (samePhone.some((p) => !p.is_child)) {
+  } else if (samePhone.some((p) => !usesSharedPhone(p))) {
     throw new FriendlyError("This phone number is already registered. Sign in with your username instead.");
   }
   const now = nowIso();
@@ -111,11 +118,12 @@ export async function createPerson(input: NewPerson): Promise<Person> {
         id: uid(), person_code: await nextPersonCode(), username, full_name: input.full_name.trim(), phone: input.phone.trim(),
         normalized_phone: normalized, email: input.email?.trim().toLowerCase() || null, status: input.status ?? "member",
         // An existing member registering online wasn't here for the first time today.
-        first_visit_at: input.first_timer === false ? null : now, joined_at: now, notes: input.notes ?? null,
+        first_visit_at: input.first_visit_at !== undefined ? input.first_visit_at : input.first_timer === false ? null : now, joined_at: now, notes: input.notes ?? null,
         first_timer: input.first_timer ?? null,
-        is_child: Boolean(input.is_child), guardian_id: input.is_child ? input.guardian_id ?? null : null,
-        guardian_name: input.is_child ? input.guardian_name?.trim() || null : null,
-        guardian_relationship: input.is_child ? input.guardian_relationship || null : null, care_notes: input.care_notes?.trim() || null,
+        is_child: Boolean(input.is_child), shares_phone: Boolean(input.shares_phone && !input.is_child),
+        guardian_id: input.is_child || input.shares_phone ? input.guardian_id ?? null : null,
+        guardian_name: input.is_child || input.shares_phone ? input.guardian_name?.trim() || null : null,
+        guardian_relationship: input.is_child || input.shares_phone ? input.guardian_relationship || null : null, care_notes: input.care_notes?.trim() || null,
         welcome_email_sent_at: null,
         auth_subject: input.auth_subject ?? null, avatar_url: input.avatar_url ?? null, gender: input.gender || null,
         birthday: input.birthday || null, address: input.address || null, how_heard: input.how_heard || null,
@@ -123,7 +131,7 @@ export async function createPerson(input: NewPerson): Promise<Person> {
         verified_via: input.verified_via ?? "registration", verified_at: now, created_at: now, updated_at: now
       });
       // A parent registering after their children: link the children who use this number.
-      if (!person.is_child) await adoptChildren(person).catch((error) => console.error("could not link children", error));
+      if (!usesSharedPhone(person)) await adoptChildren(person).catch((error) => console.error("could not link children", error));
       return person;
     } catch (error) {
       if (error instanceof DuplicateError && /username|person_code/.test(error.message)) continue;
@@ -135,7 +143,7 @@ export async function createPerson(input: NewPerson): Promise<Person> {
 }
 
 async function adoptChildren(parent: Person) {
-  const orphans = (await db().list("people", { where: { normalized_phone: parent.normalized_phone } })).filter((p) => p.is_child && !p.guardian_id);
+  const orphans = (await db().list("people", { where: { normalized_phone: parent.normalized_phone } })).filter((p) => usesSharedPhone(p) && !p.guardian_id);
   for (const child of orphans) {
     await db().update("people", { id: child.id }, { guardian_id: parent.id, guardian_name: child.guardian_name ?? parent.full_name, updated_at: nowIso() });
   }
@@ -146,10 +154,10 @@ export async function updatePerson(id: string, patch: Partial<Person>) {
   if (patch.phone) {
     patch.normalized_phone = normalizePhone(patch.phone);
     const current = await db().get("people", { id });
-    const child = patch.is_child ?? current?.is_child ?? false;
-    // Phone numbers are unique among adults; a child shares their parent's.
-    if (!child) {
-      const other = (await db().list("people", { where: { normalized_phone: patch.normalized_phone } })).find((p) => p.id !== id && !p.is_child);
+    const shared = (patch.is_child ?? current?.is_child ?? false) || (patch.shares_phone ?? current?.shares_phone ?? false);
+    // Phone numbers are unique per owner; children and family members can share one.
+    if (!shared) {
+      const other = (await db().list("people", { where: { normalized_phone: patch.normalized_phone } })).find((p) => p.id !== id && !usesSharedPhone(p));
       if (other) throw new FriendlyError("Another person already uses this phone number.");
     }
   }
