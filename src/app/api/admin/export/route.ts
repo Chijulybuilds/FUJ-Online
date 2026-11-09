@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   if (type === "vcf") {
     const status = request.nextUrl.searchParams.get("status");
     // Children share their parent's number, so they're left out of the phone contacts.
-    const people = (await listPeople()).filter((p) => !p.is_child && (status ? p.status === status : p.status === "member"));
+    const people = (await listPeople()).filter((p) => !p.is_child && !p.shares_phone && (status ? p.status === status : p.status === "member"));
     await audit(admin.email, "export", "contacts_vcf", null, { count: people.length });
     return new NextResponse(toVcf(people), { headers: { "Content-Type": "text/vcard; charset=utf-8", "Content-Disposition": `attachment; filename="flagupjesus-contacts.vcf"` } });
   }

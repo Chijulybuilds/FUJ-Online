@@ -24,6 +24,10 @@ export function usernameCandidates(input: string): string[] {
   return value.startsWith(USERNAME_PREFIX) ? [value] : [value, `${USERNAME_PREFIX}${value}`];
 }
 
+/** Titles that come before a name ("Pst. Umanuwa D. Caleb", "Engr. Mrs. Uju Caleb") — skipped for usernames and greetings. */
+const TITLES = new Set(["pst", "pastor", "rev", "revd", "reverend", "engr", "eng", "mr", "mrs", "ms", "miss", "mss", "dr", "doc", "prof", "deacon", "deaconess", "dcn", "dcns", "bro", "brother", "sis", "sister", "chief", "elder", "apostle", "evang", "evangelist", "minister", "min", "barr", "hon", "lady", "sir", "madam", "mummy", "daddy"]);
+const isTitle = (word: string) => TITLES.has(word.toLowerCase().replace(/[^a-z]/g, ""));
+
 /** "First Last" → "flagfirst" + 3 digits. Keeps usernames short, readable and typeable on a phone. */
 export function usernameBase(fullName: string): string {
   const first = fullName
@@ -31,8 +35,9 @@ export function usernameBase(fullName: string): string {
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .split(/\s+/)
+    .filter((part) => !isTitle(part))
     .map((part) => part.replace(/[^a-z]/g, ""))
-    .find(Boolean) ?? "member";
+    .find((part) => part.length > 1) ?? "member";
   return `${USERNAME_PREFIX}${first.slice(0, 10)}`;
 }
 export function generateUsername(fullName: string, random: () => number = Math.random): string {
@@ -40,6 +45,8 @@ export function generateUsername(fullName: string, random: () => number = Math.r
   return `${usernameBase(fullName)}${digits}`;
 }
 
+/** The name to greet someone by: "Pst. Umanuwa D. Caleb" → "Umanuwa". */
 export function firstName(fullName: string) {
-  return fullName.trim().split(/\s+/)[0] ?? fullName;
+  const words = fullName.trim().split(/\s+/);
+  return words.find((w) => !isTitle(w) && w.replace(/[^\p{L}]/gu, "").length > 1) ?? words[0] ?? fullName;
 }

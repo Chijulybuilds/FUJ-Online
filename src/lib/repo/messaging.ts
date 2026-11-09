@@ -111,7 +111,7 @@ export async function sendBroadcast(input: {
     const text = personalise(input.personalize ? input.personalize(input.body, person) : input.body, person);
     const image = input.image_url ? absoluteUrl(input.image_url) : null;
     // Children use a parent's phone and email: they get the message in their app inbox only (no duplicate texts to the parent).
-    const direct = !person.is_child;
+    const direct = !person.is_child && !person.shares_phone;
     // WhatsApp = WhatsApp first, SMS for anyone not on WhatsApp. SMS = a text message to everyone (also when WhatsApp is ticked).
     let phone: PhoneDelivery | null = channels.includes("whatsapp") && direct ? await deliverByPhone(person, input.title, text, image) : null;
     if (channels.includes("sms") && direct && !phone?.sms_status) {
