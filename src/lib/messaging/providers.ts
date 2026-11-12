@@ -160,7 +160,7 @@ export const WHATSAPP_ERROR_HINTS: Record<number, string> = {
   0: "Meta couldn't sign in with WHATSAPP_TOKEN — create a permanent System User token and update it in Vercel.",
   190: "The access token is invalid or expired (the one on the API Setup page only lasts 24 hours) — create a permanent System User token and update WHATSAPP_TOKEN.",
   10: "The token doesn't have WhatsApp permission — generate the System User token with whatsapp_business_messaging and whatsapp_business_management, and assign it the WhatsApp account.",
-  200: "The token doesn't have WhatsApp permission — generate the System User token with whatsapp_business_messaging and whatsapp_business_management, and assign it the WhatsApp account.",
+  200: "Meta won't let this token use the WhatsApp API — generate a System User token with whatsapp_business_messaging and whatsapp_business_management and assign it both the app and the WhatsApp account; if Meta says “API access blocked”, the Meta app or account itself is restricted (see developers.facebook.com/apps).",
   100: "Meta rejected part of the request — usually WHATSAPP_PHONE_NUMBER_ID (it must be the long Phone number ID, not the phone number) or a template that doesn't use numbered variables {{1}} and {{2}}.",
   131000: "Meta had a temporary problem — try again in a few minutes.",
   131005: "Access denied — the token's System User needs the WhatsApp account assigned with full control.",
@@ -193,18 +193,22 @@ export const WHATSAPP_ERROR_HINTS: Record<number, string> = {
   80007: "Sending too fast for the account's limit — wait a moment and try again."
 };
 
+/** Meta's "(#200) API access blocked": the Meta app, business or developer account behind the token is restricted. */
+export const ACCESS_BLOCKED_HINT = "Meta is blocking API access for the Meta app or account behind this token (not the number or template). Fix any red/yellow notice on developers.facebook.com/apps → your app (restricted app, Data Use Checkup, verify account), check business.facebook.com → Account quality, then make a fresh System User token with the app AND the WhatsApp account assigned.";
+
 /** One plain-English line explaining a WhatsApp failure: the fix (when known) plus Meta's own words. */
 export function whatsappReason(errorCode?: number | null, detail?: string | null): string {
-  const hint = errorCode != null ? WHATSAPP_ERROR_HINTS[errorCode] : undefined;
+  const hint = /access blocked/i.test(detail ?? "") ? ACCESS_BLOCKED_HINT : errorCode != null ? WHATSAPP_ERROR_HINTS[errorCode] : undefined;
   const meta = detail?.trim();
   const text = hint ? `${hint}${meta && !hint.includes(meta) ? ` (Meta: “${meta}”)` : ""}` : meta || "WhatsApp didn't say why.";
-  return `${errorCode != null ? `Error ${errorCode}: ` : ""}${text}`.slice(0, 500);
+  return `${errorCode != null ? `Error ${errorCode}: ` : ""}${text}`.slice(0, 700);
 }
 
 /* ------------------------------------------------------------------ setup check */
 export type CheckLine = { ok: boolean | null; text: string };
 type Health = { can_send_message?: string; entities?: { id?: string; entity_type?: string; can_send_message?: string; additional_info?: string[]; errors?: { error_code?: number; error_description?: string; possible_solution?: string }[] }[] };
 type PhoneInfo = { display_phone_number?: string; verified_name?: string; name_status?: string; code_verification_status?: string; quality_rating?: string; platform_type?: string; account_mode?: string; status?: string; health_status?: Health; error?: MetaError };
+type TokenInfo = { data?: { is_valid?: boolean; application?: string; app_id?: string; type?: string; expires_at?: number; scopes?: string[]; granular_scopes?: { scope?: string; target_ids?: string[] }[]; error?: { message?: string } } };
 type TemplateInfo = { name?: string; status?: string; language?: string; category?: string; parameter_format?: string; rejected_reason?: string; components?: { type?: string; format?: string; text?: string }[] };
 
 async function graphGet<T>(path: string): Promise<T & { error?: MetaError }> {
@@ -225,6 +229,29 @@ async function getWithFallback<T>(node: string, fieldSets: string[], query = "")
   return last;
 }
 
+const WHATSAPP_SCOPES = ["whatsapp_business_messaging", "whatsapp_business_management"];
+/** What Meta says about WHATSAPP_TOKEN itself; returns the WhatsApp account IDs the token may message from. */
+async function describeToken(add: (ok: boolean | null, text: string) => void, phoneFailed: boolean): Promise<string[]> {
+  const t = await graphGet<TokenInfo>(`debug_token?input_token=${encodeURIComponent(wa.token)}`);
+  if (t.error) {
+    if (phoneFailed && t.error.code != null) add(false, /access blocked/i.test(t.error.message ?? "") || t.error.code === 200
+      ? "Meta won't even describe the token, so the block is on the Meta app or account itself — see the fix above."
+      : `Meta couldn't read the token (${whatsappReason(t.error.code, t.error.message)}).`);
+    return [];
+  }
+  const d = t.data;
+  if (!d) return [];
+  if (d.is_valid === false) { add(false, `WHATSAPP_TOKEN isn't valid any more${d.error?.message ? ` (Meta: “${d.error.message}”)` : ""} — create a new System User token and update it in Vercel.`); return []; }
+  const kind = d.type === "SYSTEM_USER" ? "System User token" : d.type === "USER" ? "personal (user) token" : "token";
+  const expires = d.expires_at ? new Date(d.expires_at * 1000) : null;
+  if (phoneFailed || expires || d.type === "USER") add(expires || d.type === "USER" ? null : true, `WHATSAPP_TOKEN is a ${kind} for the Meta app “${d.application ?? d.app_id ?? "?"}”${expires ? `, expiring ${expires.toUTCString().slice(5, 22)} UTC — replace it with a permanent System User token (expiry: Never) before then` : ""}.`);
+  const missing = WHATSAPP_SCOPES.filter((s) => !(d.scopes ?? []).includes(s));
+  if (missing.length) add(false, `The token is missing the ${missing.join(" and ")} permission${missing.length > 1 ? "s" : ""} — generate a new System User token and tick ${missing.join(" and ")}.`);
+  const targets = d.granular_scopes?.find((g) => g.scope === "whatsapp_business_messaging")?.target_ids ?? [];
+  if (phoneFailed && targets.length) add(null, `The token may only use WhatsApp account ID${targets.length > 1 ? "s" : ""} ${targets.join(", ")} — check WHATSAPP_PHONE_NUMBER_ID is a number in ${targets.length > 1 ? "one of those accounts" : "that account"} (WhatsApp Manager → Phone numbers).`);
+  return targets;
+}
+
 /**
  * Settings → "Check WhatsApp setup": reads (sends nothing) the church number, Meta's own health check of the number,
  * WhatsApp account, business and app, and the broadcast template, then lists what's fine and what to fix.
@@ -240,11 +267,13 @@ export async function checkWhatsAppSetup(): Promise<{ ok: boolean; lines: CheckL
     "display_phone_number,verified_name"
   ]);
   if (phone.error) {
-    if (phone.error.code == null) add(null, "Couldn't reach Meta's WhatsApp API (graph.facebook.com) from the server — try again in a minute.");
-    else add(false, `Meta refused the token / Phone number ID — ${whatsappReason(phone.error.code, phone.error.error_data?.details ?? phone.error.message)}`);
+    if (phone.error.code == null) { add(null, "Couldn't reach Meta's WhatsApp API (graph.facebook.com) from the server — try again in a minute."); return { ok: false, lines }; }
+    add(false, `Meta refused the token / Phone number ID — ${whatsappReason(phone.error.code, phone.error.error_data?.details ?? phone.error.message)}`);
+    await describeToken(add, true);
     return { ok: false, lines };
   }
   add(true, `Token and Phone number ID work: sending from ${phone.display_phone_number ?? "?"}${phone.verified_name ? ` (“${phone.verified_name}”)` : ""}.`);
+  await describeToken(add, false);
   if (phone.account_mode === "SANDBOX" || /^\+?1\s?555/.test(phone.display_phone_number ?? "")) {
     add(false, "This is Meta's free TEST number: it can only message the (up to 5) numbers added under WhatsApp → API Setup → “To”. Add your number there to test, and connect the church's real number to reach members.");
   }

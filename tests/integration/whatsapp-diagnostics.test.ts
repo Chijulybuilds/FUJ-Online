@@ -14,6 +14,7 @@ const meta = {
   approvedLanguage: "en_US",
   sendError: null as null | { code: number; message: string; details?: string },
   phone: {} as Record<string, unknown>,
+  token: { data: { is_valid: true, type: "SYSTEM_USER", application: "FUJ Online", expires_at: 0, scopes: ["whatsapp_business_messaging", "whatsapp_business_management"] } } as Record<string, unknown>,
   templates: [] as Record<string, unknown>[]
 };
 let nextId = 0;
@@ -30,6 +31,7 @@ const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     return json({ messages: [{ id: `wamid.${++nextId}` }] });
   }
   if (url.includes("/message_templates")) return json({ data: meta.templates });
+  if (url.includes("/debug_token")) return json(meta.token);
   return json(meta.phone);
 });
 
@@ -130,13 +132,40 @@ describe("Check WhatsApp setup", () => {
   });
 
   it("says so plainly when the token is rejected", async () => {
+    meta.token = { data: { is_valid: false, error: { message: "Session has expired" } } };
     meta.phone = { error: { code: 190, message: "Error validating access token: Session has expired" } };
     const r = await providers.checkWhatsAppSetup();
     expect(r.ok).toBe(false);
     expect(r.lines[0].text).toMatch(/Meta refused the token \/ Phone number ID — Error 190: The access token is invalid or expired/);
+    expect(r.lines[1].text).toBe("WHATSAPP_TOKEN isn't valid any more (Meta: “Session has expired”) — create a new System User token and update it in Vercel.");
+  });
+
+  it("“API access blocked” points at the Meta app / account, not the number or template", async () => {
+    meta.phone = { error: { code: 200, message: "API access blocked.", type: "OAuthException" } };
+    meta.token = { error: { code: 200, message: "API access blocked." } };
+    const r = await providers.checkWhatsAppSetup();
+    expect(r.ok).toBe(false);
+    expect(r.lines[0].text).toContain("Error 200: Meta is blocking API access for the Meta app");
+    expect(r.lines[0].text).toContain("developers.facebook.com/apps");
+    expect(r.lines[0].text).toContain("(Meta: “API access blocked.”)");
+    expect(r.lines[1]).toEqual({ ok: false, text: "Meta won't even describe the token, so the block is on the Meta app or account itself — see the fix above." });
+    expect(calls.some((c) => c.url.includes("/debug_token?input_token=abc123"))).toBe(true);
+    // The same explanation appears on a failed broadcast.
+    expect(providers.whatsappReason(200, "API access blocked.")).toMatch(/^Error 200: Meta is blocking API access/);
+  });
+
+  it("explains a token that works but is set up wrongly: temporary, missing a permission, other WhatsApp account", async () => {
+    meta.phone = { error: { code: 100, message: "Unsupported get request. Object with ID '1234567890123' does not exist, cannot be loaded due to missing permissions" } };
+    meta.token = { data: { is_valid: true, type: "USER", application: "FUJ Online", expires_at: Math.floor(Date.UTC(2026, 10, 10, 12) / 1000), scopes: ["whatsapp_business_messaging"],
+      granular_scopes: [{ scope: "whatsapp_business_messaging", target_ids: ["999888777"] }] } };
+    const text = (await providers.checkWhatsAppSetup()).lines.map((l) => `${l.ok}|${l.text}`).join("\n");
+    expect(text).toContain("null|WHATSAPP_TOKEN is a personal (user) token for the Meta app “FUJ Online”, expiring 10 Nov 2026 12:00 UTC");
+    expect(text).toContain("false|The token is missing the whatsapp_business_management permission");
+    expect(text).toContain("null|The token may only use WhatsApp account ID 999888777");
   });
 
   it("all green when Meta reports a healthy number and an approved template", async () => {
+    meta.token = { data: { is_valid: true, type: "SYSTEM_USER", application: "FUJ Online", expires_at: 0, scopes: ["whatsapp_business_messaging", "whatsapp_business_management"] } };
     meta.phone = { display_phone_number: "+234 704 274 1000", verified_name: "FlagUpJesus", account_mode: "LIVE", platform_type: "CLOUD_API", status: "CONNECTED", name_status: "APPROVED", quality_rating: "GREEN",
       health_status: { can_send_message: "AVAILABLE", entities: [{ entity_type: "WABA", id: "777", can_send_message: "AVAILABLE" }] } };
     meta.templates = [{ name: "fuj_broadcast", status: "APPROVED", language: "en_US", category: "UTILITY", parameter_format: "POSITIONAL", components: [{ type: "BODY", text: "Hello from FlagUpJesus 👋\n*{{1}}*\n{{2}}\nReply to respond." }] }];

@@ -11,7 +11,9 @@ import { ageOf } from "@/lib/children";
 export default async function MembersPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
   await requireAdmin("members");
   const { q = "", status = "" } = await searchParams;
-  const [people, attendance, leaders] = await Promise.all([listPeople(), db().list("attendance"), db().list("leaders").catch(() => [])]);
+  const [all, attendance, leaders] = await Promise.all([listPeople(), db().list("attendance"), db().list("leaders").catch(() => [])]);
+  // Associate partners (outside FlagUpJesus) live under Partners, not here.
+  const people = all.filter((p) => p.status !== "associate");
   const leaderUnit = new Map(leaders.map((l) => [l.person_id, l.unit]));
   const lastSeen = new Map<string, string>();
   attendance.forEach((a) => { if ((lastSeen.get(a.person_id) ?? "") < a.checked_in_at) lastSeen.set(a.person_id, a.checked_in_at); });

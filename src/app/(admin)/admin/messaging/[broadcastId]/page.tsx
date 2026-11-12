@@ -5,10 +5,9 @@ import { StatCard } from "@/components/ui/stat-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { ActionForm, SubmitButton } from "@/components/ui/action-form";
 import { requireAdmin } from "@/lib/auth/session";
-import { can } from "@/lib/auth/roles";
 import { getBroadcast } from "@/lib/repo/messaging";
 import { providers } from "@/lib/messaging/providers";
-import { nonResponderTasksAction, smsUndeliveredAction } from "@/lib/actions/admin";
+import { smsUndeliveredAction } from "@/lib/actions/admin";
 import { formatDateTime, timeAgo } from "@/lib/utils";
 import { env } from "@/lib/env";
 import { Compose } from "../compose";
@@ -16,7 +15,7 @@ import { ShareToWhatsApp } from "../share-whatsapp";
 import { Eye, MessageSquareReply, Send, Users } from "lucide-react";
 
 export default async function BroadcastTracking({ params, searchParams }: { params: Promise<{ broadcastId: string }>; searchParams: Promise<{ sent?: string; filter?: string }> }) {
-  const admin = await requireAdmin("messaging");
+  await requireAdmin("messaging");
   const { broadcastId } = await params;
   const { sent, filter = "" } = await searchParams;
   const b = await getBroadcast(broadcastId).catch(() => null);
@@ -94,13 +93,6 @@ export default async function BroadcastTracking({ params, searchParams }: { para
               <dl className="kv mt-3"><dt>Via WhatsApp</dt><dd>{wa.whatsapp}</dd><dt>Via SMS</dt><dd>{wa.sms}</dd><dt>Awaiting receipt</dt><dd>{wa.pending}</dd></dl>
               <p className="mt-3 text-xs text-slate-500">People not on WhatsApp get an SMS automatically when WhatsApp reports the failure. If receipts are slow, send the SMS version now:</p>
               <ActionForm action={smsUndeliveredAction} className="mt-3"><input type="hidden" name="broadcast_id" value={b.id} /><SubmitButton className="btn btn-secondary btn-sm" pendingText="Sending…">SMS everyone without a WhatsApp receipt</SubmitButton></ActionForm>
-            </section>
-          )}
-          {can(admin.role, "care") && (
-            <section className="card p-6">
-              <h2 className="font-bold">Hand over to pastoral care</h2>
-              <p className="mt-1 text-xs text-slate-500">Create a follow-up task for every recipient who hasn&apos;t responded.</p>
-              <ActionForm action={nonResponderTasksAction} className="mt-3"><input type="hidden" name="broadcast_id" value={b.id} /><SubmitButton className="btn btn-secondary" pendingText="Creating…">Create care tasks</SubmitButton></ActionForm>
             </section>
           )}
           {b.followUps.length > 0 && (

@@ -6,7 +6,7 @@ import { listPeople, peopleById } from "@/lib/repo/people";
 import { audit } from "@/lib/repo/audit";
 import { toVcf } from "@/lib/vcard";
 import { leaderPeople } from "@/lib/repo/leaders";
-import { frequencyLabel, listPartners, partnerStatusLabel } from "@/lib/repo/partners";
+import { frequencyLabel, listPartners, partnerStatusLabel, streamLabel } from "@/lib/repo/partners";
 import { listChildren } from "@/lib/repo/children";
 
 const csv = (rows: (string | number | null | undefined)[][]) =>
@@ -18,11 +18,12 @@ export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get("type");
   if (!admin || !can(admin.role, type === "attendance" ? "attendance" : type === "leaders_vcf" ? "leaders" : type === "partners" ? "partners" : "members")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (type === "partners") {
-    const partners = await listPartners();
-    await audit(admin.email, "export", "partners", null, { count: partners.length });
-    const body = csv([["name", "username", "phone", "email", "status", "pledge", "frequency", "given_total", "given_this_year", "last_gift", "next_follow_up", "assigned_to", "partner_since"],
-      ...partners.map((p) => [p.person.full_name, p.person.username, p.person.phone, p.person.email, partnerStatusLabel(p.status), p.pledge_amount, p.frequency ? frequencyLabel(p.frequency) : "", p.given, p.givenThisYear, p.last_gift_at?.slice(0, 10), p.next_follow_up_at?.slice(0, 10), p.assignee, p.created_at.slice(0, 10)])]);
-    return new NextResponse(body, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="flagupjesus-partners.csv"` } });
+    const stream = request.nextUrl.searchParams.get("stream");
+    const partners = await listPartners(stream === "outreach" || stream === "associate" ? stream : undefined);
+    await audit(admin.email, "export", "partners", null, { count: partners.length, stream });
+    const body = csv([["name", "partner_type", "organisation", "country", "username", "phone", "email", "status", "currency", "pledge", "frequency", "given_total", "given_this_year", "last_gift", "next_follow_up", "assigned_to", "partner_since"],
+      ...partners.map((p) => [p.person.full_name, streamLabel(p.stream), p.organisation, p.country, p.person.username, p.person.phone, p.person.email, partnerStatusLabel(p.status), p.currency, p.pledge_amount, p.frequency ? frequencyLabel(p.frequency) : "", p.given, p.givenThisYear, p.last_gift_at?.slice(0, 10), p.next_follow_up_at?.slice(0, 10), p.assignee, p.created_at.slice(0, 10)])]);
+    return new NextResponse(body, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="flagupjesus-${stream === "associate" ? "associate-" : stream === "outreach" ? "outreach-" : ""}partners.csv"` } });
   }
   if (type === "children") {
     const kids = await listChildren();
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
       return [s?.title, s?.starts_at, p?.full_name, p?.username, p?.phone, p?.status, a.checked_in_at, a.check_in_method];
     })]);
   } else {
-    const people = await listPeople();
+    const people = (await listPeople()).filter((p) => p.status !== "associate");
     body = csv([["code", "name", "username", "phone", "email", "birthday", "address", "first_timer", "child", "parent_or_guardian", "status", "first_visit", "joined"], ...people.map((p) => [p.person_code, p.full_name, p.username, p.phone, p.email, p.birthday, p.address, p.first_timer === true ? "yes" : p.first_timer === false ? "no" : "", p.is_child ? "yes" : "", p.is_child ? p.guardian_name : "", p.status, p.first_visit_at, p.joined_at])]);
   }
   await audit(admin.email, "export", type ?? "people", null);

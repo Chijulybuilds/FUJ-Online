@@ -17,7 +17,6 @@ const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
 const { db } = await import("../../src/lib/db");
 const people = await import("../../src/lib/repo/people");
 const services = await import("../../src/lib/repo/services");
-const care = await import("../../src/lib/repo/care");
 const settingsRepo = await import("../../src/lib/repo/settings");
 const ft = await import("../../src/lib/repo/first-timers");
 const partners = await import("../../src/lib/repo/partners");
@@ -59,9 +58,6 @@ describe("first timers", () => {
     await services.recordAttendance({ person: oldMember, serviceId: svc.id, method: "qr" });
     const rows = await services.attendanceForService(svc.id);
     expect(rows.find((r) => r.person_id === oldMember.id)?.firstTime).toBe(false);
-    // The absence analysis no longer turns recent check-ins into "new member" tasks.
-    await care.runFollowUpAnalysis();
-    expect(await db().list("follow_up_tasks", { where: { category: "first_timer" } })).toHaveLength(0);
     expect(await db().get("first_timers", { person_id: oldMember.id })).toBeNull();
   });
 
@@ -114,7 +110,7 @@ describe("first timers", () => {
     expect(after).toMatchObject({ stage: "returned", visits: 1 });
     expect(after.returned_at).not.toBeNull();
     expect((await logs("first_timer", journeyId)).some((l) => l.outcome === "Came back to church" && /Sunday Celebration/.test(l.note ?? ""))).toBe(true);
-    expect(ft.nextStep(after, await settingsRepo.getSettings()).text).toMatch(/help them join a unit/);
+    expect(ft.nextStep(after, await settingsRepo.getSettings()).text).toBe("Came back 🙌");
     calls.length = 0;
     expect(await ft.runFirstTimerFollowUps(saturdayAfter(15))).toMatchObject({ invited: 1 }); // only Femi now
     expect(sentTo("2348050000001")).toBe(false);
@@ -225,5 +221,100 @@ describe("FUJ partners", () => {
     await partners.updatePartner(q.partner.id, { status: "declined" }, "Admin");
     expect((await messaging.resolveAudience("partners")).map((p) => p.full_name).sort()).toEqual(["Kemi Known", "Pat Partner"]);
     expect((await messaging.resolveAudience("partners_active")).map((p) => p.full_name).sort()).toEqual(["Kemi Known", "Pat Partner"]);
+  });
+});
+
+describe("first timers — the simple buttons", () => {
+  it("To call → Reached them → Came back, with No answer, Remove and Put back", async () => {
+    const p = await people.createPerson({ full_name: "Simi Simple", phone: "08070000001", first_timer: true });
+    const { journey } = await ft.startFirstTimer(p, { source: "registration" });
+    expect(ft.simpleStatus(journey.stage)).toBe("to_call");
+    await ft.firstTimerQuickAction(journey.id, "no_answer", "Usher Ada");
+    expect(ft.simpleStatus((await db().get("first_timers", { id: journey.id }))!.stage)).toBe("to_call"); // still to call
+    await ft.firstTimerQuickAction(journey.id, "reached", "Usher Ada", "She loved the worship");
+    let row = (await db().get("first_timers", { id: journey.id }))!;
+    expect(ft.simpleStatus(row.stage)).toBe("called");
+    expect(row.welcomed_at).not.toBeNull();
+    await ft.firstTimerQuickAction(journey.id, "came_back", "Usher Ada");
+    row = (await db().get("first_timers", { id: journey.id }))!;
+    expect(ft.simpleStatus(row.stage)).toBe("came_back");
+    await ft.firstTimerQuickAction(journey.id, "remove", "Usher Ada", "Moved to Abuja");
+    row = (await db().get("first_timers", { id: journey.id }))!;
+    expect(row).toMatchObject({ stage: "closed", close_reason: "Moved to Abuja" });
+    await ft.firstTimerQuickAction(journey.id, "restore", "Usher Ada");
+    expect(ft.simpleStatus((await db().get("first_timers", { id: journey.id }))!.stage)).toBe("came_back");
+    const history = (await logs("first_timer", journey.id)).sort((a, b) => a.created_at.localeCompare(b.created_at)).map((l) => ft.historyLabel(l.outcome));
+    expect(history).toEqual(["No answer", "Reached them", "Marked as came back", "Removed from the list", "Put back on the call list"]);
+    expect((await logs("first_timer", journey.id)).find((l) => l.outcome === "Reached them")?.note).toBe("She loved the worship");
+    // Older history reads in the same plain words.
+    expect(ft.historyLabel("auto_welcome")).toBe("Welcome message sent automatically");
+    expect(ft.historyLabel("Moved to Welcomed")).toBe("Marked as called");
+    expect(ft.simpleLabel("settled")).toBe("Came back");
+  });
+});
+
+describe("partners — outreach and associate streams", () => {
+  let associateId = "";
+  it("adds an associate partner abroad without making them a church member", async () => {
+    const { partner, person, created } = await partners.addPartner({
+      full_name: "Grace Abroad", phone: "+44 7700 900123", email: "grace@example.co.uk", source: "admin", stream: "associate",
+      country: "United Kingdom", organisation: "Grace Chapel, London", currency: "GBP", pledge_amount: 100, frequency: "monthly"
+    });
+    associateId = partner.id;
+    expect(created).toBe(true);
+    expect(partner).toMatchObject({ stream: "associate", country: "United Kingdom", organisation: "Grace Chapel, London", currency: "GBP", status: "committed" });
+    expect(person).toMatchObject({ status: "associate", normalized_phone: "+447700900123", first_visit_at: null });
+    expect(person.username).toMatch(/^flaggrace\d{3}$/);
+    // Not a member: left out of member broadcasts, in the partner ones.
+    expect((await messaging.resolveAudience("all")).some((p) => p.id === person.id)).toBe(false);
+    expect((await messaging.resolveAudience("partners_associate")).map((p) => p.full_name)).toEqual(["Grace Abroad"]);
+    expect((await messaging.resolveAudience("partners_outreach")).some((p) => p.id === person.id)).toBe(false);
+    expect((await messaging.resolveAudience("partners")).some((p) => p.id === person.id)).toBe(true);
+    expect((await messaging.resolveAudience(`person:${person.id}`))).toHaveLength(1);
+    expect((await partners.listPartners("associate")).map((r) => r.person.full_name)).toEqual(["Grace Abroad"]);
+    expect((await partners.listPartners("outreach")).some((r) => r.person.id === person.id)).toBe(false);
+    const reports = await import("../../src/lib/repo/reports");
+    const before = await reports.dashboardStats();
+    expect(before.members).toBe((await db().list("people")).filter((p) => p.status === "member").length);
+  });
+
+  it("keeps the two streams apart and asks for the country code abroad", async () => {
+    await expect(partners.addPartner({ full_name: "Local Number", phone: "07700 900124", source: "admin", stream: "associate", country: "United Kingdom" })).rejects.toThrow(/country code/);
+    await expect(partners.addPartner({ full_name: "Kemi Known", phone: "08060000002", source: "admin", stream: "associate", country: "Nigeria" })).rejects.toThrow(/FlagUpJesus member — add them as an outreach partner/);
+    await expect(partners.addPartner({ full_name: "Grace Abroad", phone: "+447700900123", source: "admin" })).rejects.toThrow(/associate partner/);
+    // Someone in Nigeria who isn't a member can be an associate with a local number.
+    const local = await partners.addPartner({ full_name: "Pastor Other Church", phone: "0809 111 2222", source: "admin", stream: "associate", country: "Nigeria" });
+    expect(local.person).toMatchObject({ status: "associate", normalized_phone: "+2348091112222" });
+  });
+
+  it("gifts in pounds count for the associate; reminders carry the international giving details", async () => {
+    const row = (await partners.listPartners("associate")).find((r) => r.id === associateId)!;
+    await giving.recordDonation({ person_id: row.person_id, donor_name: null, amount: 50, currency: "GBP", fund_name: "Partnership", method: "transfer", note: null, paid_at: new Date(Date.now() - 40 * DAY).toISOString() }, "Finance");
+    const after = (await partners.getPartner(associateId))!;
+    expect(after).toMatchObject({ given: 50, gifts: 1, status: "active" });
+    await settingsRepo.saveSettings({ associate_giving_details: "GBP account: Example Bank, sort code 00-00-00, account 12345678" });
+    calls.length = 0;
+    expect((await partners.runPartnerFollowUps(new Date(), { forceReminders: true })).reminded).toBeGreaterThanOrEqual(1);
+    const toGrace = calls.filter((c) => JSON.stringify(c.body).includes("447700900123")).map((c) => JSON.stringify(c.body)).join(" ");
+    expect(toGrace).toContain("£100");
+    expect(toGrace).toContain("GBP account: Example Bank");
+    expect(toGrace).not.toContain("5600605313"); // not the naira account
+    expect(partners.givingDetails(await settingsRepo.getSettings(), { stream: "outreach" }, { username: "flagkemi101" })).toContain("5600605313");
+  });
+
+  it("moving a partner between streams moves them on or off the members list", async () => {
+    const kemi = (await partners.listPartners("outreach")).find((r) => r.person.full_name === "Kemi Known")!;
+    await partners.updatePartner(kemi.id, { stream: "associate", country: "Ghana" }, "Admin");
+    expect((await db().get("people", { id: kemi.person_id }))!.status).toBe("associate");
+    expect((await partners.getPartner(kemi.id))!).toMatchObject({ stream: "associate", country: "Ghana" });
+    await partners.updatePartner(kemi.id, { stream: "outreach" }, "Admin");
+    expect((await db().get("people", { id: kemi.person_id }))!.status).toBe("member");
+  });
+
+  it("amounts in several currencies are never added together", async () => {
+    const { formatAmounts, formatCurrency } = await import("../../src/lib/utils");
+    expect(formatAmounts(new Map([["NGN", 250000], ["GBP", 300]]))).toBe("₦250,000 + £300");
+    expect(formatAmounts(new Map())).toBe("₦0");
+    expect(formatCurrency(1200, "USD")).toBe("US$1,200");
   });
 });

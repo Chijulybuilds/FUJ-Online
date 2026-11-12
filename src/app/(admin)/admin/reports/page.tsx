@@ -24,7 +24,7 @@ export default async function ReportsPage() {
         {can(admin.role, "giving") && <section className="card p-6"><h2 className="mb-5 font-bold">Giving per month</h2><Bars data={months.map((m) => ({ label: m.label, value: m.giving }))} format={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} /><p className="mt-3 text-xs text-slate-500">This month: {formatCurrency(stats.givingThisMonth)}</p></section>}
         <section className="card p-6">
           <h2 className="mb-4 font-bold">Membership</h2>
-          <dl className="kv"><dt>Active members</dt><dd>{stats.members}</dd><dt>Inactive / moved</dt><dd>{stats.inactive}</dd><dt>New this month</dt><dd>{stats.newThisMonth}</dd><dt>Open follow-ups</dt><dd>{stats.openTasks}</dd><dt>All-time check-ins</dt><dd>{stats.totalCheckIns}</dd></dl>
+          <dl className="kv"><dt>Active members</dt><dd>{stats.members}</dd><dt>Inactive / moved</dt><dd>{stats.inactive}</dd><dt>New this month</dt><dd>{stats.newThisMonth}</dd><dt>All-time check-ins</dt><dd>{stats.totalCheckIns}</dd></dl>
         </section>
         {broadcasts.length > 0 && (
           <section className="card p-6">

@@ -4,8 +4,7 @@ import type { ChurchSettings, ContactLog, FirstTimer, FirstTimerStage, Person, S
 import { formatDate, nowIso, uid } from "@/lib/utils";
 import { peopleById } from "./people";
 import { getSettings } from "./settings";
-import { followUpChannels } from "./auto-follow-up";
-import { addContactLog, contactLogsFor, sendAutomaticMessage } from "./contact-logs";
+import { addContactLog, contactLogsFor, followUpChannels, sendAutomaticMessage } from "./contact-logs";
 
 /**
  * First-timer follow-up. Someone who tells us at registration (or an usher/admin who records) that it's their
@@ -24,6 +23,63 @@ export const STAGES: { value: FirstTimerStage; label: string; hint: string }[] =
   { value: "closed", label: "Closed", hint: "Moved away, not interested or unreachable" }
 ];
 export const stageLabel = (s: FirstTimerStage) => STAGES.find((x) => x.value === s)?.label ?? s;
+
+/**
+ * What admins see: three simple statuses instead of five stages.
+ *   To call   — nobody has reached them yet (stage "new")
+ *   Called    — someone from the team reached them (stage "welcomed")
+ *   Came back — back in church after their first visit (stages "returned" and "settled")
+ * "Removed" (stage "closed") is for people who moved away, were only visiting, or asked not to be contacted.
+ */
+export type SimpleStatus = "to_call" | "called" | "came_back" | "removed";
+export const SIMPLE_STATUSES: { value: SimpleStatus; label: string; hint: string }[] = [
+  { value: "to_call", label: "To call", hint: "Nobody has reached them yet — give them a call to say welcome" },
+  { value: "called", label: "Called", hint: "Someone has reached them — the app invites them back each Saturday" },
+  { value: "came_back", label: "Came back", hint: "Back in church after their first visit 🙌" },
+  { value: "removed", label: "Removed", hint: "Moved away, only visiting, or asked not to be contacted" }
+];
+export function simpleStatus(stage: FirstTimerStage): SimpleStatus {
+  return stage === "new" ? "to_call" : stage === "welcomed" ? "called" : stage === "closed" ? "removed" : "came_back";
+}
+export const simpleLabel = (stage: FirstTimerStage) => SIMPLE_STATUSES.find((x) => x.value === simpleStatus(stage))!.label;
+
+/** History entries in plain words (older entries used the five-stage names). */
+const HISTORY_WORDS: Record<string, string> = {
+  auto_welcome: "Welcome message sent automatically", auto_invite: "Sunday invitation sent automatically",
+  "Moved to Welcomed": "Marked as called", "Moved to Came back": "Marked as came back", "Moved to Settled in": "Marked as came back",
+  "Moved to Closed": "Removed from the list", "Moved to New": "Put back on the call list"
+};
+export const historyLabel = (outcome: string) => HISTORY_WORDS[outcome] ?? outcome.replace(/^Reached — /, "Reached them — ");
+
+export type QuickAction = "reached" | "no_answer" | "came_back" | "remove" | "restore";
+
+/** One-click updates from the first-timers list and page: what happened, plus an optional note. */
+export async function firstTimerQuickAction(id: string, action: QuickAction, actor: string, note?: string | null) {
+  const journey = await db().get("first_timers", { id });
+  if (!journey) return null;
+  const now = nowIso();
+  const text = note?.trim() || null;
+  const log = (outcome: string, channel: ContactLog["channel"] = "note") => addContactLog({ subject: "first_timer", subject_id: id, channel, outcome, note: text, author: actor });
+  let patch: Partial<FirstTimer> = { updated_at: now };
+  if (action === "reached") {
+    await log("Reached them", "call");
+    patch = { ...patch, last_contacted_at: now, ...(journey.stage === "new" ? { stage: "welcomed" as const, welcomed_at: journey.welcomed_at ?? now } : {}) };
+  } else if (action === "no_answer") {
+    await log("No answer", "call");
+    patch = { ...patch, last_contacted_at: now };
+  } else if (action === "came_back") {
+    await log("Marked as came back");
+    patch = { ...patch, stage: "returned", returned_at: journey.returned_at ?? now, closed_at: null, close_reason: null };
+  } else if (action === "remove") {
+    await log("Removed from the list");
+    patch = { ...patch, stage: "closed", closed_at: now, close_reason: text };
+  } else {
+    await log("Put back on the call list");
+    patch = { ...patch, stage: journey.returned_at ? "returned" : journey.welcomed_at ? "welcomed" : "new", closed_at: null, close_reason: null };
+  }
+  const [row] = await db().update("first_timers", { id }, patch);
+  return row;
+}
 
 export const WELCOME_TITLE = "Welcome to FlagUpJesus";
 export const INVITE_TITLE = "See you this Sunday?";
@@ -94,17 +150,17 @@ export async function getFirstTimer(id: string) {
   return { ...journey, person, service, logs, attendance: attendance.map((a) => ({ ...a, service: services.get(a.service_id) ?? null })) };
 }
 
-/** What should happen next for this first timer (shown in the list). */
+/** What should happen next for this first timer, in plain words (shown in the list). */
 export function nextStep(j: Pick<FirstTimer, "stage" | "first_visit_at" | "invites_sent" | "close_reason">, settings: Pick<ChurchSettings, "first_timer_auto" | "first_timer_max_invites">, now = new Date()) {
-  if (j.stage === "closed") return { text: `Closed${j.close_reason ? ` — ${j.close_reason}` : ""}`, overdue: false };
-  if (j.stage === "settled") return { text: "Settled in 🎉", overdue: false };
-  if (j.stage === "returned") return { text: "Came back — help them join a unit or TFT", overdue: false };
-  if (j.stage === "new") {
+  const status = simpleStatus(j.stage);
+  if (status === "removed") return { text: `Removed${j.close_reason ? ` — ${j.close_reason}` : ""}`, overdue: false };
+  if (status === "came_back") return { text: "Came back 🙌", overdue: false };
+  if (status === "to_call") {
     const due = new Date(new Date(j.first_visit_at).getTime() + 2 * DAY);
     return { text: `Call to welcome them (by ${formatDate(due.toISOString(), { weekday: "short", day: "numeric", month: "short" })})`, overdue: now > due };
   }
   if (settings.first_timer_auto && j.invites_sent < settings.first_timer_max_invites) {
-    return { text: `Invitation ${j.invites_sent + 1} of ${settings.first_timer_max_invites} goes out on Saturday`, overdue: false };
+    return { text: `Sunday invitation ${j.invites_sent + 1} of ${settings.first_timer_max_invites} goes out on Saturday`, overdue: false };
   }
   return { text: "Invite them personally for Sunday", overdue: false };
 }

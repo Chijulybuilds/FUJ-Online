@@ -12,8 +12,17 @@ export function formatDate(value: string | null | undefined, opts: Intl.DateTime
 export function formatDateTime(value: string | null | undefined) {
   return formatDate(value, { dateStyle: "medium", timeStyle: "short" });
 }
-export function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(value);
+export function formatCurrency(value: number, currency = "NGN") {
+  try {
+    return new Intl.NumberFormat("en-NG", { style: "currency", currency: currency || "NGN", maximumFractionDigits: 0 }).format(value);
+  } catch {
+    return `${currency} ${Math.round(value).toLocaleString("en-NG")}`;
+  }
+}
+/** Amounts in several currencies, e.g. "₦250,000 + £300" (never adds naira to pounds). */
+export function formatAmounts(totals: Map<string, number> | Record<string, number>, emptyCurrency = "NGN") {
+  const entries = (totals instanceof Map ? [...totals.entries()] : Object.entries(totals)).filter(([, v]) => v > 0);
+  return entries.length ? entries.map(([c, v]) => formatCurrency(v, c)).join(" + ") : formatCurrency(0, emptyCurrency);
 }
 export function timeAgo(value: string | null | undefined) {
   if (!value) return "—";

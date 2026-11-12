@@ -41,7 +41,6 @@ export default async function PrayerRequestsAdmin({ searchParams }: { searchPara
               <textarea className="input sm:col-span-2 min-h-16" name="admin_note" defaultValue={p.admin_note ?? ""} placeholder="Private pastoral note" />
               <div className="flex flex-wrap gap-4 sm:col-span-2">
                 {p.visibility === "public" && <label className="checkbox"><input type="checkbox" name="on_wall" defaultChecked={p.on_wall} /> Show on prayer wall</label>}
-                {p.person_id && <label className="checkbox"><input type="checkbox" name="create_task" /> Create follow-up task</label>}
               </div>
               <div><SubmitButton className="btn btn-secondary btn-sm">Update</SubmitButton></div>
             </ActionForm>

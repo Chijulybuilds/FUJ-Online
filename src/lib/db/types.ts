@@ -1,7 +1,8 @@
 /* Row types mirror the Supabase schema (supabase/migrations). */
 
 /** Everyone who registers is a member (FUJ has no "visitor" category). */
-export type PersonStatus = "member" | "inactive" | "transferred" | "left_ministry";
+/** "associate" = an associate partner outside FlagUpJesus: has a record (messages, giving) but isn't a church member. */
+export type PersonStatus = "member" | "inactive" | "transferred" | "left_ministry" | "associate";
 export type StaffRole = "super_admin" | "admin" | "pastor" | "pastoral_worker" | "finance_admin" | "department_leader";
 
 export interface Person {
@@ -254,9 +255,12 @@ export interface FirstTimer {
 export type PartnerStatus = "interested" | "contacted" | "committed" | "active" | "paused" | "declined";
 export type PartnerFrequency = "monthly" | "quarterly" | "yearly" | "one_off";
 /** A FUJ Partner: someone supporting the ministry with (regular) giving. */
+export type PartnerStream = "outreach" | "associate";
 export interface Partner {
   id: string;
   person_id: string;
+  /** outreach = a FlagUpJesus member; associate = a key partner outside FlagUpJesus (migration 0017). */
+  stream: PartnerStream;
   status: PartnerStatus;
   source: "registration" | "portal" | "admin";
   pledge_amount: number | null;
@@ -268,6 +272,11 @@ export interface Partner {
   thanks_sent_at: string | null;
   last_reminder_at: string | null;
   notes: string | null;
+  /** Associates: where they are and the church / organisation they're with. */
+  country: string | null;
+  organisation: string | null;
+  /** Currency of the pledge (NGN, USD, GBP…). */
+  currency: string;
   created_at: string;
   updated_at: string;
 }
@@ -348,6 +357,8 @@ export interface ChurchSettings {
   partner_reminder_day: number;
   partner_thanks_message: string | null;
   partner_reminder_message: string | null;
+  /** How associate partners abroad can give (domiciliary account, IBAN / SWIFT, online link) — migration 0017. */
+  associate_giving_details?: string | null;
   created_at: string;
   updated_at: string;
 }

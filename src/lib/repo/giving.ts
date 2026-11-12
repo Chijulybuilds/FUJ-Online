@@ -10,9 +10,9 @@ export async function listDonations() {
   return rows.map((r) => ({ ...r, amount: Number(r.amount), person: r.person_id ? people.get(r.person_id) ?? null : null }));
 }
 
-export async function recordDonation(input: { person_id: string | null; donor_name: string | null; amount: number; fund_name: string; method: string; note: string | null; paid_at: string | null }, recordedBy: string) {
+export async function recordDonation(input: { person_id: string | null; donor_name: string | null; amount: number; currency?: string; fund_name: string; method: string; note: string | null; paid_at: string | null }, recordedBy: string) {
   const row = await db().insert("donations", {
-    id: uid(), person_id: input.person_id, amount: input.amount, currency: "NGN", fund_name: input.fund_name, status: "paid",
+    id: uid(), person_id: input.person_id, amount: input.amount, currency: input.currency || "NGN", fund_name: input.fund_name, status: "paid",
     provider_reference: null, paid_at: input.paid_at ?? nowIso(), method: input.method, note: input.note, donor_name: input.donor_name,
     recorded_by: recordedBy, created_at: nowIso()
   });
