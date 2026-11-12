@@ -3,6 +3,7 @@ import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { ROLE_ACCESS, ROLE_LABELS } from "@/lib/auth/roles";
 import type { StaffRole } from "@/lib/db/types";
+import { APP_NAME } from "@/lib/constants";
 
 export function AdminShell({ children, name, role }: { children: ReactNode; name: string; role: StaffRole }) {
   const areas = ROLE_ACCESS[role];
@@ -11,7 +12,7 @@ export function AdminShell({ children, name, role }: { children: ReactNode; name
       <Sidebar areas={areas} name={name} roleLabel={ROLE_LABELS[role]} />
       <div className="main-area">
         <Topbar name={name} roleLabel={ROLE_LABELS[role]} areas={areas} />
-        <main className="content">{children}<footer className="mt-10 border-t border-slate-200 pt-5 text-xs text-slate-400">© {new Date().getFullYear()} FlagUpJesus Global Ministry · FlagUpJesus</footer></main>
+        <main className="content">{children}<footer className="mt-10 border-t border-slate-200 pt-5 text-xs text-slate-400">© {new Date().getFullYear()} FlagUpJesus Global Ministry · {APP_NAME}</footer></main>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 -- Welcome email + optional member passwords.
---  * Everyone with an email address gets a warm "Welcome to FUJ Online Church" email with their flag username —
+--  * Everyone with an email address gets a warm "Welcome to FlagUpJesus Global Connect" email with their flag username —
 --    new registrations straight away, people who registered earlier through Settings → Welcome emails or the
 --    daily job. welcome_email_sent_at records when it went out.
 --  * The email has a link to set a password, so members can sign in with username (or email) + password as well as

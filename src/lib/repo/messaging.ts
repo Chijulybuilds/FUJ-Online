@@ -7,6 +7,7 @@ import { emailAttempt, emailFromProblem, NOT_ON_WHATSAPP_CODES, providers, sendE
 import { firstName, normalizePhone } from "@/lib/identity-utils";
 import { absoluteUrl } from "@/lib/storage";
 import { env } from "@/lib/env";
+import { APP_NAME } from "@/lib/constants";
 import { broadcastEmailHtml } from "@/lib/messaging/email-template";
 import { leaderPeople } from "./leaders";
 import { getPublicSettings } from "./settings";
@@ -327,7 +328,7 @@ export async function threadForPerson(personId: string) {
 /** Settings → Messaging channels → "Send test": one message on one channel, with a plain-English result. */
 export async function sendTestMessage(channel: string, to: string): Promise<{ ok: boolean; message: string }> {
   const settings = await getPublicSettings();
-  const title = `${settings.app_name || "FlagUpJesus"} test message`;
+  const title = `${APP_NAME} test message`;
   const body = `If you can read this, ${channel === "email" ? "email" : channel === "sms" ? "SMS" : "WhatsApp"} broadcasts are working. God bless you!`;
   if (channel === "email") {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return { ok: false, message: "Enter an email address to send the test to." };

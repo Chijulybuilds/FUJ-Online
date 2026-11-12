@@ -1,4 +1,5 @@
 /** Welcome + password emails (inline styles only, so they look right in Gmail, Outlook and phone mail apps). */
+import { APP_NAME } from "@/lib/constants";
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 type Church = { churchName: string; siteUrl: string; motto?: string | null; address?: string | null; phone?: string | null; email?: string | null; programs: { name: string; when: string }[] };
@@ -7,7 +8,7 @@ function frame(church: Church, inner: string) {
   return `<!doctype html><html><body style="margin:0;background:#f7f4f2;font-family:Arial,Helvetica,sans-serif;color:#1b1b1b">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4f2;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:18px;overflow:hidden">
-<tr><td style="background:#c8102e;color:#ffffff;padding:20px 26px"><div style="font-size:12px;letter-spacing:2px;opacity:.85">FUJ ONLINE CHURCH</div><div style="font-weight:bold;font-size:18px;margin-top:4px">${esc(church.churchName)}</div></td></tr>
+<tr><td style="background:#c8102e;color:#ffffff;padding:20px 26px"><div style="font-size:12px;letter-spacing:2px;opacity:.85">${esc(APP_NAME.toUpperCase())}</div><div style="font-weight:bold;font-size:18px;margin-top:4px">${esc(church.churchName)}</div></td></tr>
 <tr><td style="padding:26px">${inner}</td></tr>
 <tr><td style="padding:16px 26px;border-top:1px solid #eee;font-size:12px;line-height:1.6;color:#777">
 ${church.motto ? `<b style="color:#c8102e">${esc(church.motto)}</b><br>` : ""}${church.address ? `${esc(church.address)}<br>` : ""}${church.phone ? `${esc(church.phone)} · ` : ""}<a href="${esc(church.siteUrl)}" style="color:#c8102e">${esc(church.siteUrl.replace(/^https?:\/\//, ""))}</a>
@@ -24,7 +25,7 @@ export type WelcomeEmail = {
 };
 
 export function welcomeEmail(w: WelcomeEmail, church: Church) {
-  const subject = `Welcome to FUJ Online Church, ${w.firstName}! Your flag username is inside 🎉`;
+  const subject = `Welcome to ${APP_NAME}, ${w.firstName}! Your flag username is inside 🎉`;
   const signIn = w.parentsPhone ? "your username and your parent's or guardian's phone number" : "your username and your phone number";
   const programs = church.programs.slice(0, 4);
   const text = [
