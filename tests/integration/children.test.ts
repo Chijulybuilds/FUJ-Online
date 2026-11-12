@@ -18,7 +18,6 @@ const { db } = await import("../../src/lib/db");
 const people = await import("../../src/lib/repo/people");
 const children = await import("../../src/lib/repo/children");
 const services = await import("../../src/lib/repo/services");
-const care = await import("../../src/lib/repo/care");
 const messaging = await import("../../src/lib/repo/messaging");
 const { nowIso, uid } = await import("../../src/lib/utils");
 
@@ -99,8 +98,6 @@ describe("children registered with a parent's phone number", () => {
       const other = await people.createPerson({ full_name: `Regular ${d}`, phone: `0803000${d}111` });
       await db().insert("attendance", { id: uid(), person_id: other.id, service_id: s.id, checked_in_at: new Date(Date.now() - d * 86400000).toISOString(), check_in_method: "qr", recorded_by: null, device_id: null, created_at: nowIso() });
     }
-    await care.runFollowUpAnalysis();
-    expect(await db().list("follow_up_tasks", { where: { person_id: ada } })).toHaveLength(0);
     const r = await messaging.handleWhatsAppInbound("2348035551234", "Thank you!");
     expect(r).toBeDefined();
     expect((await db().get("people", { id: mum }))!.whatsapp).toBe("yes");

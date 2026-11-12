@@ -256,7 +256,7 @@ export default async function HomePage() {
           <div>
             <Reveal><p className="lp-kicker">Sunday check-in</p><h2 className="lp-h2 mt-4">Scan. Type your username. <em>You&apos;re in.</em></h2><p className="mt-5 max-w-xl text-lg muted">Register once, receive your personal <b>flag</b> username, and use it at every service — no SMS codes every Sunday.</p></Reveal>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              {[{ I: ScanLine, t: "Scan the live QR", d: "It refreshes every 20 seconds on the screen." }, { I: Sparkles, t: "Type your username", d: "e.g. flagyourname123 — you get it at registration." }, { I: Heart, t: "Counted & cared for", d: "Miss a few Sundays? Our pastors will check on you." }].map(({ I, t, d }, i) => (
+              {[{ I: ScanLine, t: "Scan the live QR", d: "It refreshes every 20 seconds on the screen." }, { I: Sparkles, t: "Type your username", d: "e.g. flagyourname123 — you get it at registration." }, { I: Heart, t: "Counted & remembered", d: "Your attendance is saved to your profile — every Sunday counts." }].map(({ I, t, d }, i) => (
                 <Reveal key={t} delay={i * 0.1}><div className="lp-card relative h-full overflow-hidden p-6"><span className="lp-step-num absolute right-4 top-2 !text-[3.2rem]">{i + 1}</span><span className="lp-icon"><I size={20} /></span><h3 className="mt-5 font-bold">{t}</h3><p className="mt-1 text-sm muted">{d}</p></div></Reveal>
               ))}
             </div>

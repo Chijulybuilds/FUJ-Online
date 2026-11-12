@@ -10,7 +10,6 @@ delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 const { db, DuplicateError } = await import("../../src/lib/db");
 const people = await import("../../src/lib/repo/people");
 const services = await import("../../src/lib/repo/services");
-const care = await import("../../src/lib/repo/care");
 const messaging = await import("../../src/lib/repo/messaging");
 
 describe("people + check-in", () => {
@@ -48,25 +47,7 @@ describe("people + check-in", () => {
   });
 });
 
-describe("absence analysis + broadcasts", () => {
-  it("flags regular attenders who missed the last N services, once", async () => {
-    const regular = await people.createPerson({ full_name: "Samuel James", phone: "08024567890", status: "member" });
-    const day = 86400000;
-    const ids: string[] = [];
-    for (let w = 3; w >= 1; w--) ids.push((await services.createService({ title: `Sunday -${w}`, category: "Sunday worship", starts_at: new Date(Date.now() - w * 7 * day).toISOString() })).id);
-    // attended only the oldest of the three
-    await db().insert("attendance", { id: crypto.randomUUID(), person_id: regular.id, service_id: ids[0], checked_in_at: new Date(Date.now() - 21 * day).toISOString(), check_in_method: "qr", recorded_by: null, device_id: null, created_at: new Date().toISOString() });
-    // attendance was taken on the other Sundays (someone else checked in), so they count
-    const faithful = await people.createPerson({ full_name: "Faithful Attender", phone: "08024567899" });
-    for (const [i, w] of [[1, 2], [2, 1]] as const) await db().insert("attendance", { id: crypto.randomUUID(), person_id: faithful.id, service_id: ids[i], checked_in_at: new Date(Date.now() - w * 7 * day).toISOString(), check_in_method: "qr", recorded_by: null, device_id: null, created_at: new Date().toISOString() });
-    const first = await care.runFollowUpAnalysis();
-    expect(first.absentees).toBeGreaterThanOrEqual(1);
-    const tasks = (await db().list("follow_up_tasks", { where: { person_id: regular.id, category: "absentee" } }));
-    expect(tasks).toHaveLength(1);
-    await care.runFollowUpAnalysis();
-    expect(await db().list("follow_up_tasks", { where: { person_id: regular.id, category: "absentee" } })).toHaveLength(1);
-  });
-
+describe("broadcasts", () => {
   it("tracks reads/responses and targets non-responders in a follow-up", async () => {
     const b = await messaging.sendBroadcast({ title: "We missed you", body: "Hi {first_name}", kind: "follow_up", audience: "members", channels: [], request_response: true, created_by: "test" });
     expect(b.recipient_count).toBeGreaterThan(0);
@@ -78,6 +59,5 @@ describe("absence analysis + broadcasts", () => {
     const targets = await messaging.resolveAudience(`followup:${b.id}:unresponded`);
     expect(targets.map((p) => p.id)).not.toContain(rows[0].person_id);
     expect(targets).toHaveLength(rows.length - 1);
-    expect(await messaging.tasksForNonResponders(b.id)).toBe(rows.length - 1);
   });
 });

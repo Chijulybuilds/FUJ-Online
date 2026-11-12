@@ -3,7 +3,6 @@ import { db, DuplicateError } from "@/lib/db";
 import type { Attendance, Person, QrSession, Service } from "@/lib/db/types";
 import { nowIso, uid } from "@/lib/utils";
 import { peopleById, FriendlyError, sameFamily } from "./people";
-import { closeAbsenteeTasksOnReturn } from "./auto-follow-up";
 import { noteFirstTimerCheckIn } from "./first-timers";
 
 export async function listServices() {
@@ -95,9 +94,7 @@ export async function recordAttendance(input: {
       recorded_by: input.recordedBy ?? null, device_id: input.deviceId ?? null, created_at: now
     });
     await db().update("people", { id: input.person.id }, { last_seen_at: now, updated_at: now });
-    // Back in church: close their absence follow-up so the automatic messages stop.
     const service = await db().get("services", { id: input.serviceId });
-    await closeAbsenteeTasksOnReturn(input.person.id, service?.title);
     // A first timer checking in to a later service has come back: their Saturday invitations stop.
     await noteFirstTimerCheckIn(input.person.id, now, service?.title).catch((error) => console.error("first-timer check-in note failed", error));
     return { status: "checked_in", attendance, person: input.person };

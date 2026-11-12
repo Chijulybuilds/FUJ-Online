@@ -37,7 +37,7 @@ export default async function Giving() {
           {isPartner ? (
             <>
               <h2 className="font-bold">💛 You&apos;re a FUJ Partner</h2>
-              <p className="mt-2 text-sm text-slate-600">Thank you for standing with FlagUpJesus Global Ministry. {partner.pledge_amount ? <>Your pledge: <b>{formatCurrency(Number(partner.pledge_amount))}</b> · {frequencyLabel(partner.frequency).toLowerCase()}.</> : "Our partnership team will be in touch about how you'd like to give."} <span className="text-slate-400">({partnerStatusLabel(partner.status)})</span></p>
+              <p className="mt-2 text-sm text-slate-600">Thank you for standing with FlagUpJesus Global Ministry. {partner.pledge_amount ? <>Your pledge: <b>{formatCurrency(Number(partner.pledge_amount), partner.currency || "NGN")}</b> · {frequencyLabel(partner.frequency).toLowerCase()}.</> : "Our partnership team will be in touch about how you'd like to give."} <span className="text-slate-400">({partnerStatusLabel(partner.status)})</span></p>
               <p className="mt-2 text-xs text-slate-500">Give by bank transfer above with your username as the narration, so it&apos;s recorded against your partnership.</p>
             </>
           ) : (

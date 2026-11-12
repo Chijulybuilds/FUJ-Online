@@ -1,21 +1,34 @@
 import "server-only";
 import { db, DuplicateError } from "@/lib/db";
-import type { ChurchSettings, ContactLog, Donation, Partner, PartnerFrequency, PartnerStatus, Person } from "@/lib/db/types";
+import type { ChurchSettings, ContactLog, Donation, Partner, PartnerFrequency, PartnerStatus, PartnerStream, Person } from "@/lib/db/types";
 import { formatCurrency, nowIso, uid } from "@/lib/utils";
 import { createPerson, findByPhone, FriendlyError, peopleById, updatePerson } from "./people";
 import { getSettings } from "./settings";
-import { followUpChannels } from "./auto-follow-up";
-import { addContactLog, contactLogsFor, sendAutomaticMessage } from "./contact-logs";
+import { addContactLog, contactLogsFor, followUpChannels, sendAutomaticMessage } from "./contact-logs";
 
 /**
- * FUJ Partners: people who support the ministry with (regular) giving. They sign up at registration, from their
- * member portal, or an admin adds them. Statuses: interested → contacted → committed (pledged) → active (giving),
+ * FUJ Partners: people who support the ministry with (regular) giving, in two streams:
+ * - OUTREACH partners are FlagUpJesus members. They sign up at registration, from their member portal, or an admin
+ *   adds them (someone not registered yet becomes a member).
+ * - ASSOCIATE partners are key partners outside FlagUpJesus — in the UK, the US and around the world. An admin adds
+ *   them; they get a record with status "associate" (messages, giving history, a username for transfer narration)
+ *   but are not church members, so they stay out of member lists, counts and member broadcasts. Their pledge can be
+ *   in another currency, and their reminders carry the church's international giving details. Statuses: interested → contacted → committed (pledged) → active (giving),
  * or paused / declined. Recording a gift for a partner (Admin → Giving) marks them active automatically.
  * Automatically: a thank-you message when they sign up and — once the church turns it on — a monthly reminder
  * with the ministry's bank details on a chosen day, for committed and active partners who haven't given yet.
  */
 
 export const PARTNER_AUTHOR = "Automatic partner follow-up";
+export const PARTNER_STREAMS: { value: PartnerStream; label: string; short: string; hint: string }[] = [
+  { value: "outreach", label: "Outreach partners", short: "Outreach", hint: "FlagUpJesus members who partner with the ministry" },
+  { value: "associate", label: "Associate partners", short: "Associate", hint: "Key partners outside FlagUpJesus — UK, US and around the world" }
+];
+export const streamLabel = (s: PartnerStream) => PARTNER_STREAMS.find((x) => x.value === s)?.short ?? s;
+export const CURRENCIES = ["NGN", "USD", "GBP", "EUR", "CAD"] as const;
+export const COUNTRIES = ["United Kingdom", "United States", "Canada", "Ireland", "Germany", "Netherlands", "France", "Italy", "Spain", "Australia", "United Arab Emirates", "South Africa", "Ghana", "Kenya", "Nigeria"];
+/** Older databases (before migration 0017) have no stream / currency yet: everyone there is an outreach partner in naira. */
+const withDefaults = <T extends Partner>(p: T): T => ({ ...p, stream: p.stream ?? "outreach", currency: p.currency || "NGN", country: p.country ?? null, organisation: p.organisation ?? null });
 export const PARTNER_STATUSES: { value: PartnerStatus; label: string; hint: string }[] = [
   { value: "interested", label: "Interested", hint: "Asked to partner — reach out to them" },
   { value: "contacted", label: "Contacted", hint: "Someone has spoken with them" },
@@ -49,8 +62,9 @@ export function monthlyEquivalent(p: Pick<Partner, "pledge_amount" | "frequency"
 
 export type PartnerRow = Partner & { person: Person; given: number; givenThisYear: number; gifts: number };
 
-function giving(donations: Donation[], personId: string, now = new Date()) {
-  const mine = donations.filter((d) => d.person_id === personId && d.status === "paid");
+/** Totals in the partner's own currency (gifts in other currencies still show in their history). */
+function giving(donations: Donation[], personId: string, currency = "NGN", now = new Date()) {
+  const mine = donations.filter((d) => d.person_id === personId && d.status === "paid" && (d.currency || "NGN") === currency);
   const yearStart = new Date(Date.UTC(inLagos(now).getUTCFullYear(), 0, 1)).getTime() - 3600000;
   return {
     given: mine.reduce((s, d) => s + Number(d.amount), 0),
@@ -59,31 +73,44 @@ function giving(donations: Donation[], personId: string, now = new Date()) {
   };
 }
 
-export async function listPartners(): Promise<PartnerRow[]> {
-  const rows = await db().list("partners", { order: { column: "created_at", ascending: false } });
+export async function listPartners(stream?: PartnerStream): Promise<PartnerRow[]> {
+  const rows = (await db().list("partners", { order: { column: "created_at", ascending: false } })).map(withDefaults).filter((r) => !stream || r.stream === stream);
   if (!rows.length) return [];
   const [people, donations] = await Promise.all([peopleById(rows.map((r) => r.person_id)), db().list("donations", { where: { person_id: rows.map((r) => r.person_id) } })]);
   return rows.flatMap((r) => {
     const person = people.get(r.person_id);
-    return person ? [{ ...r, pledge_amount: r.pledge_amount === null ? null : Number(r.pledge_amount), person, ...giving(donations, r.person_id) }] : [];
+    return person ? [{ ...r, pledge_amount: r.pledge_amount === null ? null : Number(r.pledge_amount), person, ...giving(donations, r.person_id, r.currency) }] : [];
   });
 }
 
 export async function getPartner(id: string) {
-  const partner = await db().get("partners", { id });
-  if (!partner) return null;
+  const row = await db().get("partners", { id });
+  if (!row) return null;
+  const partner = withDefaults(row);
   const [person, logs, donations] = await Promise.all([
     db().get("people", { id: partner.person_id }),
     contactLogsFor("partner", id),
     db().list("donations", { where: { person_id: partner.person_id }, order: { column: "paid_at", ascending: false } })
   ]);
   if (!person) return null;
-  return { ...partner, pledge_amount: partner.pledge_amount === null ? null : Number(partner.pledge_amount), person, logs, donations: donations.map((d) => ({ ...d, amount: Number(d.amount) })), ...giving(donations, partner.person_id) };
+  return { ...partner, pledge_amount: partner.pledge_amount === null ? null : Number(partner.pledge_amount), person, logs, donations: donations.map((d) => ({ ...d, amount: Number(d.amount) })), ...giving(donations, partner.person_id, partner.currency) };
 }
 
 export async function partnerForPerson(personId: string) {
-  return db().get("partners", { person_id: personId });
+  const row = await db().get("partners", { person_id: personId });
+  return row ? withDefaults(row) : null;
 }
+
+/** A phone number for someone abroad: needs its country code unless they're in Nigeria. */
+function associatePhone(phone: string, country: string | null | undefined) {
+  const raw = phone.trim();
+  const international = /^(\+|00)/.test(raw);
+  if (!international && country && !/^nigeria$/i.test(country.trim())) {
+    throw new FriendlyError("Add the country code to the phone number, e.g. +44 7700 900123 or +1 202 555 0123.");
+  }
+  return raw.replace(/^00/, "+");
+}
+const missingStreamColumns = (error: unknown) => error instanceof Error && /\b(stream|currency|country|organisation|associate)\b/.test(error.message);
 
 /**
  * Adds someone as a partner. Pass `personId` for an existing member, or name + phone (+ email) and the
@@ -93,17 +120,30 @@ export async function partnerForPerson(personId: string) {
 export async function addPartner(input: {
   personId?: string; full_name?: string; phone?: string; email?: string | null; source: Partner["source"];
   pledge_amount?: number | null; frequency?: PartnerFrequency | null; notes?: string | null; assignee?: string | null; next_follow_up_at?: string | null;
+  stream?: PartnerStream; country?: string | null; organisation?: string | null; currency?: string | null;
 }): Promise<{ partner: Partner; person: Person; created: boolean }> {
+  const stream: PartnerStream = input.stream ?? "outreach";
+  const associate = stream === "associate";
+  const phone = input.phone && associate ? associatePhone(input.phone, input.country) : input.phone;
   let person: Person | null = input.personId ? await db().get("people", { id: input.personId }) : null;
-  if (!person && input.phone) {
-    person = await findByPhone(input.phone);
+  if (!person && phone) {
+    person = await findByPhone(phone);
     if (person && input.email && !person.email) person = (await updatePerson(person.id, { email: input.email.trim().toLowerCase() })) ?? person;
     if (!person) {
       if (!input.full_name || input.full_name.trim().length < 2) throw new FriendlyError("Enter the partner's full name.");
-      person = await createPerson({ full_name: input.full_name, phone: input.phone, email: input.email ?? null, status: "member", verified_via: "admin" });
+      try {
+        person = await createPerson({ full_name: input.full_name, phone, email: input.email ?? null, status: associate ? "associate" : "member", verified_via: "admin", ...(associate ? { first_visit_at: null } : {}) });
+      } catch (error) {
+        if (associate && missingStreamColumns(error)) throw new FriendlyError("Associate partners need a quick database update first: run supabase/setup.sql in Supabase → SQL Editor, then try again.");
+        throw error;
+      }
     }
   }
   if (!person) throw new FriendlyError("Enter the partner's name and phone number.");
+  // The two streams don't mix: outreach partners are FlagUpJesus members, associates are not.
+  if (associate && person.status === "member") throw new FriendlyError(`${person.full_name} is a FlagUpJesus member — add them as an outreach partner instead.`);
+  if (!associate && person.status === "associate") throw new FriendlyError(`${person.full_name} is an associate partner (outside FlagUpJesus) — find them under Associate partners.`);
+  if (associate && person.status !== "associate") person = (await updatePerson(person.id, { status: "associate" })) ?? person; // e.g. someone who moved abroad
   const existing = await partnerForPerson(person.id);
   if (existing) {
     // Someone who had paused or declined and asks again is interested again.
@@ -116,30 +156,55 @@ export async function addPartner(input: {
   }
   const now = nowIso();
   const pledged = input.pledge_amount && input.pledge_amount > 0 ? input.pledge_amount : null;
+  const currency = (input.currency ?? "NGN").toUpperCase();
+  // Only send the newer columns when they differ from the defaults, so outreach sign-ups keep working on a database
+  // that hasn't had migration 0017 yet.
+  const extra: Partial<Partner> = {
+    ...(associate ? { stream } : {}), ...(input.country?.trim() ? { country: input.country.trim() } : {}),
+    ...(input.organisation?.trim() ? { organisation: input.organisation.trim() } : {}), ...(currency !== "NGN" ? { currency } : {})
+  };
   try {
     const partner = await db().insert("partners", {
       id: uid(), person_id: person.id, status: pledged ? "committed" : "interested", source: input.source, pledge_amount: pledged,
       frequency: input.frequency ?? null, assignee: input.assignee ?? null,
       // Reach out within 3 days of someone asking to partner.
       next_follow_up_at: input.next_follow_up_at ?? new Date(Date.now() + 3 * DAY).toISOString(),
-      last_contacted_at: null, last_gift_at: null, thanks_sent_at: null, last_reminder_at: null, notes: input.notes ?? null, created_at: now, updated_at: now
-    });
-    return { partner, person, created: true };
+      last_contacted_at: null, last_gift_at: null, thanks_sent_at: null, last_reminder_at: null, notes: input.notes ?? null, created_at: now, updated_at: now,
+      ...extra
+    } as Partner);
+    return { partner: withDefaults(partner), person, created: true };
   } catch (error) {
     const again = error instanceof DuplicateError ? await partnerForPerson(person.id) : null;
     if (again) return { partner: again, person, created: false };
+    if (missingStreamColumns(error)) throw new FriendlyError("Associate partners and other currencies need a quick database update first: run supabase/setup.sql in Supabase → SQL Editor, then try again.");
     throw error;
   }
 }
 
-export async function updatePartner(id: string, patch: Partial<Pick<Partner, "status" | "pledge_amount" | "frequency" | "assignee" | "notes" | "next_follow_up_at">>, actor: string) {
-  const current = await db().get("partners", { id });
-  if (!current) return null;
+export async function updatePartner(id: string, patch: Partial<Pick<Partner, "status" | "pledge_amount" | "frequency" | "assignee" | "notes" | "next_follow_up_at" | "stream" | "country" | "organisation" | "currency">>, actor: string) {
+  const found = await db().get("partners", { id });
+  if (!found) return null;
+  const current = withDefaults(found);
   if (patch.status && patch.status !== current.status) {
     await addContactLog({ subject: "partner", subject_id: id, channel: "note", outcome: `Moved to ${partnerStatusLabel(patch.status)}`, author: actor });
   }
-  const [row] = await db().update("partners", { id }, { ...patch, updated_at: nowIso() });
-  return row;
+  if (patch.stream && patch.stream !== current.stream) {
+    // Moving between streams moves them on or off the members list.
+    const person = await db().get("people", { id: current.person_id });
+    if (person && patch.stream === "associate" && person.status === "member") await updatePerson(person.id, { status: "associate" });
+    if (person && patch.stream === "outreach" && person.status === "associate") await updatePerson(person.id, { status: "member" });
+    await addContactLog({ subject: "partner", subject_id: id, channel: "note", outcome: `Moved to ${PARTNER_STREAMS.find((s) => s.value === patch.stream)?.label ?? patch.stream}`, author: actor });
+  }
+  // Leave the newer columns out when unchanged (databases before migration 0017 don't have them).
+  const next: Record<string, unknown> = { ...patch };
+  for (const k of ["stream", "country", "organisation", "currency"] as const) if (next[k] !== undefined && (next[k] ?? null) === (current[k] ?? null)) delete next[k];
+  try {
+    const [row] = await db().update("partners", { id }, { ...next, updated_at: nowIso() } as Partial<Partner>);
+    return row;
+  } catch (error) {
+    if (missingStreamColumns(error)) throw new FriendlyError("Partner streams and currencies need a quick database update first: run supabase/setup.sql in Supabase → SQL Editor, then try again.");
+    throw error;
+  }
 }
 
 export async function logPartnerContact(id: string, input: { channel: ContactLog["channel"]; outcome: string; note?: string | null; author: string; next_follow_up_at?: string | null }) {
@@ -168,10 +233,18 @@ export async function notePartnerGift(personId: string, paidAt: string) {
   return activate;
 }
 
+/** How this partner can give: the naira account, or for associates abroad the international details when set. */
+export function givingDetails(settings: ChurchSettings, partner: Pick<Partner, "stream">, person: Pick<Person, "username">) {
+  const narration = person.username ? ` Please use your username ${person.username} as the reference.` : "";
+  if (partner.stream === "associate" && settings.associate_giving_details?.trim()) return `${settings.associate_giving_details.trim()}${narration}`;
+  return settings.account_number ? `${settings.bank_name ?? "Bank"}: ${settings.account_number} (${settings.account_name ?? settings.church_name}).${narration}` : "";
+}
+
 const reminderVars = (settings: ChurchSettings, partners: Map<string, Partner>) => (text: string, person: Person) => {
   const p = partners.get(person.id);
-  const amount = p?.pledge_amount ? ` of ${formatCurrency(Number(p.pledge_amount))}` : "";
-  const bank = settings.account_number ? `\n\n${settings.bank_name ?? "Bank"}: ${settings.account_number} (${settings.account_name ?? settings.church_name}). Please use your username ${person.username ?? ""} as the narration.` : "";
+  const amount = p?.pledge_amount ? ` of ${formatCurrency(Number(p.pledge_amount), p.currency)}` : "";
+  const details = p ? givingDetails(settings, p, person) : "";
+  const bank = details ? `\n\n${details}` : "";
   const body = text.replaceAll("{amount}", amount).replaceAll("{frequency}", p?.frequency && p.frequency !== "one_off" ? p.frequency : "").replace(/ {2,}/g, " ");
   return `${body}${bank}`;
 };
@@ -214,10 +287,11 @@ export type PartnerRun = { thanked: number; reminded: number; reminderDay: boole
 export async function runPartnerFollowUps(now = new Date(), opts: { forceReminders?: boolean } = {}): Promise<PartnerRun> {
   const settings = await getSettings();
   const result: PartnerRun = { thanked: 0, reminded: 0, reminderDay: inLagos(now).getUTCDate() === settings.partner_reminder_day, remindersOn: settings.partner_reminders };
-  const partners = (await db().list("partners")).filter((p) => p.status !== "declined");
+  const partners = (await db().list("partners")).map(withDefaults).filter((p) => p.status !== "declined");
   if (!partners.length) return result;
   const people = await peopleById(partners.map((p) => p.person_id));
-  const withPerson = partners.flatMap((p) => { const person = people.get(p.person_id); return person && person.status === "member" ? [{ partner: p, person }] : []; });
+  // Members (outreach) and associates — not people who have left or moved.
+  const withPerson = partners.flatMap((p) => { const person = people.get(p.person_id); return person && (person.status === "member" || person.status === "associate") ? [{ partner: p, person }] : []; });
 
   // People who signed up themselves (registration / portal) get the thank-you; admins choose when they add someone.
   result.thanked = await sendPartnerThanks(withPerson.filter((i) => i.partner.source !== "admin" && !i.partner.thanks_sent_at && now.getTime() - new Date(i.partner.created_at).getTime() <= 7 * DAY), settings);

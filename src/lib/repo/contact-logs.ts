@@ -1,11 +1,17 @@
 import "server-only";
 import { db } from "@/lib/db";
-import type { Channel, ContactLog, Person } from "@/lib/db/types";
+import type { Channel, ChurchSettings, ContactLog, Person } from "@/lib/db/types";
 import { nowIso, uid } from "@/lib/utils";
 import { providers } from "@/lib/messaging/providers";
 import { sendBroadcast } from "./messaging";
 
 export const CONTACT_CHANNELS = ["call", "whatsapp", "sms", "visit", "email", "note"] as const;
+
+/** The channels chosen in Settings for automatic first-timer and partner messages (the app inbox is always included). */
+export function followUpChannels(settings: Pick<ChurchSettings, "follow_up_channels">): Channel[] {
+  const chosen = new Set(settings.follow_up_channels ?? []);
+  return (["whatsapp", "sms", "email"] as const).filter((c) => chosen.has(c));
+}
 
 export async function addContactLog(input: Omit<ContactLog, "id" | "created_at" | "note" | "author"> & { note?: string | null; author?: string | null }) {
   return db().insert("contact_logs", {

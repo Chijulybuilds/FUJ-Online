@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import type { Broadcast, BroadcastRecipient, Channel, Person } from "@/lib/db/types";
 import { nowIso, uid } from "@/lib/utils";
 import { findByPhone, peopleById } from "./people";
-import { createTask } from "./care";
 import { emailAttempt, emailFromProblem, NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp, smsAttempt, whatsappReason } from "@/lib/messaging/providers";
 import { firstName, normalizePhone } from "@/lib/identity-utils";
 import { absoluteUrl } from "@/lib/storage";
@@ -16,11 +15,11 @@ export const AUDIENCES: { value: string; label: string }[] = [
   { value: "all", label: "Everyone (all members)" },
   { value: "leaders", label: "All leaders" },
   { value: "first_timers", label: "First timers (still being followed up)" },
-  { value: "partners", label: "FUJ Partners (everyone who signed up, except declined)" },
+  { value: "partners", label: "FUJ Partners — outreach & associate (except declined)" },
+  { value: "partners_outreach", label: "Outreach partners (FUJ members)" },
+  { value: "partners_associate", label: "Associate partners (outside FUJ — UK, US, worldwide)" },
   { value: "partners_active", label: "FUJ Partners — committed & active" },
   { value: "parents", label: "Parents & guardians of registered children" },
-  { value: "absentees", label: "Absentees (open absence follow-ups)" },
-  { value: "care_open", label: "Everyone with an open follow-up task" }
 ];
 
 /** Resolves an audience key to the people who should receive a message. */
@@ -28,7 +27,9 @@ export async function resolveAudience(audience: string): Promise<Person[]> {
   // Leaders are whoever admins put on the list (even if their member record is marked inactive).
   if (audience === "leaders") return leaderPeople();
   if (audience.startsWith("leaders:")) return leaderPeople(audience.slice("leaders:".length));
-  const people = [...(await peopleById()).values()].filter((p) => p.status === "member");
+  const everyone = [...(await peopleById()).values()];
+  // Member audiences reach members only; associate partners (outside FUJ) only get partner messages.
+  const people = everyone.filter((p) => p.status === "member");
   const [kind, arg, mode] = audience.split(":");
   switch (kind) {
     case "all":
@@ -40,17 +41,13 @@ export async function resolveAudience(audience: string): Promise<Person[]> {
       return people.filter((p) => ids.has(p.id));
     }
     case "partners":
+    case "partners_outreach":
+    case "partners_associate":
     case "partners_active": {
-      const rows = await db().list("partners", { where: { status: kind === "partners" ? ["interested", "contacted", "committed", "active", "paused"] : ["committed", "active"] } });
+      const rows = (await db().list("partners", { where: { status: kind === "partners_active" ? ["committed", "active"] : ["interested", "contacted", "committed", "active", "paused"] } }))
+        .filter((r) => kind === "partners_outreach" ? (r.stream ?? "outreach") === "outreach" : kind === "partners_associate" ? r.stream === "associate" : true);
       const ids = new Set(rows.map((r) => r.person_id));
-      return people.filter((p) => ids.has(p.id));
-    }
-    case "absentees":
-    case "auto_follow_up":
-    case "care_open": {
-      const tasks = await db().list("follow_up_tasks", { where: { status: ["open", "in_progress"] } });
-      const ids = new Set(tasks.filter((t) => kind === "care_open" || t.category === "absentee").map((t) => t.person_id));
-      return people.filter((p) => ids.has(p.id));
+      return everyone.filter((p) => ids.has(p.id) && (p.status === "member" || p.status === "associate"));
     }
     case "parents": {
       // Adults whose children are registered (linked, or using their phone number).
@@ -59,12 +56,12 @@ export async function resolveAudience(audience: string): Promise<Person[]> {
       const phones = new Set(kids.filter((k) => !k.guardian_id).map((k) => k.normalized_phone));
       return people.filter((p) => !p.is_child && (ids.has(p.id) || phones.has(p.normalized_phone)));
     }
-    case "person": return people.filter((p) => p.id === arg);
+    case "person": return everyone.filter((p) => p.id === arg && (p.status === "member" || p.status === "associate"));
     case "followup": {
       // followup:<broadcastId>:unread | unresponded
       const rows = await db().list("broadcast_recipients", { where: { broadcast_id: arg } });
       const ids = new Set(rows.filter((r) => (mode === "unread" ? !r.read_at : !r.responded_at)).map((r) => r.person_id));
-      return people.filter((p) => ids.has(p.id));
+      return everyone.filter((p) => ids.has(p.id) && (p.status === "member" || p.status === "associate"));
     }
     default: return [];
   }
@@ -74,8 +71,10 @@ export async function audienceLabel(audience: string) {
   const preset = AUDIENCES.find((a) => a.value === audience);
   if (preset) return preset.label;
   if (audience.startsWith("leaders:")) return `Leaders — ${audience.slice("leaders:".length)}`;
-  if (audience === "auto_follow_up") return "Automatic follow-up: members who missed Sundays";
-  if (audience === "auto_follow_up:reminder") return "Automatic reminder: members still away";
+  // Older broadcasts, from before pastoral care was removed.
+  if (audience === "auto_follow_up" || audience === "absentees") return "Members who missed Sundays";
+  if (audience === "auto_follow_up:reminder") return "Members still away";
+  if (audience === "care_open") return "People with an open follow-up";
   if (audience === "auto_first_timer:welcome") return "Automatic welcome: first timers";
   if (audience === "auto_first_timer:invite") return "Automatic invitation: first timers not back yet";
   if (audience === "auto_partner:thanks") return "Automatic thank-you: new partners";
@@ -278,21 +277,6 @@ export async function getBroadcast(id: string) {
     ...broadcast, audienceLabel: await audienceLabel(broadcast.audience), stats: stats(rows), followUps: followUpStats,
     recipients: rows.map((r) => ({ ...r, person: people.get(r.person_id) ?? null })).sort((a, b) => (a.person?.full_name ?? "").localeCompare(b.person?.full_name ?? ""))
   };
-}
-
-/** Creates pastoral follow-up tasks for recipients who have not responded to a broadcast. */
-export async function tasksForNonResponders(broadcastId: string) {
-  const broadcast = await db().get("broadcasts", { id: broadcastId });
-  if (!broadcast) return 0;
-  const rows = (await db().list("broadcast_recipients", { where: { broadcast_id: broadcastId } })).filter((r) => !r.responded_at);
-  const open = await db().list("follow_up_tasks", { where: { source_broadcast_id: broadcastId } });
-  let created = 0;
-  for (const r of rows) {
-    if (open.some((t) => t.person_id === r.person_id)) continue;
-    await createTask({ person_id: r.person_id, category: "broadcast", reason: `No response to “${broadcast.title}”${r.read_at ? " (read)" : " (unread)"}`, source_broadcast_id: broadcastId });
-    created++;
-  }
-  return created;
 }
 
 export async function memberMessages(personId: string) {

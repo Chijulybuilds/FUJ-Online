@@ -1,23 +1,20 @@
 import Link from "next/link";
-import { ArrowUpRight, Baby, CalendarCheck, CircleDollarSign, HandCoins, HeartHandshake, MessageSquare, QrCode, Sparkles, UserPlus, Users } from "lucide-react";
+import { ArrowUpRight, Baby, CalendarCheck, CircleDollarSign, HandCoins, MessageSquare, QrCode, Sparkles, UserPlus, Users } from "lucide-react";
 import { PageHeading } from "@/components/ui/page-heading";
 import { StatCard } from "@/components/ui/stat-card";
-import { StatusPill } from "@/components/ui/status-pill";
 import { requireAdmin } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import { dashboardStats } from "@/lib/repo/reports";
-import { listTasks } from "@/lib/repo/care";
 import { upcomingService } from "@/lib/repo/services";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   const admin = await requireAdmin();
   const { denied } = await searchParams;
-  const [stats, tasks, next] = await Promise.all([dashboardStats(), listTasks(), upcomingService()]);
+  const [stats, next] = await Promise.all([dashboardStats(), upcomingService()]);
   const last = stats.summaries.find((s) => s.service.status === "completed" || s.service.status === "active");
   const chart = [...stats.summaries].reverse().slice(-8);
   const max = Math.max(1, ...chart.map((c) => c.total));
-  const open = tasks.filter((t) => t.status === "open" || t.status === "in_progress").slice(0, 5);
   return (
     <>
       <PageHeading title={`Welcome, ${admin.name.split(" ")[0]}`} description="Here's what's happening in your church community."
@@ -43,7 +40,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         <StatCard label="New this month" value={stats.newThisMonth} change={`${last?.newMembers ?? 0} new at the last service`} icon={<UserPlus size={20} />} tone="violet" />
         {can(admin.role, "giving")
           ? <StatCard label="Giving this month" value={formatCurrency(stats.givingThisMonth)} change="Verified records only" icon={<CircleDollarSign size={20} />} tone="amber" />
-          : <StatCard label="Open follow-ups" value={stats.openTasks} change="Pastoral care queue" icon={<HeartHandshake size={20} />} tone="amber" />}
+          : <StatCard label="First timers to call" value={stats.firstTimersToWelcome} change="Nobody has reached them yet" icon={<Sparkles size={20} />} tone="amber" />}
       </div>
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <section className="card p-6">
@@ -57,22 +54,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         <section className="card p-6">
           <h2 className="mb-4 font-bold">Needs attention</h2>
           <ul className="space-y-3 text-sm">
-            {can(admin.role, "care") && <li className="flex items-center justify-between"><Link href="/admin/pastoral-care" className="flex items-center gap-2"><HeartHandshake size={16} className="text-blue-600" /> Open follow-ups</Link><b>{stats.openTasks}</b></li>}
             {can(admin.role, "members") && stats.children > 0 && <li className="flex items-center justify-between"><Link href="/admin/children" className="flex items-center gap-2"><Baby size={16} className="text-blue-600" /> Children&apos;s birthdays this week</Link><b>{stats.childrenBirthdaysThisWeek}</b></li>}
-            {can(admin.role, "care") && <li className="flex items-center justify-between"><Link href="/admin/first-timers?stage=new" className="flex items-center gap-2"><Sparkles size={16} className="text-blue-600" /> First timers to welcome</Link><b data-testid="dash-first-timers">{stats.firstTimersToWelcome}</b></li>}
+            {can(admin.role, "first_timers") && <li className="flex items-center justify-between"><Link href="/admin/first-timers" className="flex items-center gap-2"><Sparkles size={16} className="text-blue-600" /> First timers to call</Link><b data-testid="dash-first-timers">{stats.firstTimersToWelcome}</b></li>}
             {can(admin.role, "partners") && <li className="flex items-center justify-between"><Link href="/admin/partners" className="flex items-center gap-2"><HandCoins size={16} className="text-blue-600" /> Partner follow-ups due</Link><b>{stats.partnerFollowUpsDue}</b></li>}
             {can(admin.role, "prayer") && <li className="flex items-center justify-between"><Link href="/admin/prayer-requests" className="flex items-center gap-2"><MessageSquare size={16} className="text-blue-600" /> New prayer requests</Link><b>{stats.pendingPrayers}</b></li>}
             {can(admin.role, "testimonies") && <li className="flex items-center justify-between"><Link href="/admin/testimonies" className="flex items-center gap-2"><ArrowUpRight size={16} className="text-blue-600" /> Testimonies to review</Link><b>{stats.pendingTestimonies}</b></li>}
           </ul>
-          {can(admin.role, "care") && open.length > 0 && (
-            <div className="mt-6 space-y-2">
-              {open.map((t) => (
-                <Link key={t.id} href={`/admin/pastoral-care/${t.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3 text-sm hover:bg-slate-50">
-                  <span><b>{t.person?.full_name ?? "Unknown"}</b><span className="block text-xs text-slate-500">{t.reason}</span></span><StatusPill value={t.priority} />
-                </Link>
-              ))}
-            </div>
-          )}
         </section>
       </div>
     </>

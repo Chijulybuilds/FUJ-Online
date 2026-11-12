@@ -3,7 +3,7 @@ import { test, expect, type Browser, type Page } from "@playwright/test";
 /**
  * End-to-end journey against the local JSON store (seeded demo data):
  * staff opens QR check-in → a new member registers from the QR → returning member checks in by username →
- * broadcast + read/response tracking → follow-up broadcast → testimony moderation → prayer → pastoral care → roles.
+ * broadcast + read/response tracking → follow-up broadcast → testimony moderation → prayer → roles.
  */
 test.describe.configure({ mode: "serial" });
 
@@ -314,42 +314,56 @@ test("online self-registration makes you a member straight away (no visitors, no
   expect(text).toContain("TEL;TYPE=CELL:+2347051112222");
 });
 
-test("first timers get their own follow-up — existing members registering online don't", async () => {
+test("first timers: a simple call list — existing members registering online aren't on it", async () => {
   await go(admin, "/admin/first-timers");
-  await expect(admin.getByTestId("first-timer-automation")).toContainText("Automatic first-timer follow-up is on");
-  const table = admin.getByTestId("first-timers-table");
-  await expect(table.getByRole("row").filter({ hasText: "Chiamaka Nwankwo" })).toContainText("E2E Sunday Service"); // registered from the service QR
-  await expect(table.getByRole("row").filter({ hasText: "Kelechi Amadi" })).toContainText("E2E Sunday Service"); // added at the desk, "first time" ticked
-  await expect(table.getByText("Obinna Online")).toHaveCount(0); // said "No, I've been here before"
-  await expect(table.getByRole("row").filter({ hasText: "Chiamaka Nwankwo" })).toContainText(/Call to welcome them/);
+  await expect(admin.getByTestId("first-timer-automation")).toContainText("Automatic messages are on");
+  const rows = () => admin.getByTestId("first-timers-list").getByTestId("first-timer-row");
+  const chiamaka = rows().filter({ hasText: "Chiamaka Nwankwo" });
+  await expect(chiamaka).toContainText("E2E Sunday Service"); // registered from the service QR
+  await expect(rows().filter({ hasText: "Kelechi Amadi" })).toContainText("E2E Sunday Service"); // added at the desk, "first time" ticked
+  await expect(admin.getByTestId("first-timers-list").getByText("Obinna Online")).toHaveCount(0); // said "No, I've been here before"
+  await expect(chiamaka).toContainText("To call");
+  await expect(chiamaka).toContainText(/Call to welcome them/);
+  await expect(chiamaka.getByRole("link", { name: "Call Chiamaka Nwankwo" })).toHaveAttribute("href", /^tel:\+234/);
+  await expect(admin.getByTestId("show-to_call")).toContainText("To call");
   await shot(admin, "13-first-timers");
-  await table.getByRole("link", { name: "Chiamaka Nwankwo" }).click();
-  await expect(admin.getByTestId("journey")).toContainText("First visit");
-  // The welcome message went out automatically right after she registered.
+  // One click from the list: Kelechi was reached, so he moves from "To call" to "Called".
+  await hydrated(admin);
+  await rows().filter({ hasText: "Kelechi Amadi" }).getByRole("button", { name: "Reached them" }).click();
+  await expect(rows().filter({ hasText: "Kelechi Amadi" })).toHaveCount(0);
+  await go(admin, "/admin/first-timers?show=called");
+  await expect(rows().filter({ hasText: "Kelechi Amadi" })).toContainText("Called");
+  // Chiamaka's page: the welcome message went out automatically; the team reached her and left a note.
+  await go(admin, "/admin/first-timers");
+  await chiamaka.getByRole("link", { name: "Chiamaka Nwankwo", exact: true }).click();
+  await expect(admin.getByTestId("first-timer-status")).toHaveText("To call");
   await expect(async () => {
     await admin.reload();
-    await expect(admin.getByTestId("first-timer-history")).toContainText("Automatic welcome message", { timeout: 1000 });
+    await expect(admin.getByTestId("first-timer-history")).toContainText("Welcome message sent automatically", { timeout: 1000 });
   }).toPass({ timeout: 15000 });
   await hydrated(admin);
-  await admin.getByLabel("Outcome").selectOption("Reached — welcomed them");
-  await admin.getByLabel("Note", { exact: true }).fill("Lovely chat — she enjoyed the worship and will bring her sister.");
-  await admin.getByRole("button", { name: "Log contact" }).click();
-  await expect(admin.getByText("Contact logged.")).toBeVisible();
+  await admin.getByTestId("first-timer-step").getByLabel(/^Note/).fill("Lovely chat — she enjoyed the worship and will bring her sister.");
+  await admin.getByRole("button", { name: "Reached them" }).click();
+  await expect(admin.getByText("Marked as called. 🙌")).toBeVisible();
   await admin.reload();
   await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Chiamaka Nwankwo");
+  await expect(admin.getByTestId("first-timer-status")).toHaveText("Called");
+  await expect(admin.getByTestId("first-timer-history")).toContainText("Reached them");
   await expect(admin.getByText("Lovely chat")).toBeVisible();
-  await expect(admin.locator("main").getByText("welcomed", { exact: true }).first()).toBeVisible();
-  await shot(admin, "14-first-timer-journey");
-  // Her member record links to the follow-up, and staff can message all first timers at once.
+  await shot(admin, "14-first-timer");
+  // Her member record links to it, and staff can message all first timers at once.
+  await hydrated(admin);
   await admin.getByRole("link", { name: "Member record" }).click();
+  await admin.waitForURL(/\/admin\/members\/[0-9a-f-]+$/);
   await expect(admin.getByTestId("member-journeys")).toContainText("First timer");
-  await expect(admin.getByTestId("member-journeys")).toContainText("FUJ Partner");
+  await expect(admin.getByTestId("member-journeys")).toContainText("Outreach partner");
   await go(admin, "/admin/messaging?audience=first_timers");
   await expect(admin.getByLabel("Audience").locator("option:checked")).toHaveText(/First timers/);
 });
 
-test("FUJ Partners: sign-ups are followed up, pledges and gifts recorded, and members can partner from their portal", async ({ browser }) => {
+test("FUJ Partners: outreach (members) and associate (abroad) partners — sign-ups followed up, pledges and gifts recorded", async ({ browser }) => {
   await go(admin, "/admin/partners");
+  await expect(admin.getByTestId("stream-outreach")).toHaveAttribute("aria-selected", "true");
   const table = admin.getByTestId("partners-table");
   const chiamaka = table.getByRole("row").filter({ hasText: "Chiamaka Nwankwo" });
   await expect(chiamaka).toContainText("interested");
@@ -362,14 +376,15 @@ test("FUJ Partners: sign-ups are followed up, pledges and gifts recorded, and me
   }).toPass({ timeout: 15000 });
   await hydrated(admin);
   await admin.getByLabel("Status").selectOption("committed");
-  await admin.getByLabel("Pledge (₦)").fill("20000");
+  await expect(admin.getByTestId("partner-stream")).toHaveText("Outreach partner");
+  await admin.getByLabel("Pledge", { exact: true }).fill("20000");
   await admin.getByLabel("How often").selectOption("monthly");
   await admin.getByRole("button", { name: "Save partner" }).click();
   await expect(admin.getByText("Partner saved.")).toBeVisible();
   // A gift recorded in Giving with her username makes her an active partner.
   await go(admin, "/admin/giving");
-  await admin.getByLabel("Amount (₦)").fill("20000");
-  await admin.getByLabel("Member username").fill(newUsername);
+  await admin.getByLabel("Amount", { exact: true }).fill("20000");
+  await admin.getByLabel("Member or partner username").fill(newUsername);
   await admin.getByRole("button", { name: "Record" }).click();
   await expect(admin.getByText("Donation recorded.")).toBeVisible();
   await go(admin, "/admin/partners");
@@ -379,14 +394,43 @@ test("FUJ Partners: sign-ups are followed up, pledges and gifts recorded, and me
   // Staff add someone who told them in person.
   await admin.getByLabel("Full name").fill("Emeka Generous");
   await admin.getByLabel("Phone number").fill("0809 444 5555");
-  await admin.getByLabel("Pledge (₦)").fill("50,000");
-  await admin.getByRole("button", { name: "Add partner" }).click();
+  await admin.getByLabel(/^Pledge/).fill("50,000");
+  await admin.getByRole("button", { name: "Add outreach partner" }).click();
   await expect(admin.getByText("Emeka Generous was added to the partners list.")).toBeVisible();
   await expect(admin.locator("main").getByText("committed", { exact: true }).first()).toBeVisible();
   await shot(admin, "15-partner");
   const csv = await (await admin.request.get("/api/admin/export?type=partners")).text();
-  expect(csv.split("\n")[0]).toContain("name,username,phone,email,status,pledge");
-  expect(csv).toContain("Emeka Generous");
+  expect(csv.split("\n")[0]).toContain("name,partner_type,organisation,country,username,phone,email,status,currency,pledge");
+  expect(csv).toContain("Emeka Generous,Outreach");
+
+  // Associate partners: key partners outside FlagUpJesus, anywhere in the world.
+  await go(admin, "/admin/partners");
+  await admin.getByTestId("stream-associate").click();
+  await admin.waitForURL(/stream=associate/);
+  await hydrated(admin);
+  const add = admin.getByTestId("add-partner");
+  await expect(add).toContainText("Add an associate partner");
+  const addAssociate = async (phone: string) => {
+    await add.getByLabel("Full name").fill("Grace Abroad");
+    await add.getByLabel(/Church \/ organisation/).fill("Grace Chapel, London");
+    await add.getByLabel("Country", { exact: true }).fill("United Kingdom");
+    await add.getByLabel(/WhatsApp \/ phone number/).fill(phone);
+    await add.getByLabel(/^Pledge/).fill("100");
+    await add.getByRole("button", { name: "Add associate partner" }).click();
+  };
+  await addAssociate("07700 900123");
+  await expect(admin.getByText(/Add the country code/)).toBeVisible(); // a UK number needs +44
+  await addAssociate("+44 7700 900123");
+  await expect(admin.getByText("Grace Abroad was added to the partners list.")).toBeVisible();
+  await expect(admin.getByTestId("partner-stream")).toHaveText("Associate partner");
+  await expect(admin.locator("main")).toContainText("£100");
+  await go(admin, "/admin/partners?stream=associate");
+  await expect(admin.getByTestId("partners-table").getByRole("row").filter({ hasText: "Grace Abroad" })).toContainText("United Kingdom");
+  await expect(admin.getByTestId("partners-pledged")).toContainText("£100");
+  await shot(admin, "15b-associate-partners");
+  // Not a church member: she isn't on the members list.
+  await go(admin, "/admin/members?q=Grace%20Abroad");
+  await expect(admin.getByRole("link", { name: "Grace Abroad" })).toHaveCount(0);
 
   // An existing member becomes a partner from their portal.
   const m = await newDevice(browser);
@@ -403,8 +447,8 @@ test("FUJ Partners: sign-ups are followed up, pledges and gifts recorded, and me
   await m.context().close();
   await go(admin, "/admin/partners");
   await expect(admin.getByTestId("partners-table").getByRole("row").filter({ hasText: "Grace Okafor" })).toContainText("From their portal");
-  await go(admin, "/admin/messaging?audience=partners");
-  await expect(admin.getByLabel("Audience").locator("option:checked")).toHaveText(/FUJ Partners/);
+  await go(admin, "/admin/messaging?audience=partners_associate");
+  await expect(admin.getByLabel("Audience").locator("option:checked")).toHaveText(/Associate partners/);
 });
 
 test("under-18s register on the same I'm new page — with their own phone or a parent's — and the parent checks the family in", async ({ browser }) => {
@@ -653,8 +697,7 @@ test("broadcast with response tracking, member replies, follow-up to non-respond
   await expect(admin.getByRole("link", { name: "Grace Okafor" })).toHaveCount(0);
   await go(admin, trackingUrl);
   await expect(admin.getByText("Reminder: Thanksgiving Sunday")).toBeVisible();
-  await admin.getByRole("button", { name: "Create care tasks" }).click();
-  await expect(admin.getByText(/Created \d+ follow-up task/)).toBeVisible();
+  await expect(admin.getByText(/pastoral care/i)).toHaveCount(0);
 
   await go(admin, "/admin/inbox");
   await expect(admin.getByText("Yes! Coming with my family.")).toBeVisible();
@@ -770,37 +813,24 @@ test("leaders: admin adds leaders by unit and messages them on WhatsApp/SMS/emai
   await expect(admin.getByTestId("messaging-channels").getByText("Not set up")).toHaveCount(3);
 });
 
-test("pastoral care: members who miss 2 Sundays are flagged and messaged automatically; contact can be logged", async () => {
-  await go(admin, "/admin/pastoral-care");
-  await expect(admin.getByTestId("auto-follow-up-status")).toContainText("Automatic follow-up is on");
-  await expect(admin.getByTestId("auto-follow-up-status")).toContainText("get a message (app inbox), then a reminder every 3 days until they come back");
-  await expect(admin.getByTestId("auto-follow-up-status")).toContainText("WhatsApp, SMS, email will be added once set up");
-  await admin.getByRole("button", { name: "Check absences now" }).click();
-  await expect(admin.getByText(/[1-9]\d* newly absent members? found · [1-9]\d* first messages? and 0 reminders sent/)).toBeVisible();
-  await go(admin, "/admin/pastoral-care?cat=absentee");
-  await expect(admin.getByRole("row").filter({ hasText: "Blessing Adebayo" })).toContainText("1 automatic message");
-  await admin.getByRole("link", { name: "Blessing Adebayo" }).first().click();
-  await expect(admin.getByTestId("auto-messages")).toContainText("1 sent");
-  // Samuel stopped coming on Sundays but was at Wednesday Bible study, so he isn't treated as absent.
-  await expect(admin.getByText("Automatic message", { exact: true })).toBeVisible();
-  await admin.getByLabel("Note", { exact: true }).fill("Called — she was travelling, will be back next Sunday.");
-  await admin.getByRole("button", { name: "Log contact" }).click();
-  await expect(admin.getByText("Contact logged.")).toBeVisible();
-  await admin.reload();
-  await expect(admin.getByText("Called — she was travelling")).toBeVisible();
-  await shot(admin, "12-care-task");
-
-  // The broadcast is tracked like any other, and the settings can be changed.
-  await go(admin, "/admin/messaging");
-  await expect(admin.getByText("We missed you").first()).toBeVisible();
+test("pastoral care has been removed; the follow-up team works with first timers", async ({ browser }) => {
+  await go(admin, "/admin");
+  await expect(admin.getByRole("link", { name: "Pastoral care" })).toHaveCount(0);
+  await expect(admin.getByText(/Open follow-ups|Pastoral care queue/)).toHaveCount(0);
+  await expect(admin.getByRole("link", { name: /First timers to call/ })).toBeVisible();
+  expect((await admin.request.get("/admin/pastoral-care")).status()).toBe(404);
   await go(admin, "/admin/settings");
-  const card = admin.getByTestId("follow-up-settings");
-  await card.getByLabel("Then remind every").selectOption("5");
-  await card.getByLabel("Keep going").selectOption("8");
-  await card.getByRole("button", { name: "Save follow-up settings" }).click();
-  await expect(admin.getByText("Automatic follow-up settings saved.")).toBeVisible();
-  await go(admin, "/admin/pastoral-care");
-  await expect(admin.getByTestId("auto-follow-up-status")).toContainText("a reminder every 5 days (up to 8 messages)");
+  await expect(admin.getByText("Automatic follow-up for absent members")).toHaveCount(0);
+  await expect(admin.getByTestId("first-timer-partner-settings").getByText("Send on")).toBeVisible();
+  // The old "pastoral worker" role is now the follow-up team: first timers, no pastoral care.
+  const team = await newDevice(browser);
+  await devStaffLogin(team, "care@flagupjesus.local");
+  await team.waitForURL(/\/admin$/);
+  await expect(team.getByRole("link", { name: "First timers", exact: true })).toBeVisible();
+  await expect(team.getByRole("link", { name: "Pastoral care" })).toHaveCount(0);
+  await go(team, "/admin/first-timers");
+  await expect(team.getByRole("heading", { name: "First timers" })).toBeVisible();
+  await team.context().close();
 });
 
 test("announcements publish to the member portal and landing page", async ({ browser }) => {
