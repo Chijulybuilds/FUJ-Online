@@ -5,14 +5,30 @@ import { runtimeEnv } from "@/lib/env";
  * Outbound adapters. In-app delivery always works; WhatsApp, SMS and email are only attempted
  * when their provider is configured. No secrets are logged.
  *
- * WhatsApp: Meta WhatsApp Business Cloud API (works for numbers on WhatsApp and WhatsApp Business).
- * SMS: Termii (Nigeria-focused). Both are plain HTTPS calls, easy to swap for another provider.
+ * WhatsApp: through Termii (its WhatsApp Templates API — set TERMII_WHATSAPP_DEVICE_ID + TERMII_WHATSAPP_TEMPLATE_ID)
+ * or straight through Meta's WhatsApp Business Cloud API (WHATSAPP_TOKEN + WHATSAPP_PHONE_NUMBER_ID). Termii wins
+ * when both are set. SMS: Termii. All plain HTTPS calls.
  */
 export const providers = {
   get sms() { return Boolean(process.env.TERMII_API_KEY && process.env.TERMII_SENDER_ID); },
   get email() { return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM); },
-  get whatsapp() { return Boolean(wa.token && wa.phoneId); },
-  get whatsappTemplate() { return wa.template || null; }
+  /** Which WhatsApp route is set up: "termii", "meta", or null. */
+  get whatsappVia(): "termii" | "meta" | null { return termii.whatsappReady ? "termii" : wa.token && wa.phoneId ? "meta" : null; },
+  get whatsapp() { return this.whatsappVia !== null; },
+  /** The broadcast template: its Termii template ID, or its Meta template name. */
+  get whatsappTemplate() { return this.whatsappVia === "termii" ? termii.templateId : wa.template || null; }
+};
+
+/** Termii settings (shared by SMS and WhatsApp). */
+const termii = {
+  get apiKey() { return runtimeEnv("TERMII_API_KEY"); },
+  get base() { return (runtimeEnv("TERMII_BASE_URL") || "https://api.ng.termii.com").replace(/\/+$/, ""); },
+  get deviceId() { return runtimeEnv("TERMII_WHATSAPP_DEVICE_ID"); },
+  get templateId() { return runtimeEnv("TERMII_WHATSAPP_TEMPLATE_ID"); },
+  get flyerTemplateId() { return runtimeEnv("TERMII_WHATSAPP_FLYER_TEMPLATE_ID"); },
+  /** The template's variable keys for the title and the message (Termii shows them on the Device Subscription page). */
+  get keys(): [string, string] { const [a, b] = (runtimeEnv("TERMII_WHATSAPP_VARIABLES") || "1,2").split(",").map((k) => k.trim()); return [a || "1", b || "2"]; },
+  get whatsappReady() { return Boolean(this.apiKey && this.deviceId && this.templateId); }
 };
 
 /** WhatsApp settings, forgiving about stray spaces / quotes / a pasted "Bearer " in the dashboard. */
@@ -128,6 +144,7 @@ async function postMessage(payload: Record<string, unknown>): Promise<WhatsAppRe
  */
 export async function sendWhatsApp(to: string, title: string, body: string, imageUrl?: string | null): Promise<WhatsAppResult> {
   if (!providers.whatsapp) return { status: "skipped" };
+  if (providers.whatsappVia === "termii") return sendWhatsAppViaTermii(to, title, body, imageUrl);
   const recipient = to.replace(/^\+/, "");
   const bodyParams = (extra = "") => [{ type: "text", text: templateSafe(title, 60) }, { type: "text", text: templateSafe(body + extra) }];
   const flyerTemplate = wa.flyerTemplate;
@@ -151,6 +168,44 @@ export async function sendWhatsApp(to: string, title: string, body: string, imag
   if (imageUrl) return postMessage({ messaging_product: "whatsapp", to: recipient, type: "image", image: { link: imageUrl, caption: `*${title}*\n\n${body}`.slice(0, 1024) } });
   return postMessage({ messaging_product: "whatsapp", to: recipient, type: "text", text: { preview_url: true, body: `*${title}*\n\n${body}`.slice(0, 4096) } });
 }
+
+/**
+ * WhatsApp through Termii: the approved broadcast template, with {{1}} = title and {{2}} = message. With a flyer and a
+ * flyer template (image header), the flyer goes as the picture; otherwise its link is added to the message.
+ * Termii's delivery reports and replies arrive at /api/webhooks/termii.
+ */
+async function sendWhatsAppViaTermii(to: string, title: string, body: string, imageUrl?: string | null): Promise<WhatsAppResult> {
+  const [k1, k2] = termii.keys;
+  const flyer = imageUrl && termii.flyerTemplateId;
+  const payload = {
+    api_key: termii.apiKey, device_id: termii.deviceId, phone_number: to.replace(/^\+/, ""),
+    template_id: flyer ? termii.flyerTemplateId : termii.templateId,
+    data: { [k1]: templateSafe(title, 60), [k2]: templateSafe(body + (imageUrl && !flyer ? ` · Flyer: ${imageUrl}` : "")) },
+    ...(flyer ? { media: { url: imageUrl, caption: templateSafe(title, 60) } } : {})
+  };
+  try {
+    const res = await fetch(`${termii.base}/api/send/template${flyer ? "/media" : ""}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const json = (await res.json().catch(() => ({}))) as { code?: string; message?: string; message_id?: string; message_id_str?: string };
+    const id = json.message_id_str ?? json.message_id;
+    if (res.ok && (json.code === "ok" || id)) return { status: "sent", id: id ? String(id) : undefined };
+    return { status: "failed", detail: (errorText(json) ?? `Termii returned HTTP ${res.status}`).slice(0, 300) };
+  } catch {
+    return { status: "failed", detail: "Couldn't reach Termii." };
+  }
+}
+
+/** Plain-English fixes for Termii's WhatsApp / SMS errors (matched on Termii's message). */
+const TERMII_HINTS: [RegExp, string][] = [
+  [/unauthori[sz]ed|invalid api key|api key/i, "Termii refused the API key — copy it again from the Termii dashboard into TERMII_API_KEY, and check TERMII_BASE_URL is the Base URL shown there."],
+  [/device not found/i, "Termii doesn't recognise the WhatsApp device — copy the Device ID from Termii → WhatsApp (Manage device / WhatsApp ID page) into TERMII_WHATSAPP_DEVICE_ID."],
+  [/no active subscription/i, "The WhatsApp device's subscription on Termii has expired — renew it in the Termii dashboard."],
+  [/daily limit/i, "The WhatsApp device has reached its daily message limit on Termii — try again tomorrow or ask Termii to raise it."],
+  [/insufficient balance/i, "The Termii wallet is empty — top it up in the Termii dashboard."],
+  [/not set up on this route/i, "Termii hasn't activated this route for your account yet — ask your Termii account manager to turn it on."],
+  [/template/i, "Termii couldn't use the template — check TERMII_WHATSAPP_TEMPLATE_ID matches an APPROVED template and that its variables are {{1}} (title) and {{2}} (message)."],
+  [/account is not active|deactivated|disabled/i, "Your Termii account isn't active — contact Termii support."],
+  [/invalid sender id/i, "The SMS sender ID isn't approved or is misspelt — check TERMII_SENDER_ID on the Termii dashboard."]
+];
 
 /** WhatsApp error codes meaning "this number cannot receive WhatsApp messages". */
 export const NOT_ON_WHATSAPP_CODES = new Set([131026]);
@@ -198,7 +253,8 @@ export const ACCESS_BLOCKED_HINT = "Meta is blocking API access for the Meta app
 
 /** One plain-English line explaining a WhatsApp failure: the fix (when known) plus Meta's own words. */
 export function whatsappReason(errorCode?: number | null, detail?: string | null): string {
-  const hint = /access blocked/i.test(detail ?? "") ? ACCESS_BLOCKED_HINT : errorCode != null ? WHATSAPP_ERROR_HINTS[errorCode] : undefined;
+  const hint = /access blocked/i.test(detail ?? "") ? ACCESS_BLOCKED_HINT : errorCode != null ? WHATSAPP_ERROR_HINTS[errorCode]
+    : TERMII_HINTS.find(([re]) => re.test(detail ?? ""))?.[1];
   const meta = detail?.trim();
   const text = hint ? `${hint}${meta && !hint.includes(meta) ? ` (Meta: “${meta}”)` : ""}` : meta || "WhatsApp didn't say why.";
   return `${errorCode != null ? `Error ${errorCode}: ` : ""}${text}`.slice(0, 700);
@@ -257,6 +313,7 @@ async function describeToken(add: (ok: boolean | null, text: string) => void, ph
  * WhatsApp account, business and app, and the broadcast template, then lists what's fine and what to fix.
  */
 export async function checkWhatsAppSetup(): Promise<{ ok: boolean; lines: CheckLine[] }> {
+  if (providers.whatsappVia === "termii") return checkTermiiWhatsApp();
   const lines: CheckLine[] = [];
   const add = (ok: boolean | null, text: string) => lines.push({ ok, text });
   if (!providers.whatsapp) return { ok: false, lines: [{ ok: false, text: "WhatsApp isn't set up: add WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID in Vercel, then redeploy." }] };
@@ -320,5 +377,30 @@ export async function checkWhatsAppSetup(): Promise<{ ok: boolean; lines: CheckL
     if (!isFlyer && header && (header.format !== "TEXT" || /\{\{/.test(header.text ?? ""))) add(false, `Template “${name}” has a ${header.format?.toLowerCase() ?? ""} header the app doesn't fill — remove the header (use WHATSAPP_FLYER_TEMPLATE_NAME for a picture template).`);
   }
   if (!lines.some((l) => l.ok === false)) add(true, "Everything Meta reports looks right. Use “Send test” below to send yourself a real message.");
+  return { ok: !lines.some((l) => l.ok === false), lines };
+}
+
+/** "Check WhatsApp setup" when WhatsApp goes through Termii: the API key and wallet, the device, the templates, the webhook. */
+export async function checkTermiiWhatsApp(): Promise<{ ok: boolean; lines: CheckLine[] }> {
+  const lines: CheckLine[] = [];
+  const add = (ok: boolean | null, text: string) => lines.push({ ok, text });
+  try {
+    const res = await fetch(`${termii.base}/api/get-balance?api_key=${encodeURIComponent(termii.apiKey)}`);
+    const json = (await res.json().catch(() => ({}))) as { balance?: number | string; currency?: string; user?: string; message?: string };
+    if (res.ok && json.balance !== undefined) {
+      const balance = Number(json.balance);
+      add(true, `Termii API key works${json.user ? ` (account “${json.user}”)` : ""} · wallet balance ${json.currency ?? ""} ${Number.isFinite(balance) ? balance.toLocaleString("en-NG") : json.balance}.`.replace("  ", " "));
+      if (Number.isFinite(balance) && balance < 500) add(null, "The Termii wallet is low — top it up so WhatsApp and SMS messages don't stop.");
+    } else {
+      add(false, `Termii refused the request (${json.message ?? `HTTP ${res.status}`}) — ${TERMII_HINTS[0][1]}`);
+    }
+  } catch {
+    add(null, "Couldn't reach Termii from the server — try again in a minute.");
+  }
+  add(true, `WhatsApp device: ${termii.deviceId}. Broadcast template ID: ${termii.templateId} — it must be APPROVED on Termii, with {{${termii.keys[0]}}} for the title and {{${termii.keys[1]}}} for the message.`);
+  if (termii.flyerTemplateId) add(true, `Flyer template ID: ${termii.flyerTemplateId} — flyers go as the picture at the top of the message.`);
+  else add(null, "No flyer template (TERMII_WHATSAPP_FLYER_TEMPLATE_ID): flyers are sent as a link in the message. Optional.");
+  if (!runtimeEnv("TERMII_SECRET_KEY")) add(null, "TERMII_SECRET_KEY isn't set, so Termii's delivery reports and members' replies can't be accepted yet — add it and the webhook URL https://www.flagupjesus.org/api/webhooks/termii in Termii.");
+  add(lines.some((l) => l.ok === false) ? null : true, "Use “Send test” below to send yourself a real WhatsApp message through Termii.");
   return { ok: !lines.some((l) => l.ok === false), lines };
 }
