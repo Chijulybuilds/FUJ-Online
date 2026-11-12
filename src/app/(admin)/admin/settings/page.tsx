@@ -24,13 +24,13 @@ export default async function SettingsPage() {
     ["Shared admin login", env.sharedAdmin ? env.sharedAdmin.email : "Set ADMIN_LOGIN_EMAIL / PASSWORD", Boolean(env.sharedAdmin)],
     ["Registration", env.registrationOtp ? "SMS OTP required" : "Free — everyone is a member from sign-up", true],
     ["WhatsApp sharing", "Free — Share on WhatsApp button", true],
-    ["WhatsApp (Cloud API, automatic)", providers.whatsapp ? (providers.whatsappTemplate ? "Configured · template" : "Configured · no template (24h window only)") : "Not configured", providers.whatsapp],
+    ["WhatsApp (automatic)", providers.whatsappVia === "termii" ? "Configured · through Termii" : providers.whatsapp ? (providers.whatsappTemplate ? "Configured · Meta Cloud API · template" : "Configured · Meta · no template (24h window only)") : "Not configured", providers.whatsapp],
     ["SMS (Termii) — OTP & fallback", providers.sms ? "Configured" : "Not configured", providers.sms],
     ["Email (Resend)", providers.email ? "Configured" : "Not configured", providers.email]
   ] as const;
   const cronReady = Boolean(process.env.CRON_SECRET) || process.env.NODE_ENV !== "production";
   const channels = [
-    ["WhatsApp", providers.whatsapp, providers.whatsapp ? (providers.whatsappTemplate ? `Template “${providers.whatsappTemplate}” · reaches everyone` : "No template yet — only reaches people who messaged the church number in the last 24h") : "Meta WhatsApp Cloud API: WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_TEMPLATE_NAME", "whatsapp"],
+    ["WhatsApp", providers.whatsapp, providers.whatsappVia === "termii" ? `Through Termii · template ${providers.whatsappTemplate} · reaches everyone` : providers.whatsapp ? (providers.whatsappTemplate ? `Meta · template “${providers.whatsappTemplate}” · reaches everyone` : "No template yet — only reaches people who messaged the church number in the last 24h") : "Termii: TERMII_WHATSAPP_DEVICE_ID, TERMII_WHATSAPP_TEMPLATE_ID — or Meta: WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID", "whatsapp"],
     ["SMS", providers.sms, providers.sms ? `Termii · sender “${process.env.TERMII_SENDER_ID}”` : "Termii: TERMII_API_KEY, TERMII_SENDER_ID", "sms"],
     ["Email", providers.email && !emailFromProblem(), providers.email ? (emailFromProblem() ?? `Resend · from ${process.env.EMAIL_FROM}`) : "Resend: RESEND_API_KEY, EMAIL_FROM", "email"]
   ] as const;
@@ -119,8 +119,8 @@ export default async function SettingsPage() {
             {providers.whatsapp && (
               <ActionForm action={checkWhatsAppAction} className="mt-5 border-t border-slate-100 pt-4">
                 <p className="text-sm font-semibold">WhatsApp not arriving?</p>
-                <p className="mt-1 text-xs text-slate-500">Asks Meta about the token, the church number, the account&apos;s health and the broadcast template, and says what to fix. Nothing is sent.</p>
-                <div className="mt-2"><SubmitButton className="btn btn-secondary" pendingText="Checking with Meta…">Check WhatsApp setup</SubmitButton></div>
+                <p className="mt-1 text-xs text-slate-500">{providers.whatsappVia === "termii" ? "Checks your Termii API key and wallet, the WhatsApp device and the templates, and says what to fix. Nothing is sent." : "Asks Meta about the token, the church number, the account's health and the broadcast template, and says what to fix. Nothing is sent."}</p>
+                <div className="mt-2"><SubmitButton className="btn btn-secondary" pendingText={providers.whatsappVia === "termii" ? "Checking with Termii…" : "Checking with Meta…"}>Check WhatsApp setup</SubmitButton></div>
               </ActionForm>
             )}
             {channels.some(([, ok]) => ok) && (

@@ -33,7 +33,15 @@ export function configProblems(): string[] {
   if (!env.googleEnabled) problems.push("CLIENT_ID / CLIENT_SECRET (Google sign-in) are missing");
 
   // Messaging channels are optional, but each needs ALL of its keys.
-  const pairs: [string, string][] = [["WHATSAPP_TOKEN", "WHATSAPP_PHONE_NUMBER_ID"], ["TERMII_API_KEY", "TERMII_SENDER_ID"], ["RESEND_API_KEY", "EMAIL_FROM"]];
+  // WhatsApp through Termii needs the API key, the device and the broadcast template (the SMS sender ID is optional then).
+  const termiiWhatsApp = has("TERMII_WHATSAPP_DEVICE_ID") || has("TERMII_WHATSAPP_TEMPLATE_ID");
+  if (termiiWhatsApp) {
+    if (!has("TERMII_API_KEY")) problems.push("TERMII_API_KEY is missing — WhatsApp through Termii needs it (Termii dashboard → API)");
+    if (!has("TERMII_WHATSAPP_DEVICE_ID")) problems.push("TERMII_WHATSAPP_DEVICE_ID is missing — the Device ID of your WhatsApp number on Termii");
+    if (!has("TERMII_WHATSAPP_TEMPLATE_ID")) problems.push("TERMII_WHATSAPP_TEMPLATE_ID is missing — the ID of your approved broadcast template on Termii");
+    if (production && !has("TERMII_SECRET_KEY")) problems.push("TERMII_SECRET_KEY is missing — needed to accept Termii's WhatsApp delivery reports and replies");
+  }
+  const pairs: [string, string][] = [["WHATSAPP_TOKEN", "WHATSAPP_PHONE_NUMBER_ID"], ...(termiiWhatsApp && !has("TERMII_SENDER_ID") ? [] : [["TERMII_API_KEY", "TERMII_SENDER_ID"] as [string, string]]), ["RESEND_API_KEY", "EMAIL_FROM"]];
   for (const [a, b] of pairs) {
     if (has(a) !== has(b)) problems.push(`${has(a) ? b : a} is missing (${a} and ${b} work together)`);
   }

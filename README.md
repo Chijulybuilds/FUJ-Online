@@ -72,6 +72,15 @@ Members can sign in with Google (linked by Google account / email) or with usern
 
 **B. Automatic: WhatsApp, SMS and email from the app** — tick the channels on each broadcast; each one needs its keys added in **Vercel → Settings → Environment Variables** (Production), then **Redeploy**. Afterwards open **Admin → Settings → Messaging channels**: it shows *Connected*, has **Check WhatsApp setup** (asks Meta about the token, the church number, the account's health — payment method, display name, test-number limits — and the broadcast template, without sending anything) and a **Send test** button that explains any error in plain English. When a broadcast fails on WhatsApp, its tracking page shows Meta's reason and the fix next to each person. `/api/health` also names any missing or half-set key.
 
+#### WhatsApp through Termii (one account for WhatsApp and SMS)
+Termii is a Meta partner: Meta's rules still apply (business verification, display name, a number that isn't on the WhatsApp app, approved templates), but Termii connects the number and bills both channels from one wallet. When the Termii WhatsApp keys below are set, the app sends WhatsApp through Termii instead of Meta.
+1. **Termii → WhatsApp**: connect the church's WhatsApp number (Termii takes you through Meta's sign-up). Copy its **Device ID** → `TERMII_WHATSAPP_DEVICE_ID`.
+2. **Termii → WhatsApp → Templates**: create the broadcast template (category Utility or Marketing, English, no header) — body `Hello from FlagUpJesus Global Ministry 👋` · `*{{1}}*` · `{{2}}` · `Reply to this message to respond.` Once **Approved**, copy its **Template ID** → `TERMII_WHATSAPP_TEMPLATE_ID`. If Termii's *Device Subscription* page shows variable keys other than `1` and `2`, set `TERMII_WHATSAPP_VARIABLES=title,message` (the two keys, in that order).
+3. *(Optional)* a second template with an **Image** header and the same body, for flyers → `TERMII_WHATSAPP_FLYER_TEMPLATE_ID`.
+4. **Termii → Settings / API**: copy the **Secret key** → `TERMII_SECRET_KEY`, and add the webhook URL `https://www.flagupjesus.org/api/webhooks/termii` (delivery reports → *Delivered* / SMS fallback on failure; members' replies → Inbox).
+5. `TERMII_API_KEY` and `TERMII_BASE_URL` are the same as for SMS. Redeploy, then **Settings → Messaging channels → Check WhatsApp setup** (checks the key, wallet, device and templates) and **Send test**.
+Termii reports *delivered* but not *read*; "read" in the app still counts people who open the message in their app inbox.
+
 #### WhatsApp (Meta WhatsApp Business Cloud API)
 1. Go to **https://developers.facebook.com/apps** → *Create app* → use case **"Connect with customers through WhatsApp"** (type *Business*) → link or create your **Meta Business portfolio** (business.facebook.com).
 2. In the app: **WhatsApp → API Setup**. Meta gives you a free **test number** — add up to 5 recipient numbers (e.g. your own) to test with. Copy **Phone number ID** (a long number, *not* the phone number) → `WHATSAPP_PHONE_NUMBER_ID`.
