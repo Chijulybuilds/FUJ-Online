@@ -55,7 +55,7 @@ export default async function SettingsPage() {
         </section>
         <section className="card p-6 xl:col-start-1" id="welcome-emails" data-testid="welcome-emails">
           <h2 className="font-bold">✉️ Welcome emails</h2>
-          <p className="mt-1 text-sm text-slate-500">Everyone with an email address gets a warm “Welcome to FUJ Online Church” email with their <b>flag username</b> and a link to <b>set a password</b> for their membership dashboard (optional — the link works for 30 days). New registrations get it straight away; people who registered earlier get it when you click below, when they next sign in, or with the daily job.</p>
+          <p className="mt-1 text-sm text-slate-500">Everyone with an email address gets a warm “Welcome to FlagUpJesus Global Connect” email with their <b>flag username</b> and a link to <b>set a password</b> for their membership dashboard (optional — the link works for 30 days). New registrations get it straight away; people who registered earlier get it when you click below, when they next sign in, or with the daily job.</p>
           {welcome && (
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-slate-100 p-3"><p className="text-xs text-slate-500">Sent</p><p className="text-xl font-bold" data-testid="welcome-sent">{welcome.sent}</p></div>

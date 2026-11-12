@@ -6,7 +6,7 @@ import { DEFAULT_PROGRAMS, MOTTO, parsePrograms } from "@/lib/programs";
 
 /** Details FUJ provided — shown whenever the database has nothing (or can't be reached). */
 export const DEFAULT_SETTINGS: ChurchSettings = {
-  id: true, church_name: "FlagUpJesus Global Ministry", app_name: "FlagUpJesus", timezone: "Africa/Lagos",
+  id: true, church_name: "FlagUpJesus Global Ministry", app_name: "FlagUpJesus Global Connect", timezone: "Africa/Lagos",
   // Provided by FUJ.
   contact_email: "flagupjesusglobal@gmail.com", contact_phone: "07042741000", tagline: MOTTO,
   address: "2nd Floor, MBM Plaza (besides Shell IA), Rumuobioakani, Port Harcourt",

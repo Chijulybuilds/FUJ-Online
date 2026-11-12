@@ -1,9 +1,11 @@
 import type { MetadataRoute } from "next";
+import { APP_NAME } from "@/lib/constants";
 
 /** Name + icon used when someone adds the site to their phone's home screen. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "FlagUpJesus Global Ministry",
+    name: APP_NAME,
+    // Shown under the home-screen icon, where long names get cut off.
     short_name: "FlagUpJesus",
     description: "We Love, We Give, We Change The World.",
     start_url: "/",

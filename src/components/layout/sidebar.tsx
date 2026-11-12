@@ -5,6 +5,7 @@ import { Award, Baby, BarChart3, BookOpen, UserCheck, CalendarDays, CircleDollar
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { NAV_GROUPS } from "./nav-config";
 import type { Area } from "@/lib/auth/roles";
+import { APP_BRAND, APP_SUBTITLE } from "@/lib/constants";
 
 const ICONS = { check: UserCheck, home: Home, users: Users, leaders: Award, children: Baby, calendar: CalendarDays, qr: QrCode, heart: HeartHandshake, sparkles: Sparkles, partner: HandCoins, send: Send, inbox: Inbox, megaphone: Megaphone, message: MessageSquare, book: BookOpen, shield: ShieldCheck, money: CircleDollarSign, chart: BarChart3, settings: Settings };
 
@@ -37,7 +38,7 @@ export function Sidebar({ areas, name, roleLabel }: { areas: Area[]; name: strin
     <aside className="sidebar">
       <Link href="/admin" className="flex h-[76px] items-center gap-3 border-b border-white/10 px-4">
         <span className="logo-chip flex h-12 w-[68px] shrink-0 items-center justify-center rounded-lg px-1"><BrandLogo className="h-full w-full object-contain" /></span>
-        <span className="brand-text"><span className="block text-base font-bold text-white">FlagUpJesus</span><span className="block text-[10px] text-slate-400">ONLINE CHURCH</span></span>
+        <span className="brand-text"><span className="block text-base font-bold text-white">{APP_BRAND}</span><span className="block text-[10px] uppercase text-slate-400">{APP_SUBTITLE}</span></span>
       </Link>
       <NavLinks areas={areas} />
       <div className="border-t border-white/10 p-4">

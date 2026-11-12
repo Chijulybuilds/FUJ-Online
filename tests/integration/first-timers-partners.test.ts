@@ -67,7 +67,7 @@ describe("first timers", () => {
     const person = (await db().get("people", { id: personId }))!;
     expect(await ft.sendFirstTimerWelcome([{ journey, person }])).toBe(1);
     expect(sentTo("2348050000001")).toBe(true);
-    // Not by email — the "Welcome to FUJ Online Church" account email (with their username) covers that.
+    // Not by email — the "Welcome to FlagUpJesus Global Connect" account email (with their username) covers that.
     expect(calls.some((c) => c.url.includes("resend"))).toBe(false);
     const b = (await db().list("broadcasts", { where: { audience: "auto_first_timer:welcome" } }))[0];
     expect(b).toMatchObject({ title: "Welcome to FlagUpJesus", recipient_count: 1, kind: "follow_up" });

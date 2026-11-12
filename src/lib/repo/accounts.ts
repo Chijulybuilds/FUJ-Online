@@ -86,7 +86,7 @@ export async function sendPasswordReset(login: string) {
 export type WelcomeResult = { status: "sent" | "failed" | "skipped"; detail?: string };
 
 /**
- * "Welcome to FUJ Online Church" with their flag username and a link to set a password. Sent once per person
+ * "Welcome to FlagUpJesus Global Connect" with their flag username and a link to set a password. Sent once per person
  * (pass force to send again); skipped without an email address or when email isn't set up.
  */
 export async function sendWelcomeEmail(person: Person, opts: { force?: boolean; churchInfo?: Awaited<ReturnType<typeof church>> } = {}): Promise<WelcomeResult> {

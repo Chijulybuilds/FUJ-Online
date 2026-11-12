@@ -42,7 +42,7 @@ export interface Person {
   guardian_relationship: string | null;
   /** Allergies, medical or special-care needs (children). */
   care_notes: string | null;
-  /** When the "Welcome to FUJ Online Church" email with their flag username went out. */
+  /** When the "Welcome to FlagUpJesus Global Connect" email with their flag username went out. */
   welcome_email_sent_at: string | null;
   created_at: string;
   updated_at: string;

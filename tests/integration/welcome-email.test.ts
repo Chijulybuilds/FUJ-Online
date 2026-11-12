@@ -38,7 +38,7 @@ describe("welcome email with the flag username", () => {
     expect(r.status).toBe("sent");
     const mail = mails.at(-1)!;
     expect(mail.to).toBe("ada@example.com");
-    expect(mail.subject).toBe("Welcome to FUJ Online Church, Ada! Your flag username is inside 🎉");
+    expect(mail.subject).toBe("Welcome to FlagUpJesus Global Connect, Ada! Your flag username is inside 🎉");
     expect(mail.text).toContain(`YOUR FLAG USERNAME: ${ada.username}`);
     expect(mail.text).toContain("Welcome to the FlagUpJesus family");
     expect(mail.html).toContain(ada.username);

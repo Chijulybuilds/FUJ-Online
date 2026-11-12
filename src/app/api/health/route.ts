@@ -3,12 +3,13 @@ import { db } from "@/lib/db";
 import { env, PLACEHOLDER_SECRET } from "@/lib/env";
 import { providers } from "@/lib/messaging/providers";
 import { configProblems } from "@/lib/env-check";
+import { APP_NAME } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const base = {
-    app: "FlagUpJesus", mode: env.useSupabaseData ? "supabase" : "local", googleAuth: env.googleEnabled,
+    app: APP_NAME, mode: env.useSupabaseData ? "supabase" : "local", googleAuth: env.googleEnabled,
     adminLogin: Boolean(env.sharedAdmin), registrationOtp: env.registrationOtp, whatsapp: providers.whatsapp, whatsappTemplate: Boolean(providers.whatsappTemplate), whatsappWebhook: Boolean(process.env.WHATSAPP_VERIFY_TOKEN && process.env.WHATSAPP_APP_SECRET), sms: providers.sms, email: providers.email, autoFollowUp: Boolean(process.env.CRON_SECRET),
     devLogin: env.devLoginEnabled,
     signingSecret: !process.env.QR_SIGNING_SECRET && !process.env.SESSION_SECRET ? "missing" : (process.env.SESSION_SECRET || process.env.QR_SIGNING_SECRET) === PLACEHOLDER_SECRET ? "placeholder" : "set",

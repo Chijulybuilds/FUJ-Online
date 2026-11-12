@@ -819,7 +819,7 @@ notify pgrst, 'reload schema';
 -- 0014_welcome_email_and_passwords.sql
 -- ===================================================================
 -- Welcome email + optional member passwords.
---  * Everyone with an email address gets a warm "Welcome to FUJ Online Church" email with their flag username —
+--  * Everyone with an email address gets a warm "Welcome to FlagUpJesus Global Connect" email with their flag username —
 --    new registrations straight away, people who registered earlier through Settings → Welcome emails or the
 --    daily job. welcome_email_sent_at records when it went out.
 --  * The email has a link to set a password, so members can sign in with username (or email) + password as well as
@@ -896,7 +896,7 @@ notify pgrst, 'reload schema';
 -- Optional starting values. Contains only details provided by FUJ — no sample people or records.
 -- Existing values are kept (edit them in Admin → Settings).
 insert into public.church_settings (id, church_name, app_name, contact_email, contact_phone, address, bank_name, account_name, account_number)
-values (true, 'FlagUpJesus Global Ministry', 'FlagUpJesus', 'flagupjesusglobal@gmail.com', '07042741000',
+values (true, 'FlagUpJesus Global Ministry', 'FlagUpJesus Global Connect', 'flagupjesusglobal@gmail.com', '07042741000',
         '2nd Floor, MBM Plaza (besides Shell IA), Rumuobioakani, Port Harcourt',
         'Fidelity Bank', 'FlagUp Jesus Global Ministry', '5600605313')
 on conflict (id) do update set
