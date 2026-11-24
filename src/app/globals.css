@@ -796,3 +796,13 @@ html[data-theme="dark"] .care-note { background: #3a1a1d; color: #ffb3b9; }
 .mission-lb-btn { position: absolute; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; }
 .mission-lb-btn:hover { background: rgba(255,255,255,.22); }
 @media (prefers-reduced-motion: reduce) { .flag-pin-pulse { animation: none; } }
+
+/* Programme cards with a photo across the top. */
+.gathering.gathering-photo { padding: 0; justify-content: flex-start; }
+.gathering-img { position: relative; aspect-ratio: 16 / 10; overflow: hidden; }
+.gathering-img img { transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.gathering-img::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,6,7,.35) 0%, transparent 40%, rgba(10,6,7,.25) 100%); }
+.gathering-photo:hover .gathering-img img { transform: scale(1.05); }
+.gathering-img > div { z-index: 1; }
+.gathering-icon { background: rgba(255,255,255,.92) !important; color: var(--accent) !important; backdrop-filter: blur(6px); }
+.gathering-tag { background: rgba(10,6,7,.6); color: #fff; backdrop-filter: blur(6px); }
