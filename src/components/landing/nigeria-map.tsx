@@ -1,6 +1,6 @@
 /** Simplified outline of Nigeria with pulsing markers for where FlagUpJesus serves, plus the UK beyond the map. */
-const OUTLINE: [number, number][] = [[2.7,6.4],[2.7,9.1],[3.6,11.7],[3.6,12.5],[4.2,13.5],[5.3,13.8],[6.4,13.6],[7.8,13.3],[9,12.8],[10.6,13.3],[12.3,13.1],[13.6,13.7],[14.2,12.4],[14.6,11.6],[13.6,10.2],[13.3,9],[12.4,8.4],[11.8,7],[11,6.4],[9.8,5.8],[8.6,4.7],[7.1,4.4],[6,4.3],[5.2,5.3],[4.4,6.3]];
-const pt = ([lon, lat]: [number, number]) => [(lon - 2.3) * 30, (14.2 - lat) * 31] as const;
+export const OUTLINE: [number, number][] = [[2.7,6.4],[2.7,9.1],[3.6,11.7],[3.6,12.5],[4.2,13.5],[5.3,13.8],[6.4,13.6],[7.8,13.3],[9,12.8],[10.6,13.3],[12.3,13.1],[13.6,13.7],[14.2,12.4],[14.6,11.6],[13.6,10.2],[13.3,9],[12.4,8.4],[11.8,7],[11,6.4],[9.8,5.8],[8.6,4.7],[7.1,4.4],[6,4.3],[5.2,5.3],[4.4,6.3]];
+export const pt = ([lon, lat]: [number, number]) => [(lon - 2.3) * 30, (14.2 - lat) * 31] as const;
 
 type Place = { name: string; note: string; lonlat?: [number, number]; xy?: [number, number]; hq?: boolean; abroad?: boolean; dx: number; dy: number };
 

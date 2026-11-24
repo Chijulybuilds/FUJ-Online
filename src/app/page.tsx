@@ -10,7 +10,6 @@ import { Countdown } from "@/components/landing/countdown";
 import { Particles } from "@/components/landing/particles";
 import { HeroReel } from "@/components/landing/hero-reel";
 import { Slideshow } from "@/components/landing/slideshow";
-import { PhotoMarquee } from "@/components/landing/photo-marquee";
 import { ScrollWords } from "@/components/landing/scroll-words";
 import { NigeriaMap, PLACES } from "@/components/landing/nigeria-map";
 import { Books } from "@/components/landing/books";
@@ -82,7 +81,6 @@ export default async function HomePage() {
   const motto = settings?.tagline || MOTTO;
   const mottoParts = motto.split(",").map((w) => w.trim()).filter(Boolean); // "We Love" · "We Give" · "We Change The World"
   const marquee = [...mottoParts, ...mottoParts];
-  const outreachPhotos = [PHOTOS.children, PHOTOS.medical, PHOTOS.teaching, PHOTOS.elders];
 
   return (
     <main className="lp">
@@ -189,13 +187,9 @@ export default async function HomePage() {
               ]} />
             </Reveal>
           </div>
-          <div className="mt-16 space-y-4">
-            <PhotoMarquee photos={outreachPhotos} height={200} />
-            <PhotoMarquee photos={[...outreachPhotos].reverse()} reverse height={160} />
-          </div>
           <Reveal className="mx-auto mt-12 flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5">
             <p className="text-lg font-semibold">Want to serve on the next Love Mission — or sponsor one?</p>
-            <div className="flex flex-wrap gap-3"><Link href="/register" className="btn lp-btn-light">Volunteer with us <ArrowRight size={16} /></Link><a href="#give" className="btn lp-btn-glass">Sponsor an outreach</a></div>
+            <div className="flex flex-wrap gap-3"><Link href="/love-missions" className="btn lp-btn-light" data-testid="explore-missions">Explore the Love Missions map <ArrowRight size={16} /></Link><Link href="/register" className="btn lp-btn-glass">Volunteer with us</Link><a href="#give" className="btn lp-btn-glass">Sponsor an outreach</a></div>
           </Reveal>
         </div>
       </section>
