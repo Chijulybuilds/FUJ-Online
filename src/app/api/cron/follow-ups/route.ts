@@ -4,6 +4,7 @@ import { runtimeEnv } from "@/lib/env";
 import { runFirstTimerFollowUps } from "@/lib/repo/first-timers";
 import { runPartnerFollowUps } from "@/lib/repo/partners";
 import { sendWelcomeBacklog } from "@/lib/repo/accounts";
+import { sendAbsenceReport } from "@/lib/repo/absence";
 import { audit } from "@/lib/repo/audit";
 
 export const dynamic = "force-dynamic";
@@ -34,8 +35,11 @@ export async function GET(request: NextRequest) {
   if (firstTimers && (firstTimers.welcomed || firstTimers.invited)) await audit("Automatic follow-up", "first_timers.auto_run", "first_timers", null, firstTimers as unknown as Record<string, unknown>);
   const partners = await attempt("partner", () => runPartnerFollowUps());
   if (partners && (partners.thanked || partners.reminded)) await audit("Automatic follow-up", "partners.auto_run", "partners", null, partners as unknown as Record<string, unknown>);
+  // Monday: the missed-Sundays report by SMS to the pastor and admins.
+  const absence = await attempt("absence-report", () => sendAbsenceReport());
+  if (absence?.sent) await audit("Automatic follow-up", "absence_report.auto_run", "people", null, absence as unknown as Record<string, unknown>);
   // Welcome emails (flag username + set-a-password link) for anyone who registered before they existed.
   const welcome = await attempt("welcome-email", () => sendWelcomeBacklog(60));
   if (welcome?.sent) await audit("Automatic follow-up", "welcome_email.auto_run", "people", null, welcome as unknown as Record<string, unknown>);
-  return NextResponse.json({ ok: failed.length === 0, firstTimers, partners, welcome, ...(failed.length ? { errors: failed } : {}) }, { status: failed.length === 3 ? 500 : 200 });
+  return NextResponse.json({ ok: failed.length === 0, firstTimers, partners, absence, welcome, ...(failed.length ? { errors: failed } : {}) }, { status: failed.length === 4 ? 500 : 200 });
 }

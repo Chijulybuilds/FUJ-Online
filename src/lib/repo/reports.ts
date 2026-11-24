@@ -23,6 +23,7 @@ export async function dashboardStats() {
     // Older databases (setup.sql not re-run yet) simply show 0.
     childrenBirthdaysThisWeek: people.filter((p) => p.is_child && (nextBirthday(p.birthday)?.days ?? 99) <= 7).length,
     children: people.filter((p) => p.is_child).length,
+    missedSundays: await import("./absence").then((m) => m.absentMembers()).then((r) => r.absentees.length, () => 0),
     firstTimersToWelcome: await db().list("first_timers", { where: { stage: "new" } }).then((r) => r.length, () => 0),
     partnerFollowUpsDue: await db().list("partners").then((r) => r.filter((p) => p.status !== "declined" && p.next_follow_up_at && new Date(p.next_follow_up_at).getTime() <= Date.now()).length, () => 0),
     summaries

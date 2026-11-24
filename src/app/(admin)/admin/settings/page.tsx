@@ -3,7 +3,7 @@ import { ActionForm, SubmitButton } from "@/components/ui/action-form";
 import { requireAdmin } from "@/lib/auth/session";
 import { can, ROLE_LABELS } from "@/lib/auth/roles";
 import { getSettings } from "@/lib/repo/settings";
-import { addStaffAction, checkWhatsAppAction, saveFirstTimerPartnerSettingsAction, saveSettingsAction, sendTestMessageAction, sendWelcomeBacklogAction, toggleStaffAction } from "@/lib/actions/admin";
+import { addStaffAction, checkWhatsAppAction, saveAbsenceReportAction, sendAbsenceReportAction, saveFirstTimerPartnerSettingsAction, saveSettingsAction, sendTestMessageAction, sendWelcomeBacklogAction, toggleStaffAction } from "@/lib/actions/admin";
 import { WELCOME_BATCH, welcomeStats } from "@/lib/repo/accounts";
 import { DEFAULT_INVITE_MESSAGE, DEFAULT_WELCOME_MESSAGE } from "@/lib/repo/first-timers";
 import { DEFAULT_REMINDER_MESSAGE as DEFAULT_PARTNER_REMINDER, DEFAULT_THANKS_MESSAGE } from "@/lib/repo/partners";
@@ -51,6 +51,21 @@ export default async function SettingsPage() {
             <label className="label">Account number<input className="input mt-1" name="account_number" defaultValue={s.account_number ?? ""} /></label>
             <label className="label sm:col-span-2">Account name<input className="input mt-1" name="account_name" defaultValue={s.account_name ?? ""} /></label>
             <div className="sm:col-span-2"><SubmitButton>Save settings</SubmitButton></div>
+          </ActionForm>
+        </section>
+        <section className="card p-6 xl:col-start-1" id="absence-report" data-testid="absence-report">
+          <h2 className="font-bold">📋 Missed-Sundays report (SMS to the pastor &amp; admins)</h2>
+          <p className="mt-1 text-sm text-slate-500">Every <b>Monday morning</b> the numbers below get one SMS listing every member who has missed the last Sundays in a row (name and phone), so they can be followed up. Long lists end with a link to the full <a href="/admin/absent" className="font-semibold text-blue-600">Missed Sundays</a> page. Only Sundays where attendance was taken count; nothing is sent when nobody is missing.</p>
+          <ActionForm action={saveAbsenceReportAction} className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="checkbox sm:col-span-2"><input type="checkbox" name="absence_report" defaultChecked={Boolean(s.absence_report)} /> <span><b>Send the weekly report by SMS</b>{!providers.sms && <span className="block text-xs font-normal text-amber-600">SMS isn&apos;t set up yet (Messaging channels).</span>}</span></label>
+            <label className="label">Flag members who missed<select className="input mt-1" name="absence_threshold" defaultValue={String(s.absence_threshold || 2)}>{[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n} Sunday{n === 1 ? "" : "s"} in a row</option>)}</select></label>
+            <span />
+            <label className="label sm:col-span-2">Send it to<span className="hint">Phone numbers, one per line — e.g. the pastor and the admins. Each number costs one SMS (up to 4 pages) a week.</span><textarea className="input mt-1 min-h-24" name="absence_report_numbers" defaultValue={s.absence_report_numbers ?? ""} placeholder={"0803 000 0000\n0805 000 0000"} /></label>
+            <div className="sm:col-span-2"><SubmitButton>Save report settings</SubmitButton></div>
+          </ActionForm>
+          <ActionForm action={sendAbsenceReportAction} className="mt-3">
+            <SubmitButton className="btn btn-secondary" pendingText="Sending…">Send the report now</SubmitButton>
+            {s.absence_report_sent_at && <span className="ml-3 text-xs text-slate-500">Last sent {formatDate(s.absence_report_sent_at)}</span>}
           </ActionForm>
         </section>
         <section className="card p-6 xl:col-start-1" id="welcome-emails" data-testid="welcome-emails">
@@ -104,7 +119,7 @@ export default async function SettingsPage() {
             <div className="sm:col-span-2"><SubmitButton>Save first-timer &amp; partner settings</SubmitButton></div>
           </ActionForm>
         </section>
-        <div className="space-y-6 xl:col-start-2 xl:row-span-3 xl:row-start-1">
+        <div className="space-y-6 xl:col-start-2 xl:row-span-4 xl:row-start-1">
           <section className="card p-6" id="messaging" data-testid="messaging-channels">
             <h2 className="font-bold">Messaging channels</h2>
             <p className="mt-1 text-xs text-slate-500">Where broadcasts can go besides the app inbox. Connect a channel by adding its keys in Vercel → Settings → Environment Variables, then redeploy (step-by-step guide in the README).</p>

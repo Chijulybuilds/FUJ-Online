@@ -39,7 +39,7 @@ Open http://localhost:3000.
 
 ## 2. Connect Supabase (database)
 
-1. **Easiest:** open `supabase/setup.sql`, copy **all** of it into Supabase → **SQL Editor → New query**, and click **Run**. It contains every migration plus FUJ's starting values, and is safe on a brand-new project *and* on one that already ran some or all migrations (it only adds what's missing). Alternatively run the files in `supabase/migrations/` (`0001` → `0017`) in order — each one can also be re-run safely.
+1. **Easiest:** open `supabase/setup.sql`, copy **all** of it into Supabase → **SQL Editor → New query**, and click **Run**. It contains every migration plus FUJ's starting values, and is safe on a brand-new project *and* on one that already ran some or all migrations (it only adds what's missing). Alternatively run the files in `supabase/migrations/` (`0001` → `0018`) in order — each one can also be re-run safely.
 2. After changing a migration, regenerate the combined file with `npm run db:setup-sql` (a test fails if it's out of date).
 3. Put the Project URL, anon key and **service-role key** in `.env.local`. The service-role key is used only on the server (route handlers / server actions); permissions are enforced in the app layer and RLS stays on so the anon key cannot read church data.
 4. Check `GET /api/health` → `{"mode":"supabase","database":"ready"}`. If you see `PGRST205`, run `notify pgrst, 'reload schema';`.
@@ -108,6 +108,9 @@ SMS is used when *SMS* is ticked on a broadcast, and automatically for people wh
 Emails include the title, message and flyer, styled in FUJ red.
 
 How phone delivery works: people marked *not on WhatsApp* get SMS directly; everyone else gets WhatsApp. If WhatsApp rejects a message or later reports the number isn't on WhatsApp (error 131026), the SMS version (with a flyer link) is sent automatically and the person is remembered as *not on WhatsApp*. Tick **SMS** as well to text everyone in addition to WhatsApp.
+
+### Missed Sundays (follow-up list + weekly SMS report)
+**Admin → Missed Sundays** lists members who came before but have missed the last *N* Sundays in a row (default 2; only Sundays where attendance was taken count, children are left out, and anyone at any service since isn't listed), with Call / WhatsApp buttons and a **Message them** broadcast audience. **Settings → Missed-Sundays report**: turn it on and enter the pastor's and admins' numbers; every **Monday morning** each number gets one SMS listing the names and phone numbers (long lists end with a link to the page). **Send the report now** sends it straight away.
 
 ### Daily automatic messages
 
