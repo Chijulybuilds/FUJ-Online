@@ -1,5 +1,5 @@
 import { PHOTOS } from "@/components/landing/photos";
-import { AKPAJO_2023, BAYELSA_2024, BUNDU_2024, ELEKAHIA_2022, LAGOS_2025, MINIEWA_2023, NKPOLU_2024, OKPORO_2020, RUMUKWURUSHI_2021, SAGBAMA_2026 } from "./mission-photos";
+import { AKPAJO_2023, BAYELSA_2024, BUNDU_2024, ELEKAHIA_2022, LAGOS_2025, MINIEWA_2023, NKPOLU_2024, OKPORO_2020, PORTSMOUTH_UK, RUMUKWURUSHI_2021, SAGBAMA_2026 } from "./mission-photos";
 
 /**
  * Love Missions — where FlagUpJesus has been and what happened there. Each location (a pin on the map) has
@@ -119,7 +119,14 @@ export const MISSION_LOCATIONS: MissionLocation[] = [
     slug: "united-kingdom", name: "United Kingdom", region: "International", country: "United Kingdom", xy: [34, -44], labelDx: 14, labelDy: 4,
     tagline: "Love beyond Nigeria",
     summary: "The FlagUpJesus family in the United Kingdom, taking the same love — the Word and the Works — beyond Nigeria.",
-    areas: []
+    areas: [{
+      name: "Portsmouth",
+      outreaches: [{
+        title: "Sharing the gospel in Portsmouth",
+        summary: "The FlagUpJesus UK team on the streets of Portsmouth — handing out gospel tracts, talking and praying with people about the love of Jesus.",
+        photos: PORTSMOUTH_UK
+      }]
+    }]
   }
 ];
 

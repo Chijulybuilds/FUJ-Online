@@ -178,3 +178,10 @@ export const LAGOS_2025: MissionPhoto[] = [
   { src: "/images/missions/lagos/lagos-2025-02.webp", w: 608, h: 796, alt: "Lagos State Outreach, 2025 — photo 2" },
   { src: "/images/missions/lagos/lagos-2025-03.webp", w: 608, h: 796, alt: "Lagos State Outreach, 2025 — photo 3" },
 ];
+export const PORTSMOUTH_UK: MissionPhoto[] = [
+  { src: "/images/missions/united-kingdom/portsmouth-01.webp", w: 1024, h: 924, alt: "FlagUpJesus UK team sharing the gospel in Portsmouth — photo 1" },
+  { src: "/images/missions/united-kingdom/portsmouth-02.webp", w: 855, h: 936, alt: "FlagUpJesus UK team sharing the gospel in Portsmouth — photo 2" },
+  { src: "/images/missions/united-kingdom/portsmouth-03.webp", w: 874, h: 1024, alt: "FlagUpJesus UK team sharing the gospel in Portsmouth — photo 3" },
+  { src: "/images/missions/united-kingdom/portsmouth-04.webp", w: 571, h: 813, alt: "FlagUpJesus UK team sharing the gospel in Portsmouth — photo 4" },
+  { src: "/images/missions/united-kingdom/portsmouth-05.webp", w: 960, h: 720, alt: "FlagUpJesus UK team sharing the gospel in Portsmouth — photo 5" },
+];

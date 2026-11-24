@@ -894,6 +894,8 @@ test("Love Missions: tap a place on the Nigeria map to see its outreaches and ph
   await expect(v.getByRole("dialog")).toBeVisible();
   await v.keyboard.press("Escape");
   await go(v, "/love-missions/united-kingdom");
+  await expect(v.getByTestId("mission-area")).toContainText("Portsmouth");
+  await go(v, "/love-missions/abuja");
   await expect(v.getByTestId("mission-coming-soon")).toBeVisible();
   await v.context().close();
 });
