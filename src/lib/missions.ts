@@ -1,5 +1,5 @@
 import { PHOTOS } from "@/components/landing/photos";
-import { AKPAJO_2023, BAYELSA_2024, LAGOS_2025, NKPOLU_2024, OKPORO_2020, RUMUKWURUSHI_2021, SAGBAMA_2026 } from "./mission-photos";
+import { AKPAJO_2023, BAYELSA_2024, BUNDU_2024, ELEKAHIA_2022, LAGOS_2025, MINIEWA_2023, NKPOLU_2024, OKPORO_2020, RUMUKWURUSHI_2021, SAGBAMA_2026 } from "./mission-photos";
 
 /**
  * Love Missions — where FlagUpJesus has been and what happened there. Each location (a pin on the map) has
@@ -29,11 +29,32 @@ export const MISSION_LOCATIONS: MissionLocation[] = [
         photos: NKPOLU_2024
       }]
     }, {
+      name: "Bundu",
+      outreaches: [{
+        title: "Bundu Community Outreach", year: 2024,
+        summary: "A Love Mission to the Bundu waterfront community — relief, free medical care and the gospel for families.",
+        photos: BUNDU_2024
+      }]
+    }, {
       name: "Akpajo, Eleme",
       outreaches: [{
         title: "Akpajo Outreach", year: 2023,
         summary: "Free medical care and medication, food and relief packs, clothing, and the gospel for families in Akpajo, Eleme.",
         photos: AKPAJO_2023
+      }]
+    }, {
+      name: "Mini-Ewa",
+      outreaches: [{
+        title: "Mini-Ewa Community Outreach", year: 2023,
+        summary: "Free medical care, relief items and the good news of Jesus for the Mini-Ewa community.",
+        photos: MINIEWA_2023
+      }]
+    }, {
+      name: "Elekahia",
+      outreaches: [{
+        title: "Elekahia Outreach", year: 2022,
+        summary: "A Love Mission to Elekahia, Port Harcourt — care, relief and the gospel for the community.",
+        photos: ELEKAHIA_2022
       }]
     }, {
       name: "Rumukwurushi",

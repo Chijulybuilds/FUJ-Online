@@ -6,6 +6,8 @@ import { LandingNav } from "@/components/landing/nav";
 import { Gallery } from "@/components/missions/gallery";
 import { MISSION_LOCATIONS, missionLocation, missionStats } from "@/lib/missions";
 
+const slugify = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
 export function generateStaticParams() {
   return MISSION_LOCATIONS.map((l) => ({ location: l.slug }));
 }
@@ -41,13 +43,20 @@ export default async function MissionLocationPage({ params }: { params: Promise<
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-14">
+        {l.areas.length > 1 && (
+          <nav className="mb-10 flex flex-wrap gap-2" aria-label={`Communities in ${l.name}`}>
+            {l.areas.map((a) => <a key={a.name} href={`#${slugify(a.name)}`} className="btn btn-secondary btn-sm">{a.name}{a.outreaches[0]?.year ? ` · ${a.outreaches[0].year}` : ""}</a>)}
+          </nav>
+        )}
         {l.areas.map((area) => (
-          <div key={area.name} className="mb-14" data-testid="mission-area">
+          <div key={area.name} id={slugify(area.name)} className="mb-14 scroll-mt-24" data-testid="mission-area">
             <h2 className="flex items-center gap-2 text-2xl font-extrabold"><span className="h-6 w-1.5 rounded-full bg-[#008751]" />{area.name}</h2>
             {area.outreaches.map((o) => (
               <article key={o.title + (o.year ?? "")} className="mt-6">
-                {(area.outreaches.length > 1 || o.title !== area.name) && <h3 className="text-lg font-bold">{o.title}{o.year ? ` · ${o.year}` : ""}</h3>}
-                {(o.year || o.summary) && <p className="mt-1 max-w-3xl muted">{o.year && <b className="mr-2 text-[var(--foreground)]">{o.year}</b>}{o.summary}</p>}
+                {(area.outreaches.length > 1 || o.title !== area.name)
+                  ? <h3 className="text-lg font-bold">{o.title}{o.year ? ` · ${o.year}` : ""}</h3>
+                  : o.year && <p className="text-sm font-bold">{o.year}</p>}
+                {o.summary && <p className="mt-1 max-w-3xl muted">{o.summary}</p>}
                 <div className="mt-4"><Gallery photos={o.photos} title={`${o.title} — ${l.name}`} /></div>
               </article>
             ))}
