@@ -10,7 +10,7 @@ import { runtimeEnv } from "@/lib/env";
  * when both are set. SMS: Termii. All plain HTTPS calls.
  */
 export const providers = {
-  get sms() { return Boolean(process.env.TERMII_API_KEY && process.env.TERMII_SENDER_ID); },
+  get sms() { return Boolean(runtimeEnv("TERMII_API_KEY") && runtimeEnv("TERMII_SENDER_ID")); },
   get email() { return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM); },
   /** Which WhatsApp route is set up: "termii", "meta", or null. */
   get whatsappVia(): "termii" | "meta" | null { return termii.whatsappReady ? "termii" : wa.token && wa.phoneId ? "meta" : null; },
@@ -63,16 +63,20 @@ const errorText = (json: unknown) => {
   return typeof v === "string" ? v.slice(0, 200) : undefined;
 };
 
+/** GSM-7 text goes as "plain"; emoji, curly quotes and other special characters need Termii's "unicode" type. */
+const GSM7 = /^[A-Za-z0-9 \r\n@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ!"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà^{}\\\[~\]|€]*$/;
+export const smsType = (text: string) => (GSM7.test(text) ? "plain" : "unicode");
+
 export async function smsAttempt(to: string, text: string): Promise<Attempt> {
   if (!providers.sms) return { status: "skipped", detail: "SMS isn't set up (TERMII_API_KEY / TERMII_SENDER_ID)." };
   try {
-    const res = await fetch(`${(process.env.TERMII_BASE_URL || "https://api.ng.termii.com").replace(/\/+$/, "")}/api/sms/send`, {
+    const res = await fetch(`${termii.base}/api/sms/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        to: to.replace(/^\+/, ""), from: process.env.TERMII_SENDER_ID, sms: text.slice(0, 640), type: "plain",
+        to: to.replace(/^\+/, ""), from: runtimeEnv("TERMII_SENDER_ID"), sms: text.slice(0, 640), type: smsType(text),
         // "dnd" reaches Nigerian numbers on Do-Not-Disturb (needs activation on Termii); "generic" otherwise.
-        channel: process.env.TERMII_CHANNEL ?? "generic", api_key: process.env.TERMII_API_KEY
+        channel: (runtimeEnv("TERMII_CHANNEL") || "generic").toLowerCase(), api_key: termii.apiKey
       })
     });
     if (res.ok) return { status: "sent" };
@@ -195,7 +199,7 @@ async function sendWhatsAppViaTermii(to: string, title: string, body: string, im
 }
 
 /** Plain-English fixes for Termii's WhatsApp / SMS errors (matched on Termii's message). */
-const TERMII_HINTS: [RegExp, string][] = [
+export const TERMII_HINTS: [RegExp, string][] = [
   [/unauthori[sz]ed|invalid api key|api key/i, "Termii refused the API key — copy it again from the Termii dashboard into TERMII_API_KEY, and check TERMII_BASE_URL is the Base URL shown there."],
   [/device not found/i, "Termii doesn't recognise the WhatsApp device — copy the Device ID from Termii → WhatsApp (Manage device / WhatsApp ID page) into TERMII_WHATSAPP_DEVICE_ID."],
   [/no active subscription/i, "The WhatsApp device's subscription on Termii has expired — renew it in the Termii dashboard."],

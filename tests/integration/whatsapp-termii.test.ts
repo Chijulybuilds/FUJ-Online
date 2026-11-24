@@ -167,3 +167,18 @@ describe("Check WhatsApp setup (Termii)", () => {
     process.env.TERMII_WHATSAPP_TEMPLATE_ID = saved;
   });
 });
+
+describe("SMS through Termii", () => {
+  it("uses the approved sender ID as typed and switches to unicode for emoji / curly quotes", async () => {
+    process.env.TERMII_SENDER_ID = ' "OE Alert" ';
+    process.env.TERMII_CHANNEL = "DND";
+    const { smsAttempt, smsType } = providers;
+    expect(smsType("Hi Ada, see you at 4:30!")).toBe("plain");
+    expect(smsType("God bless you 🙏")).toBe("unicode");
+    expect(smsType("We’re glad")).toBe("unicode");
+    await smsAttempt("+2348031110020", "Thank you — we’re glad 🙏");
+    expect(sms()[0].url).toBe("https://v3.api.termii.com/api/sms/send");
+    expect(sms()[0].body).toMatchObject({ to: "2348031110020", from: "OE Alert", type: "unicode", channel: "dnd", api_key: "tk" });
+    process.env.TERMII_SENDER_ID = "FlagUpJesus"; delete process.env.TERMII_CHANNEL;
+  });
+});
