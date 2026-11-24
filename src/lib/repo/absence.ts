@@ -84,7 +84,10 @@ export async function sendAbsenceReport(opts: { force?: boolean; now?: Date } = 
   if (!absentees.length) return { sent: 0, failed: 0, absentees: 0, skipped: "nobody has missed the last Sundays" };
   const text = reportText(absentees, threshold);
   let sent = 0, failed = 0;
-  for (const to of numbers) ((await smsAttempt(to, text)).status === "sent" ? sent++ : failed++);
+  for (const to of numbers) {
+    if ((await smsAttempt(to, text)).status === "sent") sent++;
+    else failed++;
+  }
   if (sent) await saveSettings({ absence_report_sent_at: now.toISOString() });
   return { sent, failed, absentees: absentees.length };
 }

@@ -767,3 +767,32 @@ html[data-theme="dark"] .care-note { background: #3a1a1d; color: #ffb3b9; }
 .import-drop:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
 .import-bar { height: 10px; border-radius: 999px; background: var(--surface-subtle); overflow: hidden; border: 1px solid var(--border); }
 .import-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), #ff7a83); transition: width .35s ease; }
+
+/* ============ Love Missions: Nigeria in its flag colours, calm and clickable ============ */
+.missions-page { min-height: 100vh; background: var(--page); }
+.flag-map-wrap { border-radius: 28px; padding: clamp(16px, 3vw, 32px); background: radial-gradient(120% 90% at 60% 40%, #13281d 0%, #0d1511 60%, #0a0f0c 100%); }
+.flag-pin { cursor: pointer; outline: none; }
+.flag-pin-hit { fill: transparent; }
+.flag-pin-dot { fill: #ff6b74; stroke: rgba(255,255,255,.9); stroke-width: 1.5; transition: r .2s ease, fill .2s ease; }
+.flag-pin-label { transition: fill .2s ease; }
+.flag-pin:hover .flag-pin-dot, .flag-pin:focus-visible .flag-pin-dot { r: 8; fill: #ffffff; }
+.flag-pin:hover .flag-pin-label, .flag-pin:focus-visible .flag-pin-label { fill: #9ff0c6; text-decoration: underline; }
+.flag-pin-pulse { fill: rgba(255,107,116,.25); transform-box: fill-box; transform-origin: center; animation: ping 3s ease-out infinite; }
+.flag-arc { stroke: rgba(160,235,195,.45); animation-duration: 3s; }
+.mission-card { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 18px; border: 1px solid var(--border); background: var(--surface); transition: border-color .2s ease, transform .2s ease; }
+.mission-card:hover { border-color: #008751; transform: translateY(-1px); }
+.mission-card-img { position: relative; display: grid; place-items: center; width: 64px; height: 64px; flex-shrink: 0; overflow: hidden; border-radius: 14px; background: #e7f6ee; color: #008751; }
+.mission-hero { background: linear-gradient(90deg, #00693f 0%, #008751 45%, #0a7a4c 100%); }
+.mission-stat { border-radius: 16px; background: rgba(255,255,255,.12); padding: 10px 16px; min-width: 110px; }
+.mission-stat dt { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; opacity: .8; }
+.mission-stat dd { font-size: 24px; font-weight: 800; }
+.mission-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 640px) { .mission-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .mission-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.mission-thumb { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 14px; background: var(--surface-subtle); }
+.mission-thumb img { transition: transform .35s ease; }
+.mission-thumb:hover img { transform: scale(1.04); }
+.mission-lightbox { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(8,12,10,.92); padding: 16px; }
+.mission-lb-btn { position: absolute; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; }
+.mission-lb-btn:hover { background: rgba(255,255,255,.22); }
+@media (prefers-reduced-motion: reduce) { .flag-pin-pulse { animation: none; } }

@@ -880,6 +880,24 @@ test("role-based access: finance cannot see prayer requests; staff list is enfor
   await stranger.context().close();
 });
 
+test("Love Missions: tap a place on the Nigeria map to see its outreaches and photos", async ({ browser }) => {
+  const v = await newDevice(browser);
+  await go(v, "/");
+  await v.getByTestId("explore-missions").click();
+  await v.waitForURL(/\/love-missions$/);
+  await expect(v.getByTestId("mission-locations")).toContainText("Port Harcourt");
+  await v.getByTestId("map-pin-port-harcourt").locator("text").click();
+  await v.waitForURL(/\/love-missions\/port-harcourt$/);
+  await expect(v.getByRole("heading", { level: 1 })).toHaveText("Port Harcourt");
+  await expect(v.getByTestId("mission-area").first()).toBeVisible();
+  await v.getByRole("button", { name: /Open photo 1 of/ }).first().click();
+  await expect(v.getByRole("dialog")).toBeVisible();
+  await v.keyboard.press("Escape");
+  await go(v, "/love-missions/united-kingdom");
+  await expect(v.getByTestId("mission-coming-soon")).toBeVisible();
+  await v.context().close();
+});
+
 test("closing check-in completes the service", async () => {
   await go(admin, serviceUrl);
   await admin.getByRole("button", { name: "Close check-in" }).click();
