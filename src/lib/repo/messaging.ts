@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import type { Broadcast, BroadcastRecipient, Channel, Person } from "@/lib/db/types";
 import { nowIso, uid } from "@/lib/utils";
 import { findByPhone, peopleById } from "./people";
-import { emailAttempt, emailFromProblem, NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp, smsAttempt, whatsappReason } from "@/lib/messaging/providers";
+import { emailAttempt, emailFromProblem, NOT_ON_WHATSAPP_CODES, providers, sendEmail, sendSms, sendWhatsApp, smsAttempt, TERMII_HINTS, whatsappReason } from "@/lib/messaging/providers";
 import { firstName, normalizePhone } from "@/lib/identity-utils";
 import { absoluteUrl } from "@/lib/storage";
 import { env } from "@/lib/env";
@@ -341,7 +341,7 @@ export async function sendTestMessage(channel: string, to: string): Promise<{ ok
   if (!phone || phone.length < 8) return { ok: false, message: "Enter a phone number to send the test to." };
   if (channel === "sms") {
     const r = await smsAttempt(phone, `${title}: ${body}`);
-    return r.status === "sent" ? { ok: true, message: `Test SMS sent to ${phone}.` } : { ok: false, message: `SMS failed: ${r.detail ?? "unknown error"}` };
+    return r.status === "sent" ? { ok: true, message: `Test SMS sent to ${phone}.` } : { ok: false, message: `SMS failed: ${r.detail ?? "unknown error"}${TERMII_HINTS.find(([re]) => re.test(r.detail ?? ""))?.[1] ? ` — ${TERMII_HINTS.find(([re]) => re.test(r.detail ?? ""))![1]}` : ""}` };
   }
   if (!providers.whatsapp) return { ok: false, message: "WhatsApp isn't set up yet (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID)." };
   const r = await sendWhatsApp(phone, title, body);
