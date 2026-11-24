@@ -822,6 +822,10 @@ test("pastoral care has been removed; the follow-up team works with first timers
   await go(admin, "/admin/settings");
   await expect(admin.getByText("Automatic follow-up for absent members")).toHaveCount(0);
   await expect(admin.getByTestId("first-timer-partner-settings").getByText("Send on")).toBeVisible();
+  // The follow-up list that replaced it: members who missed the last 2 Sundays, plus the weekly SMS report.
+  await expect(admin.getByTestId("absence-report")).toContainText("Missed-Sundays report");
+  await go(admin, "/admin/absent");
+  await expect(admin.getByTestId("absent-row").filter({ hasText: "Blessing Adebayo" })).toContainText(/Missed \d+ Sundays/);
   // The old "pastoral worker" role is now the follow-up team: first timers, no pastoral care.
   const team = await newDevice(browser);
   await devStaffLogin(team, "care@flagupjesus.local");

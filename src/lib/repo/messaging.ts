@@ -16,6 +16,7 @@ export const AUDIENCES: { value: string; label: string }[] = [
   { value: "all", label: "Everyone (all members)" },
   { value: "leaders", label: "All leaders" },
   { value: "first_timers", label: "First timers (still being followed up)" },
+  { value: "absentees", label: "Members who missed the last Sundays" },
   { value: "partners", label: "FUJ Partners — outreach & associate (except declined)" },
   { value: "partners_outreach", label: "Outreach partners (FUJ members)" },
   { value: "partners_associate", label: "Associate partners (outside FUJ — UK, US, worldwide)" },
@@ -50,6 +51,11 @@ export async function resolveAudience(audience: string): Promise<Person[]> {
       const ids = new Set(rows.map((r) => r.person_id));
       return everyone.filter((p) => ids.has(p.id) && (p.status === "member" || p.status === "associate"));
     }
+    case "absentees": {
+      const { absentMembers } = await import("./absence");
+      const ids = new Set((await absentMembers()).absentees.map((a) => a.person.id));
+      return people.filter((p) => ids.has(p.id));
+    }
     case "parents": {
       // Adults whose children are registered (linked, or using their phone number).
       const kids = people.filter((p) => p.is_child);
@@ -73,7 +79,7 @@ export async function audienceLabel(audience: string) {
   if (preset) return preset.label;
   if (audience.startsWith("leaders:")) return `Leaders — ${audience.slice("leaders:".length)}`;
   // Older broadcasts, from before pastoral care was removed.
-  if (audience === "auto_follow_up" || audience === "absentees") return "Members who missed Sundays";
+  if (audience === "auto_follow_up") return "Members who missed Sundays";
   if (audience === "auto_follow_up:reminder") return "Members still away";
   if (audience === "care_open") return "People with an open follow-up";
   if (audience === "auto_first_timer:welcome") return "Automatic welcome: first timers";

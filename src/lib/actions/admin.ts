@@ -12,6 +12,7 @@ import { describeFirstTimerRun, firstTimerQuickAction as firstTimerQuickAction_,
 import { addPartner, CURRENCIES, describePartnerRun, logPartnerContact, runPartnerFollowUps, sendPartnerThanks, updatePartner } from "@/lib/repo/partners";
 import { sendBroadcast, sendTestMessage, smsUndelivered } from "@/lib/repo/messaging";
 import { checkWhatsAppSetup } from "@/lib/messaging/providers";
+import { describeAbsenceReport, reportNumbers, sendAbsenceReport } from "@/lib/repo/absence";
 import { saveAnnouncement, setAnnouncementStatus, updatePrayer, moderateTestimony } from "@/lib/repo/content";
 import { recordDonation } from "@/lib/repo/giving";
 import { getSettings, saveSettings } from "@/lib/repo/settings";
@@ -463,6 +464,30 @@ const clampInt = (v: string, min: number, max: number, fallback: number) => {
   const n = Math.round(Number(v));
   return Number.isFinite(n) && v !== "" ? Math.min(max, Math.max(min, n)) : fallback;
 };
+/** Settings → Missed-Sundays report: on/off, after how many Sundays, and who gets the SMS. */
+export async function saveAbsenceReportAction(_: State, fd: FormData): Promise<State> {
+  return guarded("settings", async (actor) => {
+    const raw = str(fd, "absence_report_numbers");
+    const numbers = reportNumbers({ absence_report_numbers: raw });
+    if (bool(fd, "absence_report") && !numbers.length) return { ok: false, message: "Add at least one phone number for the report (the pastor's, for example)." };
+    if (numbers.length > 20) return { ok: false, message: "Up to 20 numbers — each one is a paid SMS every week." };
+    await saveSettings({ absence_report: bool(fd, "absence_report"), absence_threshold: clampInt(str(fd, "absence_threshold"), 1, 8, 2), absence_report_numbers: numbers.join("\n") || null });
+    await audit(actor, "settings.absence_report", "church_settings", null, { on: bool(fd, "absence_report"), numbers: numbers.length });
+    revalidatePath("/admin/settings");
+    revalidatePath("/admin/absent");
+    return { ok: true, message: `Saved. ${bool(fd, "absence_report") ? `The report goes to ${numbers.length} number${numbers.length === 1 ? "" : "s"} every Monday morning.` : "The weekly report is off."}` };
+  });
+}
+
+export async function sendAbsenceReportAction(): Promise<State> {
+  return guarded("settings", async (actor) => {
+    const r = await sendAbsenceReport({ force: true });
+    await audit(actor, "absence_report.manual_run", "people", null, r as unknown as Record<string, unknown>);
+    revalidatePath("/admin/settings");
+    return { ok: !r.failed && !r.skipped?.includes("numbers"), message: describeAbsenceReport(r) };
+  });
+}
+
 export async function saveFirstTimerPartnerSettingsAction(_: State, fd: FormData): Promise<State> {
   return guarded("settings", async (actor) => {
     const texts = ["first_timer_welcome_message", "first_timer_invite_message", "partner_thanks_message", "partner_reminder_message"].map((k) => str(fd, k));

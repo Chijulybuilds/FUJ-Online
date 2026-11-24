@@ -359,6 +359,10 @@ export interface ChurchSettings {
   partner_reminder_message: string | null;
   /** How associate partners abroad can give (domiciliary account, IBAN / SWIFT, online link) — migration 0017. */
   associate_giving_details?: string | null;
+  /** Weekly SMS to the pastor / admins listing members who missed the last N Sundays (migration 0018). */
+  absence_report?: boolean;
+  absence_report_numbers?: string | null;
+  absence_report_sent_at?: string | null;
   created_at: string;
   updated_at: string;
 }
